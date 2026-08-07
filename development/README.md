@@ -1,6 +1,6 @@
 # Taskcraft 开发文档
 
-本目录是 Taskcraft 产品设计、实现合同、阶段计划和开发操作手册的唯一入口。项目已经决定在自举阶段使用 Trellis，但当前仓库尚未执行 `trellis init`；达到 Taskcraft 狗粮化门槛后，Trellis 将被完整退出，两个系统不并行维护活动任务。
+本目录是 Taskcraft 产品设计、实现合同、阶段计划和开发操作手册的唯一入口。项目已使用 Trellis `0.6.14` 完成 Codex/Claude 初始化，Bootstrap 已完成并归档；Task 00 已完成 Trellis 规划但尚未启动。达到 Taskcraft 狗粮化门槛后，Trellis 将被完整退出，两个系统不并行维护活动任务。
 
 ## 文档权威层级
 
@@ -50,8 +50,8 @@ Task 00 → 01 → 02 → 03 → 04 → 05 → 06 → Trellis 退出 → Taskcra
 
 ## 从哪里开始
 
-1. 先提交当前文档基线，再按 [Trellis 开发手册](runbooks/trellis.md)初始化；初始化必须单独审阅和提交。
-2. Trellis bootstrap 只建立规范索引，不复制 Taskcraft 合同。
-3. 创建第一张复杂任务，输入为 [Task 00](plans/task-00-contract-baseline.md)，完成 PRD、design、implement 并由用户确认后再启动实现。
+1. Trellis `0.6.14` 初始化与 Bootstrap 已完成；Bootstrap 只建立规范索引，不复制 Taskcraft 合同。
+2. Trellis 项目文件、Hook、skill 和 managed block 必须作为独立初始化基线审阅和提交，不得与 Task 00 合同变更混合。
+3. 第一张复杂任务已经以 [Task 00](plans/task-00-contract-baseline.md) 为输入完成父子任务规划；前置初始化基线落地后，从探针与 ADR 子任务开始，合同修改前仍需审阅实际 ADR 结论和探针结果。
 4. 每阶段通过验收后才创建下一阶段；不要一次性把 7 个阶段全部设为 active。
 5. Task 06 完成后按 [迁移手册](runbooks/trellis-to-taskcraft.md)退出 Trellis，在全新会话中开始狗粮化。

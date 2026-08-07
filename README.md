@@ -2,7 +2,7 @@
 
 Taskcraft 是面向 Codex 与 Claude Code 的 agent-first 任务协议、状态工具与可视化记录方案。SQLite Task Store 是唯一可写事实源，Agent 通过 CLI 推进任务，用户通过 Watch 查看任务、节点、证据和运行状态。
 
-当前仓库处于开发准备阶段，包含产品合同、数据草案、开发任务和交互原型，尚未包含生产实现。自举阶段已决定使用 Trellis，但尚未在仓库中初始化；Taskcraft MVP 验收后将退出 Trellis 并开始狗粮化。
+当前仓库处于开发准备阶段，包含产品合同、数据草案、开发任务和交互原型，尚未包含生产实现。Trellis `0.6.14` 已初始化，Bootstrap 已完成并归档；Task 00 已完成 Trellis 规划但尚未启动。Taskcraft MVP 验收后将退出 Trellis 并开始狗粮化。
 
 ## 入口
 

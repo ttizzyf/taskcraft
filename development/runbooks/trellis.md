@@ -1,6 +1,6 @@
 # 使用 Trellis 开发 Taskcraft
 
-> 状态：已选定、尚未初始化。本文记录准备、初始化和日常工作方式；执行安装或 `trellis init` 应作为单独变更审阅。
+> 状态：Trellis `0.6.14` 已安装并完成 Codex/Claude 初始化；Bootstrap 已完成并归档，Task 00 已完成规划但尚未启动。
 
 Trellis 是 Taskcraft 生产内核完成前的临时开发流程层。它管理开发任务的 PRD、design、implement、检查上下文和跨会话记录；Taskcraft 产品事实仍只来自根 `AGENTS.md`、`development/specs/`、`development/contracts/` 与 ADR。
 
