@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "tc-task/v1",
+  "id": "T-104",
+  "title": "Add retry policy to adapter calls",
+  "level": 2,
+  "classificationReasons": [
+    "Changes shared adapter behavior",
+    "Requires a separate boundary review attempt"
+  ],
+  "classificationFacts": {
+    "riskFlags": ["shared_adapter_behavior"],
+    "affectedContracts": ["adapter_error_contract"],
+    "sideEffects": [],
+    "writeScope": ["src/adapters/retry.ts", "tests/adapters/retry.test.ts"],
+    "validationPlan": ["adapter retry unit tests", "boundary review"],
+    "parallelism": "serial",
+    "uncertainties": []
+  },
+  "status": "active",
+  "taskRevision": 12,
+  "objective": "Add bounded retries for explicitly transient adapter failures while preserving contract and authentication errors as immediate failures.",
+  "scope": {
+    "write": ["src/adapters/retry.ts", "tests/adapters/retry.test.ts"],
+    "coordinate": ["src/adapters/types.ts"]
+  },
+  "acceptance": [
+    "Retries only explicitly transient errors",
+    "Stops at the configured attempt limit",
+    "Preserves the final typed error"
+  ],
+  "lifecycle": {
+    "revision": 2,
+    "nodes": [
+      {"id": "frame-1", "kind": "frame", "status": "satisfied"},
+      {"id": "execute-2", "kind": "execute", "status": "running", "attemptId": "att_exec_02"},
+      {"id": "review-2", "kind": "review", "status": "pending", "attemptId": "att_review_02"},
+      {"id": "record-1", "kind": "record", "status": "pending"}
+    ],
+    "attempts": [
+      {"id": "att_exec_02", "nodeId": "execute-2", "host": "codex", "status": "running"},
+      {"id": "att_review_02", "nodeId": "review-2", "host": "claude", "status": "created"}
+    ],
+    "reviewFacts": {
+      "review-2": {
+        "reviewPurpose": "delivery",
+        "independenceStatus": "unverified",
+        "capability": "manual-attach",
+        "reviewedAttemptId": "att_exec_02"
+      }
+    }
+  },
+  "next": {
+    "command": "tc run status T-104 --json"
+  }
+}
