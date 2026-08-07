@@ -18,7 +18,8 @@
   后做 Trellis Bootstrap”的提交顺序已经成立。
 - 本任务规划开始时，工作区仍有未提交的 Trellis 初始化文件以及相关文档
   修改；这些变更不属于 `276565a`。用户已决定它们必须在 Task 00 激活前
-  作为独立前置基线完成审阅和提交，不得并入 Task 00 的交付范围。
+  作为独立前置基线完成审阅和提交，不得并入 Task 00 的交付范围。该门禁
+  已由提交 `db393bb`（`chore: establish Trellis workflow baseline`）满足。
 - 当前规范已给出若干候选结论，但仍存在需要本任务统一冻结的边界。例如
   `development/specs/cli.md` 当前描述 `task new` 写入激活事实和首个 attempt，
   而本任务要求先确认 `task new`、`run` 与 `queued -> active` 的唯一职责。
@@ -107,7 +108,7 @@ Taskcraft 初始内容基线、Trellis 初始化/Bootstrap 与 Task 00 合同变
   Task 00 范围内的事项。
 - [ ] 变更历史可分别审阅项目初始基线、Trellis 初始化/Bootstrap 和 Task 00
   合同变更。
-- [ ] Task 00 激活前，当前 Trellis 初始化文件及相关文档修改已作为独立
+- [x] Task 00 激活前，当前 Trellis 初始化文件及相关文档修改已作为独立
   前置基线完成审阅和提交，Task 00 变更集不包含这些既有变更。
 - [ ] 本任务不引入 reducer、CLI、Watch、动态 lifecycle compiler 或宿主
   Hook 等生产业务行为。

@@ -2,13 +2,13 @@
 
 ## Phase 0: Pre-Activation Gate
 
-- [ ] 独立审阅当前 Trellis 初始化与相关文档 diff，确认不含 Taskcraft 合同
+- [x] 独立审阅当前 Trellis 初始化与相关文档 diff，确认不含 Taskcraft 合同
   语义变更。
-- [ ] 将前置基线作为独立提交落地，并记录提交 id。
-- [ ] 复查 `git status --short`，区分用户既有工作与 Task 00 规划文件。
-- [ ] 分别对父任务和三个子任务运行
+- [x] 将前置基线作为独立提交 `db393bb` 落地。
+- [x] 复查 `git status --short`，区分用户既有工作与 Task 00 规划文件。
+- [x] 分别对父任务和三个子任务运行
   `python3 ./.trellis/scripts/task.py validate <task-dir>`，检查规划工件。
-- [ ] 获得用户对本规划摘要、ADR 清单和探针清单的明确批准。
+- [x] 获得用户对本规划摘要、ADR 清单和探针清单的明确批准。
 
 Phase 0 不属于 Task 00 实现提交。未通过时，父任务和三个子任务均保持
 `planning`。
