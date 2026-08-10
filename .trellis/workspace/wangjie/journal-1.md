@@ -89,3 +89,24 @@ Added ADR navigation, clarified document authority and Task 01 engineering input
 ### Status
 
 [OK] **Completed**
+
+
+## Session 5: Complete Task 00 contract baseline
+
+**Date**: 2026-08-10
+**Task**: Complete Task 00 contract baseline
+**Branch**: `main`
+
+### Summary
+
+Completed the parent integration review, marked Task 00 complete in repository documentation and roadmap, verified all contracts and links, and archived the full three-child Trellis task tree.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d7bd36c` | (see git log) |
+
+### Status
+
+[OK] **Completed**
