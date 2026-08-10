@@ -60,7 +60,7 @@ Rollback point: 子任务 3 独立提交；索引/交接问题只回退本子任
 - [x] 确认没有生产实现、Hook 安装、动态 compiler 或 Task 01 工程骨架混入。
 - [x] 更新 `development/plans/roadmap.md` 的阶段结果时，只记录完成事实，不
   复制合同正文。
-- [ ] 运行 Trellis check、提交父任务集成记录并归档。
+- [x] 运行 Trellis check、提交父任务集成记录并归档。
 
 ## Validation Commands
 
