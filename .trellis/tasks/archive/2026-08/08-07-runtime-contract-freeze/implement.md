@@ -12,7 +12,7 @@
   内存 SQLite probe。
 - [x] 编译 JSON Schema 并验证全部 fixtures。
 - [x] 运行术语/枚举矩阵、链接、diff 和 Trellis check。
-- [ ] 独立提交并归档本子任务。
+- [x] 独立提交并归档本子任务。
 
 ## Validation
 
