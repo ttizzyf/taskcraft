@@ -47,3 +47,24 @@ Verified Codex, Claude, and SQLite behavior; accepted eight simplified ADRs; rem
 ### Status
 
 [OK] **Completed**
+
+
+## Session 3: Freeze Taskcraft runtime contracts
+
+**Date**: 2026-08-10
+**Task**: Freeze Taskcraft runtime contracts
+**Branch**: `main`
+
+### Summary
+
+Applied the approved minimal activation, review, host, structured-result, interruption, storage, and planning contracts; validated SQL and JSON schemas; archived the second Task 00 child.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cc0efcf` | (see git log) |
+
+### Status
+
+[OK] **Completed**
