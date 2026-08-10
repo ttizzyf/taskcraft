@@ -46,19 +46,19 @@ Rollback point: 子任务 2 独立提交。若合同测试暴露 ADR 缺陷，�
 - [x] 固化最小源码、测试、migration、合同资产边界，但不创建生产骨架。
 - [x] 将语言/工具链/模块/验证入口整理为 Task 01 的显式输入。
 - [x] 执行链接、Schema、SQL、术语和跨合同一致性检查。
-- [ ] 完成子任务检查、提交和归档。
+- [x] 完成子任务检查、提交和归档。
 
 Rollback point: 子任务 3 独立提交；索引/交接问题只回退本子任务，不改写已
 批准合同。
 
 ## Phase 4: Parent Integration Gate
 
-- [ ] 三个子任务均已完成并归档后，启动父任务执行最终集成验收。
-- [ ] 逐条核对 PRD REQ-01 至 REQ-10 与全部 Acceptance Criteria 的证据位置。
-- [ ] 对 `task new`/`run`/activation、Review routing、用户决定/secret 边界、
+- [x] 三个子任务均已完成并归档后，启动父任务执行最终集成验收。
+- [x] 逐条核对 PRD REQ-01 至 REQ-10 与全部 Acceptance Criteria 的证据位置。
+- [x] 对 `task new`/`run`/activation、Review routing、用户决定/secret 边界、
   capability taxonomy 做一次跨文档术语扫描。
-- [ ] 确认没有生产实现、Hook 安装、动态 compiler 或 Task 01 工程骨架混入。
-- [ ] 更新 `development/plans/roadmap.md` 的阶段结果时，只记录完成事实，不
+- [x] 确认没有生产实现、Hook 安装、动态 compiler 或 Task 01 工程骨架混入。
+- [x] 更新 `development/plans/roadmap.md` 的阶段结果时，只记录完成事实，不
   复制合同正文。
 - [ ] 运行 Trellis check、提交父任务集成记录并归档。
 
@@ -81,8 +81,8 @@ JSON Schema Draft 2020-12 编译和 Markdown 链接检查使用 ADR 选定且固
 
 ## Review Checklist
 
-- [ ] 没有第二事实源、重复 reducer/permission/validation 逻辑。
-- [ ] 没有 broad catch、吞错、伪成功或静默默认值。
-- [ ] SQL 注释没有声称数据库保证其实际无法强制的不变量。
-- [ ] ADR、spec、CLI、SQL/JSON 和 Task 01 输入没有未说明的行为差异。
-- [ ] 未修改或回退用户既有的非 Task 00 工作。
+- [x] 没有第二事实源、重复 reducer/permission/validation 逻辑。
+- [x] 没有 broad catch、吞错、伪成功或静默默认值。
+- [x] SQL 注释没有声称数据库保证其实际无法强制的不变量。
+- [x] ADR、spec、CLI、SQL/JSON 和 Task 01 输入没有未说明的行为差异。
+- [x] 未修改或回退用户既有的非 Task 00 工作。

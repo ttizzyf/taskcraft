@@ -88,29 +88,29 @@ Taskcraft 初始内容基线、Trellis 初始化/Bootstrap 与 Task 00 合同变
 
 ## Acceptance Criteria
 
-- [ ] `task new` 是否激活、是否创建 attempt、`queued` 如何激活，在产品、
+- [x] `task new` 是否激活、是否创建 attempt、`queued` 如何激活，在产品、
   lifecycle、CLI、架构和 SQL 合同中只有一种解释。
-- [ ] feasibility、delivery、integration 的三个 Review outcome 均有确定 next；
+- [x] feasibility、delivery、integration 的三个 Review outcome 均有确定 next；
   不存在额外的 Review 等级、resolution 实体或隐式路由。
-- [ ] 用户输入和高风险决定复用现有 fact/blocker/event；secret 不进入 Task
+- [x] 用户输入和高风险决定复用现有 fact/blocker/event；secret 不进入 Task
   Store，且没有提前建设凭据或授权系统。
-- [ ] 所有工程技术选择均由 ADR 记录理由、替代方案、退出成本和 Task 01
+- [x] 所有工程技术选择均由 ADR 记录理由、替代方案、退出成本和 Task 01
   输入。
-- [ ] Codex/Claude 能力矩阵中的声明均附真实只读探针，或明确标为
+- [x] Codex/Claude 能力矩阵中的声明均附真实只读探针，或明确标为
   `documented|pending|limited|deferred`，不会把文档能力写成已验证事实。
-- [ ] Taskcraft 本地结果校验与 Agent 宿主工具的边界、用户决策门和显式失败
+- [x] Taskcraft 本地结果校验与 Agent 宿主工具的边界、用户决策门和显式失败
   行为已写入权威规范或 ADR，且没有通用 probe runner。
-- [ ] 当前规范不再引用失效编号或路径；历史审计明确为非规范来源；Markdown
+- [x] 当前规范不再引用失效编号或路径；历史审计明确为非规范来源；Markdown
   链接检查通过。
-- [ ] JSON Schema 与 SQL 草案可以被工具解析，规范、SQL/Schema 和 CLI 的
+- [x] JSON Schema 与 SQL 草案可以被工具解析，规范、SQL/Schema 和 CLI 的
   交叉一致性审阅无阻塞发现。
-- [ ] Task 01 可从 ADR、模块边界和冻结合同中获得明确输入，无需重新决定
+- [x] Task 01 可从 ADR、模块边界和冻结合同中获得明确输入，无需重新决定
   Task 00 范围内的事项。
-- [ ] 变更历史可分别审阅项目初始基线、Trellis 初始化/Bootstrap 和 Task 00
+- [x] 变更历史可分别审阅项目初始基线、Trellis 初始化/Bootstrap 和 Task 00
   合同变更。
 - [x] Task 00 激活前，当前 Trellis 初始化文件及相关文档修改已作为独立
   前置基线完成审阅和提交，Task 00 变更集不包含这些既有变更。
-- [ ] 本任务不引入 reducer、CLI、Watch、动态 lifecycle compiler 或宿主
+- [x] 本任务不引入 reducer、CLI、Watch、动态 lifecycle compiler 或宿主
   Hook 等生产业务行为。
 
 ## Out Of Scope

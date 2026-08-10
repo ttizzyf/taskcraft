@@ -1,6 +1,6 @@
 # Taskcraft 开发文档
 
-本目录是 Taskcraft 产品设计、实现合同、架构决策、阶段计划和开发操作手册的唯一入口。项目已使用 Trellis `0.6.14` 完成 Codex/Claude 初始化，Bootstrap 已完成并归档；Task 00 已完成宿主探针、架构决策和运行时合同冻结，正在进行最终仓库基线整理。达到 Taskcraft 狗粮化门槛后，Trellis 将被完整退出，两个系统不并行维护活动任务。
+本目录是 Taskcraft 产品设计、实现合同、架构决策、阶段计划和开发操作手册的唯一入口。项目已使用 Trellis `0.6.14` 完成 Codex/Claude 初始化；Bootstrap 和 Task 00 已完成并归档，Task 01 尚未启动。达到 Taskcraft 狗粮化门槛后，Trellis 将被完整退出，两个系统不并行维护活动任务。
 
 ## 文档权威层级
 
@@ -54,6 +54,6 @@ Task 00 → 01 → 02 → 03 → 04 → 05 → 06 → Trellis 退出 → Taskcra
 
 1. Trellis `0.6.14` 初始化与 Bootstrap 已完成；Bootstrap 只建立规范索引，不复制 Taskcraft 合同。
 2. Trellis 项目文件、Hook、skill 和 managed block 必须作为独立初始化基线审阅和提交，不得与 Task 00 合同变更混合。
-3. 第一张复杂任务已经以 [Task 00](plans/task-00-contract-baseline.md) 为输入执行；探针、ADR 和运行时合同冻结已经完成，最终仓库基线整理完成后进入父任务集成验收。
-4. 每阶段通过验收后才创建下一阶段；Task 00 完成前不启动 Task 01，也不要一次性把后续阶段全部设为 active。
+3. 第一张复杂任务已经以 [Task 00](plans/task-00-contract-baseline.md) 为输入完成；探针、ADR、运行时合同、仓库基线和父任务集成验收均已通过。
+4. 下一阶段从 [Task 01](plans/task-01-engineering-foundation.md) 开始；每阶段通过验收后才创建下一阶段，不要一次性把后续阶段全部设为 active。
 5. Task 06 完成后按 [迁移手册](runbooks/trellis-to-taskcraft.md)退出 Trellis，在全新会话中开始狗粮化。
