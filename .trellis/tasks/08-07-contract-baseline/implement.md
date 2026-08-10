@@ -15,37 +15,37 @@ Phase 0 不属于 Task 00 实现提交。未通过时，父任务和三个子任
 
 ## Phase 1: Probe And Decision Child
 
-- [ ] 启动 `08-07-contract-probes-decisions`，按其 `implement.md` 执行。
-- [ ] 建立当前规范/合同矛盾矩阵和 ADR 决策映射。
-- [ ] 仅执行获批准的 `CX-01..03`、`CL-01..03`、`DB-01`。
-- [ ] 在 `development/decisions/` 写入 ADR，并更新能力研究证据。
-- [ ] 向用户提交实际 ADR 结论与探针结果；若结论改变规划范围，回到 Phase 1
+- [x] 启动 `08-07-contract-probes-decisions`，按其 `implement.md` 执行。
+- [x] 建立当前规范/合同矛盾矩阵和 ADR 决策映射。
+- [x] 仅执行获批准的 `CX-01..03`、`CL-01..03`、`DB-01`。
+- [x] 在 `development/decisions/` 写入 ADR，并更新能力研究证据。
+- [x] 向用户提交实际 ADR 结论与探针结果；若结论改变规划范围，回到 Phase 1
   重新收敛，而不是继续修改合同。
-- [ ] 完成该子任务的检查、提交和归档。
+- [x] 完成该子任务的检查、提交和归档。
 
 Rollback point: 子任务 1 独立提交。失败探针不回滚证据，只把能力状态降为
 `limited|pending|deferred` 并记录原因。
 
 ## Phase 2: Runtime Contract Freeze Child
 
-- [ ] 仅在子任务 1 的 ADR 获批准后启动 `08-07-runtime-contract-freeze`。
-- [ ] 按唯一规则源顺序修改 lifecycle、architecture、product、CLI，再同步
+- [x] 仅在子任务 1 的 ADR 获批准后启动 `08-07-runtime-contract-freeze`。
+- [x] 按唯一规则源顺序修改 lifecycle、architecture、product、CLI，再同步
   SQL/JSON 可执行合同。
-- [ ] 删除冲突旧语义，禁止新增平行状态、重复 validation 或隐藏 fallback。
-- [ ] 为 SQL 能表达的不变量增加约束/trigger 探针；不能表达的语义明确归属
+- [x] 删除冲突旧语义，禁止新增平行状态、重复 validation 或隐藏 fallback。
+- [x] 为 SQL 能表达的不变量增加约束/trigger 探针；不能表达的语义明确归属
   reducer contract。
-- [ ] 运行子任务合同验证、diff 审阅、提交和归档。
+- [x] 运行子任务合同验证、diff 审阅、提交和归档。
 
 Rollback point: 子任务 2 独立提交。若合同测试暴露 ADR 缺陷，回退该提交并
 回到子任务 1，不在 SQL 或 CLI 中加临时绕过。
 
 ## Phase 3: Repository Baseline Child
 
-- [ ] 启动 `08-07-repository-contract-baseline`。
-- [ ] 建立/修正文档索引、权威层级和 ADR 导航。
-- [ ] 固化最小源码、测试、migration、合同资产边界，但不创建生产骨架。
-- [ ] 将语言/工具链/模块/验证入口整理为 Task 01 的显式输入。
-- [ ] 执行链接、Schema、SQL、术语和跨合同一致性检查。
+- [x] 启动 `08-07-repository-contract-baseline`。
+- [x] 建立/修正文档索引、权威层级和 ADR 导航。
+- [x] 固化最小源码、测试、migration、合同资产边界，但不创建生产骨架。
+- [x] 将语言/工具链/模块/验证入口整理为 Task 01 的显式输入。
+- [x] 执行链接、Schema、SQL、术语和跨合同一致性检查。
 - [ ] 完成子任务检查、提交和归档。
 
 Rollback point: 子任务 3 独立提交；索引/交接问题只回退本子任务，不改写已
@@ -54,8 +54,8 @@ Rollback point: 子任务 3 独立提交；索引/交接问题只回退本子任
 ## Phase 4: Parent Integration Gate
 
 - [ ] 三个子任务均已完成并归档后，启动父任务执行最终集成验收。
-- [ ] 逐条核对 PRD R1-R10 与全部 Acceptance Criteria 的证据位置。
-- [ ] 对 `task new`/`run`/activation、Review routing、revision-bound auth、
+- [ ] 逐条核对 PRD REQ-01 至 REQ-10 与全部 Acceptance Criteria 的证据位置。
+- [ ] 对 `task new`/`run`/activation、Review routing、用户决定/secret 边界、
   capability taxonomy 做一次跨文档术语扫描。
 - [ ] 确认没有生产实现、Hook 安装、动态 compiler 或 Task 01 工程骨架混入。
 - [ ] 更新 `development/plans/roadmap.md` 的阶段结果时，只记录完成事实，不
@@ -71,7 +71,7 @@ git diff --check
 sqlite3 :memory: ".read development/contracts/storage.sql"
 jq empty development/contracts/*.json development/contracts/fixtures/*.json
 python3 ./.trellis/scripts/task.py validate .trellis/tasks/08-07-contract-baseline
-rg -n "queued|active|reviewPurpose|feasibility|delivery|integration|R1|R2|R3" \
+rg -n "queued|active|reviewPurpose|feasibility|delivery|integration|passed|changes_requested|replan_required" \
   AGENTS.md development/specs development/contracts development/decisions
 ```
 

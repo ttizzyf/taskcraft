@@ -11,7 +11,7 @@
 - Task 00–06 的验收已完成，MVP 发布门通过。
 - Store migration、事务、CAS、单 reducer/projector 和 `tc doctor` 通过。
 - L1 与 L2 在至少一个真实宿主完成创建、恢复、waiting/resume、Review 和 done 样本。
-- Codex 与 Claude Adapter 已声明真实 capability；Hook 不可用时可用 `tc task next` 恢复。
+- Codex 与 Claude Adapter 的 Hook 安装、任务恢复和现场检测均已通过；Hook 不可用时不满足首版狗粮化条件，`tc task next` 只作为人工诊断命令。
 - Node Brief、Command Result、evidence 和 breadcrumb 合同已冻结。
 - Watch 是否可用不影响 CLI 恢复，但默认路线要求 Task 06 已完成后再切换。
 

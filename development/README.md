@@ -1,6 +1,6 @@
 # Taskcraft 开发文档
 
-本目录是 Taskcraft 产品设计、实现合同、阶段计划和开发操作手册的唯一入口。项目已使用 Trellis `0.6.14` 完成 Codex/Claude 初始化，Bootstrap 已完成并归档；Task 00 已完成 Trellis 规划但尚未启动。达到 Taskcraft 狗粮化门槛后，Trellis 将被完整退出，两个系统不并行维护活动任务。
+本目录是 Taskcraft 产品设计、实现合同、架构决策、阶段计划和开发操作手册的唯一入口。项目已使用 Trellis `0.6.14` 完成 Codex/Claude 初始化，Bootstrap 已完成并归档；Task 00 已完成宿主探针、架构决策和运行时合同冻结，正在进行最终仓库基线整理。达到 Taskcraft 狗粮化门槛后，Trellis 将被完整退出，两个系统不并行维护活动任务。
 
 ## 文档权威层级
 
@@ -8,10 +8,11 @@
 
 1. 根目录 `AGENTS.md` 的产品不变量与开发约束。
 2. `specs/` 的产品、生命周期、架构和 CLI 规范。
-3. `contracts/` 的 SQL、JSON Schema 和 fixture；Task 00 冻结后成为可执行合同。
-4. `plans/` 的路线与阶段任务，只定义交付顺序，不改写产品合同。
-5. `runbooks/` 的工具操作步骤，不构成 Taskcraft 运行时设计。
-6. `research/` 和 `prototypes/` 仅提供带时效性的证据与交互参考，不能覆盖上述规范。
+3. `contracts/` 的 SQL、JSON Schema 和 fixture，是可执行数据合同。
+4. `decisions/` 的 ADR，解释选择原因；行为发生变化时仍须同步到规范和合同。
+5. `plans/` 的路线与阶段任务，只定义交付顺序，不改写产品合同。
+6. `runbooks/` 的工具操作步骤，不构成 Taskcraft 运行时设计。
+7. `research/` 和 `prototypes/` 仅提供带时效性的证据与交互参考，不能覆盖上述规范。
 
 研究结论只有写入规范、合同或 ADR 后才成为长期事实。Trellis 的 PRD、design、implement 和 journal 也遵守同一规则，不能成为第二套产品合同。
 
@@ -21,6 +22,7 @@
 | --- | --- |
 | [`specs/`](specs/) | [产品](specs/product.md)、[生命周期](specs/lifecycle.md)、[架构](specs/architecture.md)、[CLI](specs/cli.md) |
 | [`contracts/`](contracts/) | [SQLite 合同](contracts/storage.sql)、[Lifecycle Schema](contracts/lifecycle.schema.json)、[Breadcrumb Schema](contracts/breadcrumb.schema.json)、[fixtures](contracts/fixtures/) |
+| [`decisions/`](decisions/) | [Task 00 架构决策索引](decisions/README.md) |
 | [`plans/`](plans/) | [路线图](plans/roadmap.md)与 Task 00–06 |
 | [`runbooks/`](runbooks/) | [Trellis 开发手册](runbooks/trellis.md)与 [Trellis → Taskcraft 迁移手册](runbooks/trellis-to-taskcraft.md) |
 | [`research/`](research/) | [Codex/Claude 宿主可行性报告](research/host-feasibility.md) |
@@ -52,6 +54,6 @@ Task 00 → 01 → 02 → 03 → 04 → 05 → 06 → Trellis 退出 → Taskcra
 
 1. Trellis `0.6.14` 初始化与 Bootstrap 已完成；Bootstrap 只建立规范索引，不复制 Taskcraft 合同。
 2. Trellis 项目文件、Hook、skill 和 managed block 必须作为独立初始化基线审阅和提交，不得与 Task 00 合同变更混合。
-3. 第一张复杂任务已经以 [Task 00](plans/task-00-contract-baseline.md) 为输入完成父子任务规划；前置初始化基线落地后，从探针与 ADR 子任务开始，合同修改前仍需审阅实际 ADR 结论和探针结果。
-4. 每阶段通过验收后才创建下一阶段；不要一次性把 7 个阶段全部设为 active。
+3. 第一张复杂任务已经以 [Task 00](plans/task-00-contract-baseline.md) 为输入执行；探针、ADR 和运行时合同冻结已经完成，最终仓库基线整理完成后进入父任务集成验收。
+4. 每阶段通过验收后才创建下一阶段；Task 00 完成前不启动 Task 01，也不要一次性把后续阶段全部设为 active。
 5. Task 06 完成后按 [迁移手册](runbooks/trellis-to-taskcraft.md)退出 Trellis，在全新会话中开始狗粮化。

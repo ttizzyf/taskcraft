@@ -12,19 +12,61 @@
 ## 必读输入
 
 - `AGENTS.md`
-- 任务 00 产生的 ADR
+- `development/decisions/0005-implementation-language-and-toolchain.md`
+- `development/decisions/0006-migrations-and-contract-validation.md`
+- `development/decisions/0008-document-authority-and-module-boundaries.md`
 - `development/contracts/storage.sql`
-- `development/contracts/`
+- `development/contracts/lifecycle.schema.json`
+- `development/contracts/breadcrumb.schema.json`
+- `development/contracts/fixtures/`
 - `development/specs/architecture.md`
+
+## 固定技术选择
+
+- Node.js 24，`package.json` 声明支持的主版本。
+- pnpm 10，提交 `pnpm-lock.yaml`，可用 frozen lockfile 安装。
+- TypeScript strict，不引入运行时 decorator 或另一套 DTO class。
+- `better-sqlite3` 12，只由 Store 边界直接使用。
+- Ajv 8，Draft 2020-12 strict；当前不安装 `ajv-formats`。
+- Vitest 4；后端单元测试硬超时为 60 秒。
+
+具体 patch 版本由锁文件固定。Task 01 不再重新选择语言、包管理器、SQLite
+driver、Schema 校验器或测试框架。
 
 ## 范围
 
 1. 建立包管理、编译、格式化、静态检查和测试入口。
-2. 建立 `src/` 与 `tests/` 的最小目录，不提前实现完整分层。
+2. 只建立空 CLI、SQLite/migration、JSON Schema 校验和合同测试实际需要的目录。
 3. 把 SQL 草案转成可版本化 migration，并提供内存数据库测试工具。
 4. 建立 JSON Schema 校验与 fixture 加载工具。
 5. 定义稳定的测试超时和临时目录策略。
-6. 建立 CI 可调用的统一检查命令，但不要求本任务配置远程 CI。
+6. 提供 `format:check`、`lint`、`typecheck`、`test`、`build` 和汇总 `check` 命令，
+   但不要求本任务配置远程 CI。
+
+## 最小文件与依赖方向
+
+允许的最小形态如下，Task 01 可按所选工具调整文件名，但不能扩大职责：
+
+```text
+package.json
+pnpm-lock.yaml
+tsconfig.json
+src/
+  cli.ts                    # 只输出版本和帮助
+  store/                    # SQLite connection 与 migration runner
+  contracts/                # Ajv 编译和 fixture 加载
+migrations/
+  0001_initial.sql
+tests/
+  contracts/                # SQL、migration、JSON Schema 合同测试
+  helpers/                  # 临时数据库和 fixture helper
+```
+
+依赖保持单向：CLI 可以调用基础工具；migration 只依赖 Store connection；合同
+校验只读取 `development/contracts/`；测试可以调用 `src/` 和合同资产。Task 01
+不创建 `domain/`、`command/`、`adapters/`、`watch/` 空壳，也不创建未来 driver、
+模型 SDK 或多 package 的 interface。Command service、reducer 和 projector 从
+Task 02 的真实闭环开始实现。
 
 ## 交付物
 
@@ -32,13 +74,19 @@
 - 空 CLI 入口或等价程序入口，能输出版本和帮助。
 - migration runner 与第一版 schema migration。
 - contract test harness、fixture helper 和 SQLite test helper。
-- 开发、测试、构建命令文档。
+- `format:check`、`lint`、`typecheck`、`test`、`build`、`check` 命令及简短说明。
 
 ## 验收标准
 
 - 全新 checkout 可以通过一组明确命令完成安装、检查、测试和构建。
 - migration 可在空数据库应用，重复应用有确定行为，失败不留下部分状态。
-- 当前 JSON Schema fixture 可被验证。
+- migration 按零填充版本顺序执行，拒绝重复版本和 checksum 漂移；每个 migration
+  在独立 `BEGIN IMMEDIATE` 事务中应用。
+- migration 后的结构与 `development/contracts/storage.sql` 一致，
+  `foreign_key_check` 为空。
+- 当前 JSON Schema 能以 Ajv Draft 2020-12 strict 编译；有对应 Schema 的实例
+  必须通过校验，其余 fixture 至少通过 JSON 解析。不得用错误的 Schema 校验
+  不同类型的 fixture。
 - 测试不会写入仓库固定路径或依赖用户机器状态。
 - 不存在吞掉异常或假装成功的 fallback。
 
@@ -50,10 +98,12 @@
 
 ## 验证
 
-1. 工程基础测试。
-2. 类型检查和 lint。
-3. 构建。
-4. 空数据库 migration smoke。
+1. `pnpm install --frozen-lockfile`
+2. `pnpm test`，单元测试硬超时 60 秒。
+3. `pnpm typecheck`、`pnpm lint` 和 `pnpm format:check`。
+4. `pnpm build`。
+5. 空数据库 migration、重复运行、checksum drift、失败回滚和
+   `foreign_key_check` smoke。
 
 ## 后续启动提示
 

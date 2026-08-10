@@ -3,7 +3,7 @@
 ## Structural Judgment
 
 本任务是结构性合同冻结，不适合用单文件补丁处理。它同时涉及激活语义、
-Review 回流、revision/授权绑定、宿主能力证据、技术栈、SQL/JSON 合同和
+Review 回流、用户决定与 secret 边界、宿主能力证据、技术栈、SQL/JSON 合同和
 文档权威层级。正确的不变量是：每个产品概念只在一个权威位置定义，其他
 文档引用该定义；SQLite 约束、CLI transition 和生命周期描述必须映射到同一
 语义。
@@ -56,23 +56,23 @@ current specs/contracts/research
 选择；`development/specs/` 定义产品语义；`development/contracts/` 提供可执行
 结构约束；Trellis 工件只保存本次执行计划和审阅记录。
 
-## Planned ADR Set
+## Accepted ADR Set
 
 | ADR | 冻结内容 |
 | --- | --- |
 | `0001-task-activation-and-attempt-ownership.md` | `queued -> active`、`task new`、`run`、首个 attempt |
-| `0002-review-purpose-and-remediation-routing.md` | purpose 映射、pass、R1、R2、R3 和 integration finding |
-| `0003-revision-bound-inputs-and-authorization.md` | 用户输入、凭据、高风险授权、blocker 和 revision 绑定 |
+| `0002-review-purpose-and-remediation-routing.md` | purpose 映射和 `passed|changes_requested|replan_required` |
+| `0003-revision-bound-inputs-and-authorization.md` | 用户输入、secret、高风险决定和现有 fact/blocker 复用 |
 | `0004-host-capability-evidence-and-run-correlation.md` | 能力状态、Entry/Stop、结构化结果、run correlation |
 | `0005-implementation-language-and-toolchain.md` | 语言、包管理、SQLite driver、Schema validator、测试框架 |
 | `0006-migrations-and-contract-validation.md` | migration 策略、SQL/JSON 合同验证和退出成本 |
-| `0007-evaluator-and-probe-safety-boundary.md` | evaluator/probe 权限、失败、凭据、付费与副作用门禁 |
+| `0007-evaluator-and-probe-safety-boundary.md` | 本地结果校验、Agent 工具、显式失败和用户决策边界 |
 | `0008-document-authority-and-module-boundaries.md` | 权威层级、最小源码/测试/合同边界和 Task 01 输入 |
 
 ADR 可以在不丢失上述决策映射的前提下合并，但不得把两种相互竞争的规则
 同时保留为有效合同。
 
-## Planned Probe Set
+## Executed Probe Set
 
 所有探针在临时目录执行，不修改仓库合同、不安装 Taskcraft Hook、不创建
 外部资源。模型调用会使用本机现有 Codex/Claude 凭据并可能产生额度消耗，
@@ -118,7 +118,7 @@ ADR 可以在不丢失上述决策映射的前提下合并，但不得把两种�
 
 ## Final Integration Review
 
-父任务最终只做跨子任务验收：逐条映射 R1-R10 与 Acceptance Criteria，检查
-术语、枚举、链接、SQL/JSON 可解析性、CLI transition 和 Task 01 输入。若发现
+父任务最终只做跨子任务验收：逐条映射 REQ-01 至 REQ-10 与 Acceptance
+Criteria，检查术语、枚举、链接、SQL/JSON 可解析性、CLI transition 和 Task 01 输入。若发现
 产品决策缺口，回到子任务 1；若发现合同映射错误，回到子任务 2；若仅是索引
 或交接问题，回到子任务 3。

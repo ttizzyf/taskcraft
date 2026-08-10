@@ -11,7 +11,8 @@
 | --- | --- | --- |
 | [`AGENTS.md`](../../AGENTS.md) | 产品不变量、仓库开发约束和验证顺序入口 | 先于其他开发文档适用 |
 | [`development/specs/`](../../development/specs/) | 产品、生命周期、架构和 CLI 规范 | 规范性来源 |
-| [`development/contracts/`](../../development/contracts/) | SQL、JSON Schema 和 fixtures | Task 00 冻结后成为可执行合同 |
+| [`development/contracts/`](../../development/contracts/) | SQL、JSON Schema 和 fixtures | 可执行数据合同 |
+| [`development/decisions/`](../../development/decisions/) | 已接受决策的理由、替代方案和退出成本 | 解释选择，不能单独改变规范或合同 |
 | [`development/plans/`](../../development/plans/) | Task 00-06 的阶段输入与交付顺序 | 不改写产品规范或合同 |
 | [`development/runbooks/`](../../development/runbooks/) | Trellis 开发与迁移操作 | 不构成 Taskcraft 运行时设计 |
 | [`development/research/`](../../development/research/) | 带时效性的研究证据 | 写入规范、合同或 ADR 前不是长期事实 |

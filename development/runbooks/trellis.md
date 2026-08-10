@@ -1,6 +1,6 @@
 # 使用 Trellis 开发 Taskcraft
 
-> 状态：Trellis `0.6.14` 已安装并完成 Codex/Claude 初始化；Bootstrap 已完成并归档，Task 00 已完成规划但尚未启动。
+> 状态：Trellis `0.6.14` 已安装并完成 Codex/Claude 初始化；Bootstrap 已完成并归档，Task 00 正在进行最终仓库基线整理。
 
 Trellis 是 Taskcraft 生产内核完成前的临时开发流程层。它管理开发任务的 PRD、design、implement、检查上下文和跨会话记录；Taskcraft 产品事实仍只来自根 `AGENTS.md`、`development/specs/`、`development/contracts/` 与 ADR。
 
@@ -63,7 +63,7 @@ codex:
   dispatch_mode: inline
 ```
 
-先关闭自动 journal/archive 提交，让项目提交仍由主 Agent 和用户审阅。Task 00 与工程骨架阶段先用 Codex `inline`，减少合同未冻结时的并发写入；Task 01 后若 Trellis implement/check 子 Agent 的上下文注入和写入边界 smoke 通过，再评审是否改回默认 `auto`。
+先关闭自动 journal/archive 提交，让项目提交仍由主 Agent 和用户审阅。Task 00 使用 Codex `inline`，由当前 Agent 直接完成合同和文档工作。Task 01 后若 Trellis implement/check 子 Agent 的上下文注入和写入边界 smoke 通过，再评审是否改回默认 `auto`。
 
 Codex 用户配置需启用：
 
