@@ -3,7 +3,7 @@
   "name": "contract-probes-decisions",
   "title": "Probe hosts and freeze Taskcraft decision set",
   "description": "Run approved read-only host probes and prepare ADR decisions for runtime, safety, and engineering boundaries.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
