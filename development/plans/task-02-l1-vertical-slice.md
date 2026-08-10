@@ -25,7 +25,7 @@
 ## 范围
 
 1. Task Store 连接、事务、WAL、busy timeout、migration 检查和 revision/CAS。
-2. reducer 的引用校验、actor constraint、原子事实/事件写入和稳定错误。
+2. reducer 的引用校验、结果 Schema 校验、原子事实/事件写入和稳定错误。
 3. projector 对五个公开状态、runnable node、typed waitingReason、required obligation 与唯一 next 的纯推导；fixture 覆盖五状态，但产品命令只交付 L1 路径。
 4. L1 结构化判级、内置 `execute -> record` lifecycle、建卡/激活、attempt、结果、evidence、取消和 retry exhaustion。
 5. `status`、`task show`、`task next`、最小 breadcrumb 以及同源 text/JSON 渲染。

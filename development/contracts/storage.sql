@@ -62,7 +62,6 @@ CREATE TABLE lifecycle_nodes (
   objective TEXT NOT NULL,
   procedure_ref TEXT NOT NULL,
   scope_json TEXT NOT NULL DEFAULT '{}',
-  actor_constraint_json TEXT NOT NULL DEFAULT '{}',
   entry_gate_json TEXT NOT NULL DEFAULT '{}',
   exit_gate_json TEXT NOT NULL DEFAULT '{}',
   retry_policy_json TEXT NOT NULL DEFAULT '{}',
@@ -110,12 +109,12 @@ CREATE TABLE node_attempts (
   node_id TEXT NOT NULL,
   attempt_number INTEGER NOT NULL CHECK (attempt_number > 0),
   actor_instance_id TEXT NOT NULL,
-  host TEXT NOT NULL CHECK (host IN ('codex', 'claude')),
+  host TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN (
     'created', 'running', 'finished', 'failed', 'cancelled', 'superseded'
   )),
   outcome TEXT CHECK (outcome IS NULL OR outcome IN (
-    'success', 'passed_with_fix', 'changes_requested', 'replan_required', 'blocked',
+    'success', 'passed', 'changes_requested', 'replan_required', 'blocked',
     'failed', 'abandoned', 'unsupported', 'superseded'
   )),
   result_json TEXT,
@@ -128,7 +127,7 @@ CREATE TABLE node_attempts (
     REFERENCES lifecycle_nodes(task_id, lifecycle_revision, id)
 );
 
--- A review link names the exact reviewed attempt, its purpose and the adapter's identity capability.
+-- A review link names the exact reviewed attempt, its purpose and the available run correlation.
 CREATE TABLE review_links (
   task_id TEXT NOT NULL REFERENCES tasks(id),
   review_attempt_id TEXT PRIMARY KEY,
@@ -232,55 +231,16 @@ CREATE TABLE review_findings (
     REFERENCES node_attempts(id, task_id)
 );
 
--- One typed resolution records whether the reviewer fixed the issue, routed a focused
--- implementation successor, or created a new lifecycle revision.
-CREATE TABLE review_resolutions (
-  task_id TEXT NOT NULL REFERENCES tasks(id),
-  review_attempt_id TEXT PRIMARY KEY,
-  resolution_level TEXT NOT NULL CHECK (resolution_level IN (
-    'r1_direct_fix', 'r2_execute_successor', 'r3_replan'
-  )),
-  reviewer_fixed INTEGER NOT NULL CHECK (reviewer_fixed IN (0, 1)),
-  change_summary_json TEXT NOT NULL DEFAULT '{}',
-  evidence_refs_json TEXT NOT NULL DEFAULT '[]',
-  successor_attempt_id TEXT,
-  result_lifecycle_revision INTEGER,
-  reason TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  CHECK (
-    (resolution_level = 'r1_direct_fix'
-      AND reviewer_fixed = 1
-      AND successor_attempt_id IS NULL
-      AND result_lifecycle_revision IS NULL)
-    OR (resolution_level = 'r2_execute_successor'
-      AND reviewer_fixed = 0
-      AND successor_attempt_id IS NOT NULL
-      AND result_lifecycle_revision IS NULL)
-    OR (resolution_level = 'r3_replan'
-      AND reviewer_fixed = 0
-      AND successor_attempt_id IS NULL
-      AND result_lifecycle_revision IS NOT NULL)
-  ),
-  FOREIGN KEY (review_attempt_id, task_id)
-    REFERENCES review_links(review_attempt_id, task_id),
-  FOREIGN KEY (successor_attempt_id, task_id)
-    REFERENCES node_attempts(id, task_id),
-  FOREIGN KEY (task_id, result_lifecycle_revision)
-    REFERENCES lifecycle_revisions(task_id, revision)
-);
-
 CREATE TABLE blockers (
   id TEXT PRIMARY KEY,
   task_id TEXT NOT NULL REFERENCES tasks(id),
   lifecycle_revision INTEGER,
   node_id TEXT,
   kind TEXT NOT NULL CHECK (kind IN (
-    'dependency', 'needs_input', 'policy', 'evidence', 'host', 'conflict', 'manual'
+    'dependency', 'needs_input', 'needs_decision', 'evidence', 'host', 'conflict'
   )),
   waiting_reason TEXT NOT NULL CHECK (waiting_reason IN (
-    'blocked_dependency', 'needs_input', 'needs_decision', 'awaiting_review',
-    'awaiting_host', 'failed_retries_exhausted', 'replan_required',
-    'manual_hold', 'unsupported_host', 'conflict'
+    'blocked_dependency', 'needs_input', 'needs_decision', 'failed_retries_exhausted'
   )),
   status TEXT NOT NULL CHECK (status IN ('open', 'resolved')),
   reason TEXT NOT NULL,
@@ -297,7 +257,7 @@ CREATE TABLE agent_runs (
   id TEXT PRIMARY KEY,
   task_id TEXT NOT NULL REFERENCES tasks(id),
   node_attempt_id TEXT NOT NULL,
-  host TEXT NOT NULL CHECK (host IN ('codex', 'claude')),
+  host TEXT NOT NULL,
   host_run_id TEXT,
   host_session_id TEXT,
   observation_status TEXT NOT NULL CHECK (observation_status IN (
@@ -319,7 +279,7 @@ CREATE TABLE events (
   node_id TEXT,
   attempt_id TEXT,
   actor_instance_id TEXT NOT NULL,
-  host TEXT CHECK (host IS NULL OR host IN ('codex', 'claude')),
+  host TEXT,
   event_type TEXT NOT NULL,
   payload_json TEXT NOT NULL DEFAULT '{}',
   post_task_revision INTEGER NOT NULL,

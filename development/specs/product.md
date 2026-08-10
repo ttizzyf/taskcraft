@@ -4,7 +4,7 @@
 
 Taskcraft 是运行在代码仓库内、主要供 Agent 调用的任务协议与状态工具。Codex 与 Claude Code 是用户沟通入口；Taskcraft 为它们提供任务判级、任务事实、动态生命周期、节点执行卡、Review 能力披露、进度投影与可恢复记录。执行归属以 [架构与唯一真相源](architecture.md#2-逻辑架构) 为规则源。
 
-Taskcraft 聚焦仓库内的 Agent 任务执行。用户的主要动作是授权接管、查看进度、补充输入、处理异常和确认高风险决策。
+Taskcraft 聚焦仓库内的 Agent 任务执行。用户的主要动作是开启接管、查看进度、补充输入、处理异常和确认高风险决策。
 
 ## 2. 目标用户与主使用者
 
@@ -25,7 +25,7 @@ Agent 需要：
 
 - 看见 Agent 正在做什么、为什么、完成到哪里。
 - 看见目标、范围、验收、当前节点、证据和 Review 结论。
-- 在需要输入、授权、变更范围或 Agent 失联时收到清晰提示。
+- 在需要输入、用户决定、变更范围或 Agent 失联时收到清晰提示。
 - 不需要理解 reducer、schema、workflow slot 或 runtime manifest。
 
 ## 3. 产品原则
@@ -56,19 +56,30 @@ tc enable ask
 
 ### 4.3 L1 小任务
 
-用户要求清晰、局部、可逆的修改。Agent 创建 L1 卡并激活 execute，运行最小验证，再用 `run complete` 同事务完成 record。L1 的最低合同由 `execute -> record` 构成。
+用户要求清晰、局部、可逆的修改。Agent 先创建公开状态为 `queued` 的 L1 卡，
+再用 `tc run` 激活任务并领取 execute attempt，运行最小验证，最后完成 record。
+L1 的最低合同由 `execute -> record` 构成。
 
 ### 4.4 L2 跟踪任务
 
-Agent 明确目标/范围/验收，执行后进入独立 review 节点。Review 记录 `reviewed_attempt_id`、宿主关联能力（`context-only`、`manual-attach`、`host-observed`）和独立性状态。Reviewer 对局部低风险问题直接修复并验证；实质实现问题创建新 execute attempt；合同变化创建新 lifecycle revision。finding、修复动作与证据全部保留。
+Agent 明确目标/范围/验收，执行后进入独立的 review 节点和 attempt。Review 记录
+`reviewed_attempt_id`、宿主关联能力（`context-only`、`manual-attach`、
+`host-observed`）和独立性状态。有独立 reviewer 就使用；没有时当前 Agent 自审并
+披露 `same-actor`。Reviewer 对局部问题直接修复时记录 diff 和验证 evidence，
+outcome 仍为 `passed`；实质实现问题使用 `changes_requested` 创建新 execute
+attempt；合同变化使用 `replan_required` 创建新 lifecycle revision。
 
 ### 4.5 L3 复杂任务
 
-`frame` 由主 Agent 确认方向，`plan` 由主 Agent 生成子任务清单、依赖声明和执行约束。独立 Feasibility Reviewer 探测关键外部假设、补充 Task facts，并检查用户意图覆盖、拆分、依赖、验证和集成路径；通过后 Execute 才可运行。当前 Agent 选择串行执行或宿主原生 subagent 能力，Taskcraft 记录 manual-attach 运行关系；子任务分别 execute/delivery review，最后在存在多个交付分支或跨模块结果需要统一验收时进入 integrate 与 record。
+`frame` 和 `plan` 由当前 Agent 完成。Feasibility Review 使用独立节点和 attempt，
+检查关键外部假设、用户意图覆盖、拆分、依赖、验证和集成路径；独立 reviewer
+不可用时允许当前 Agent 自审并披露 `same-actor`。通过后 Execute 才可运行。
+Node Brief 可以给出派发说明，是否使用宿主原生 subagent 由当前 Agent 决定；
+Taskcraft 不派发 subagent，只记录已有运行关系。
 
 ### 4.6 连续执行
 
-用户发起一次任务后，Agent 按 [Agent 连续执行合同](lifecycle.md#7-agent-连续执行合同) 依次领取节点执行卡、提交结果并执行下一节点。Taskcraft 只在 `waiting` 需要输入、授权、外部依赖或失败处理时请求用户介入。
+用户发起一次任务后，Agent 按 [Agent 连续执行合同](lifecycle.md#7-agent-连续执行合同) 依次领取节点执行卡、提交结果并执行下一节点。Taskcraft 只在 `waiting` 需要输入、用户决定、外部依赖或失败处理时请求用户介入。用户随时可以中断；下次会话从已保存的 next 恢复。
 
 ### 4.7 Agent 失联
 
@@ -96,7 +107,8 @@ Agent 明确目标/范围/验收，执行后进入独立 review 节点。Review 
 
 ### Runtime
 
-显示 host、run id、node、attempt、last seen、finish reason 与 `continuationMode`。Runtime observation 与任务事实使用独立视觉层级。
+显示 host、run id、node、attempt、last seen、finish reason，以及 Entry/Stop Hook
+最近一次现场测试结果和失败原因。Runtime observation 与任务事实使用独立视觉层级。
 
 ### Diagnostics
 
@@ -130,10 +142,10 @@ flowchart TD
 - execute、review、integrate 与 record 当前节点。
 - required 缺失、recommended 未做、optional skipped。
 - Review pass、changes requested、需要重新 plan。
-- Review `passed_with_fix`、Execute successor 与新 lifecycle revision。
+- Reviewer 修改内容后的 diff/evidence、同 kind successor 与新 lifecycle revision。
 - L3 Feasibility Review 的探测中、待修改、通过与等待决策。
 - Agent running、stale、attempt failed、finished but result not collected，以及 `waiting_reason`。
-- `continuationMode` 为 `enforced` 或 `advisory`，以及 Stop Hook 未生效的诊断状态。
+- Entry/Stop Hook 的可用与失败诊断状态。
 - revision conflict、DB migration failure、hook timeout、host unsupported。
 
 ## 8. 首版边界

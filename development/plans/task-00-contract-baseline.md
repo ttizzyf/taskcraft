@@ -23,11 +23,11 @@
 ## 范围
 
 1. 冻结 `queued -> active` 的触发条件，以及 `task new`、`run` 和首个 attempt 的职责边界。
-2. 冻结 Review purpose 与 R2 successor 的映射：feasibility 对应 Plan、delivery 对应 Execute、integration 对应 Integrate 或明确升级 R3。
-3. 冻结用户输入、凭据和高风险授权与 task revision、lifecycle revision、node、blocker 的绑定方式。
+2. 冻结三个 Review outcome：`passed`、`changes_requested`、`replan_required`，以及 purpose 与被审核 node kind 的映射。
+3. 冻结用户输入、secret 和高风险决定复用 task fact、blocker、event 的方式，不建立凭据或授权系统。
 4. 对 Codex/Claude 的 Entry/Stop、结构化结果和 run correlation 做最小只读探针；把“官方支持”“本机验证”和“待实现”分开记录。
 5. 决定实现语言、包管理、SQLite driver、migration 策略、Schema 校验器和测试框架。
-6. 决定 evidence evaluator 与只读 probe 的安全边界。
+6. 决定本地结果校验与 Agent 使用宿主工具检查的安全边界，不实现 probe runner。
 7. 明确规范、规划、研究、原型和 Trellis 临时文件的权威层级。
 8. 给出生产源码、测试和合同资产的初始模块边界，不提前创建无用抽象或顶层目录。
 
@@ -42,10 +42,10 @@
 ## 验收标准
 
 - `task new` 是否激活、是否创建 attempt、queued 如何激活只有一种解释。
-- feasibility、delivery、integration 的 pass、R1、R2、R3 都有确定 next。
-- 旧授权不能被新 revision 静默复用。
+- feasibility、delivery、integration 的三个 outcome 都有确定 next。
+- 用户决定绑定来源 revision；secret 不进入 Task Store。
 - 所有实现技术选择有理由、替代方案和退出成本。
-- 宿主能力声明有真实探针或明确标为 `documented|pending|limited`，不会把文档能力写成已验证事实。
+- 宿主能力声明有真实探针，不会把文档能力写成已验证事实；研究证据级别不进入生产数据模型。
 - 当前规范不再引用旧编号路径；历史审计明确标记为非规范。
 - 本任务不引入生产业务行为。
 

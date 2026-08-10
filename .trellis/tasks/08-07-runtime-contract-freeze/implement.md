@@ -1,15 +1,17 @@
 # Implementation Plan: Runtime Contract Freeze
 
-- [ ] 锁定已批准 ADR commit，生成 ADR-to-contract 修改矩阵。
-- [ ] 更新 lifecycle 的 activation、Review routing、revision/input/auth 规则。
-- [ ] 更新 architecture 的事实边界、enforcement owner 和 Adapter capability。
-- [ ] 仅同步 product 中用户可见旅程和状态行为。
-- [ ] 更新 CLI command transition、JSON result、error/remediation 示例。
-- [ ] 更新 SQL/JSON 的可执行约束与注释，删除不再成立的旧约束。
-- [ ] 为 activation、Review purpose、跨 revision evidence/auth 和事件序列执行
-  正反例内存 SQLite probe。
-- [ ] 编译 JSON Schema 并验证全部 fixtures。
-- [ ] 运行术语/枚举矩阵、链接、diff 和 Trellis check。
+- [x] 锁定已批准 ADR commit，生成 ADR-to-contract 修改矩阵。
+- [x] 更新 lifecycle 的 activation、三种 Review outcome、Agent 派发与中断规则。
+- [x] 更新 architecture 的事实边界、enforcement owner 和 Adapter capability。
+- [x] 仅同步 product 中用户可见旅程和状态行为。
+- [x] 更新 CLI command transition、JSON result、error/remediation 示例。
+- [x] 更新 SQL/JSON，删除 host 枚举、`passed_with_fix`、R1/R2/R3 和
+  `review_resolutions`，且不新增 auth/probe/capability 实体。
+- [x] 同步 `AGENTS.md`、roadmap 和 Task 03/04/05 的后续实施范围。
+- [x] 为 activation、Review 引用、跨 revision evidence 和事件序列执行正反例
+  内存 SQLite probe。
+- [x] 编译 JSON Schema 并验证全部 fixtures。
+- [x] 运行术语/枚举矩阵、链接、diff 和 Trellis check。
 - [ ] 独立提交并归档本子任务。
 
 ## Validation

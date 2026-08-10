@@ -40,7 +40,12 @@ flowchart TB
     O --> S
 ```
 
-Codex 与 Claude Code 是用户沟通和任务编排主体，负责宿主、subagent 与串并行选择。Command service 负责 canonical facts 与 observations 的写入；Read projector 负责状态、runnable nodes、下一步和用户视图；Adapter 负责入口安装、节点执行卡渲染、停止拦截与可选运行观察。
+Codex 与 Claude Code 是首版用户沟通和任务执行主体，负责使用自身工具完成工作，
+并自行决定是否使用 subagent 和并行能力。Taskcraft 只提供任务事实、Node Brief、
+可选派发说明、结果校验和记录，不启动或调度 subagent。Command service 负责
+canonical facts 与 observations 的写入；Read projector 负责状态、runnable
+nodes、下一步和用户视图；Adapter 负责入口安装、节点执行卡渲染、正常结束时的
+Stop Hook 与可选运行观察。
 
 静态 entry gate 负责一次廉价接管探测：接管关闭或没有 durable execution 时保持静默；检测到可执行任务时注入 task anchor 和下一步命令。该 gate 读取同一个 projector 结果。
 
@@ -58,8 +63,8 @@ Codex 与 Claude Code 是用户沟通和任务编排主体，负责宿主、suba
 - `tasks` 保存任务内容、Level 判断事实、激活/取消事实和当前 lifecycle revision 指针。
 - `node_attempts` 保存执行事实和 outcome；每个 attempt 永久引用启动时的 lifecycle revision。
 - `review_links` 为每个 Review attempt 保存唯一的被审核 attempt、`feasibility|delivery|integration` purpose，以及 `context-only`、`manual-attach`、`host-observed` 能力和独立性披露。
-- `task_facts` 保存 Agent 在探测和执行中追加的 intent、probe、constraint、assumption、dependency 与 environment facts；每条 fact 引用来源 attempt 和可选 evidence，修订通过 `supersedes_fact_id` 追加表达。
-- `review_findings` 保存 Review 问题；`review_resolutions` 保存 R1 直接修复、R2 Execute successor 或 R3 lifecycle revision。R1 归属于 Review attempt，R2 在当前 revision 创建 Execute successor，R3 创建下一条 lifecycle revision。
+- `task_facts` 保存 Agent 在检查和执行中追加的 intent、probe、constraint、assumption、dependency 与 environment facts；非敏感用户回答和高风险操作决定复用 `constraint` fact。每条 fact 通过来源 attempt 绑定 lifecycle revision，并可引用 evidence；修订通过 `supersedes_fact_id` 追加表达。
+- `review_findings` 保存 Review 问题。Review 的 `passed|changes_requested|replan_required` outcome、successor attempt 或新 revision、evidence 与 event 共同表达处理结果，不建立 resolution 表。
 - `obligation_results` 记录当前 revision 中每项义务的满足证据；required obligation 满足后才能投影为 `done`。
 - `evidence`、`blockers` 和 `events` 保存结果、等待原因和审计链。`blockers.waiting_reason` 是公开 `waitingReason` 的输入事实。
 
@@ -80,7 +85,6 @@ erDiagram
     NODE_ATTEMPTS ||--o{ TASK_FACTS : discovers
     NODE_ATTEMPTS ||--o| REVIEW_LINKS : reviews
     REVIEW_LINKS ||--o{ REVIEW_FINDINGS : raises
-    REVIEW_LINKS ||--o| REVIEW_RESOLUTIONS : resolves
     OBLIGATION_DEFINITIONS ||--o| OBLIGATION_RESULTS : evaluates
     TASKS ||--o{ BLOCKERS : has
     NODE_ATTEMPTS ||--o{ AGENT_RUNS : observes
@@ -96,7 +100,7 @@ erDiagram
 ```text
 reduce(command, taskSnapshot)
   -> validate expectedRevision and references
-  -> validate lifecycle contract and actor constraints
+  -> validate lifecycle contract, outcome rules and result schema
   -> write canonical runtime facts and one audit event
   -> commit in one SQLite transaction
 
@@ -120,13 +124,21 @@ project(taskSnapshot)
 
 ## 6. Level 与 lifecycle 合同
 
-建卡输入包含 `riskFlags`、`affectedContracts`、`sideEffects`、`writeScope`、`validationPlan`、`parallelism` 和 `uncertainties`。Agent 提交 Level、判级理由与这些事实，reducer 生成当前 revision 的 required obligations。
+建卡只要求目标、Level 和判级理由。`riskFlags`、`affectedContracts`、
+`sideEffects`、`writeScope`、`validationPlan`、`parallelism` 和
+`uncertainties` 等事实按需提交；缺失就是未提供。Reducer 据此生成当前 revision
+的 required obligations。
 
 Level 表达治理强度判断，当前 revision 的 required obligations 表达可验收合同。Agent 可以通过显式 revision 重新判断 Level 或义务；Projector 以当前 revision 的 required obligations 判断完成。
 
-首版支持 typed node kind：`frame`、`plan`、`execute`、`review`、`integrate`、`record`。L1/L2 纵切优先验证；完整首版提供 `frame -> plan -> feasibility review -> execute -> delivery review -> integrate -> record` 基础 L3 合同。当前 Agent 负责串行或宿主原生 subagent 编排，manual-attach 保存运行关联。
+首版支持 typed node kind：`frame`、`plan`、`execute`、`review`、`integrate`、`record`。L1/L2 纵切优先验证；完整首版提供 `frame -> plan -> feasibility review -> execute -> delivery review -> integrate -> record` 基础 L3 合同。当前 Agent 按自身能力串行执行或使用宿主原生 subagent；Taskcraft 只在 Node Brief 中提供派发说明，`manual-attach` 只保存已有运行关联。
 
-Lifecycle compiler 根据任务 facts 和 policy digest materialize definition。Adapter capability 作为 attempt 与 Review 的披露事实保存。局部 Review finding 在当前 revision 为被审核节点创建同 kind successor attempt；Agent 选择 `replan_required` 时创建单线递增的新 revision。新 revision 生效事务将旧 revision 中 `created` 或 `running` 的 attempt 标记为 `superseded`；旧 attempt 与 evidence 保留原引用，新 revision 引用旧证据时写入显式 evidence reference。
+Lifecycle compiler 根据任务 facts 和 policy digest materialize definition。Review link
+保存运行关联能力和独立性披露。局部 Review finding 在当前 revision 为被审核节点
+创建同 kind successor attempt；Agent 选择 `replan_required` 时创建单线递增的新
+revision。新 revision 生效事务将旧 revision 中 `created` 或 `running` 的 attempt
+标记为 `superseded`；旧 attempt 与 evidence 保留原引用，新 revision 引用旧证据
+时写入显式 evidence reference。
 
 ## 7. Revision 与并发
 
@@ -172,14 +184,27 @@ interface HostAdapter {
 }
 ```
 
-首版 host 枚举统一为 `codex` 和 `claude`。`renderNodeBrief` 生成目标、节点、范围、required obligations、验收和结果登记命令。Adapter capability 包含 `continuationMode: enforced | advisory`；Entry/Stop Hook 行为遵循 [Agent 连续执行合同](lifecycle.md#7-agent-连续执行合同)。`context-only` 表示只有上下文记录，`manual-attach` 表示 Agent 或用户绑定已有 host run，`host-observed` 表示 Adapter 从宿主事件或 supervisor 保存 session/turn/agent correlation。Review UI 始终展示 capability 和 independence status；`host-observed` 只证明运行关联，不提供 review 内容签名。
+数据库中的 host/adapter id 是开放字符串；首版只实现 `codex` 和 `claude` 两个
+Adapter，其他值由 Adapter 边界明确返回 unsupported，不建立 Adapter 注册表。
+`renderNodeBrief` 生成目标、节点、范围、required obligations、验收、可选派发说明、
+本地结果 Schema 和登记命令。Entry/Stop Hook 行为遵循
+[Agent 连续执行合同](lifecycle.md#7-agent-连续执行合同)。`context-only` 表示只有
+上下文记录，`manual-attach` 表示 Agent 或用户绑定已有 host run，
+`host-observed` 表示 Adapter 从宿主事件保存 session/turn/agent correlation。
+Review UI 始终展示 capability 和 independence status；`host-observed` 只证明运行
+关联，不提供 review 内容签名。
+
+模型只能使用宿主实际暴露给当前会话的工具和上下文。Hook 安装、权限和现场测试
+结果由 Adapter 检查并写入 Node Brief；Taskcraft 不要求模型猜测宿主的隐藏配置。
 
 ## 10. 安全与隐私
 
 - DB 保存任务摘要、结构化事件和明确 evidence reference；完整 prompt/tool output 由调用方决定是否外置保存。
-- 命令、路径和日志经过 secret redaction。
+- secret 值永远不写 Task Store、event、evidence summary 或日志；Taskcraft 也不
+  保存 credential reference。Agent 直接使用宿主已有的凭据能力。
 - Watch 绑定 localhost，随机端口服务单次会话。
-- 外部副作用节点声明 approval gate 和幂等键。
+- Node Brief 遇到付费、外部写入、新凭据或高风险权限时要求 Agent 先询问用户；
+  非敏感决定写入 `constraint` fact。Taskcraft 不签发或校验授权凭证。
 - export 支持移除绝对路径、session id 和运行细节。
 - `doctor` 检查外键、孤儿事实、事件连续性、definition digest 和投影缓存；它提供完整性诊断。
 

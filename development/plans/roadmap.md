@@ -9,8 +9,8 @@
 | [Task 00](task-00-contract-baseline.md) 合同与基线 | 关键 ADR、可解析合同、宿主假设证据、稳定 Git 基线 | 影响 reducer/CLI/Schema 的问题只有一种解释 |
 | [Task 01](task-01-engineering-foundation.md) 工程基础 | 可安装、测试、构建、迁移的最小工程 | 空库 migration、Schema fixture、静态检查和构建通过 |
 | [Task 02](task-02-l1-vertical-slice.md) L1 纵切 | Store、单 reducer/projector、L1 CLI 闭环 | L1 真实任务完成；事务失败无部分事实；投影可重建 |
-| [Task 03](task-03-l2-review-loop.md) L2 Review | 独立 Review 节点及 R1/R2/R3 回流 | pass/fix/successor/replan 均有可追溯样本 |
-| [Task 04](task-04-host-adapters.md) Adapter | Codex/Claude 恢复、Node Brief、能力披露 | 两宿主 conformance 和真实 smoke 通过或明确降级 |
+| [Task 03](task-03-l2-review-loop.md) L2 Review | 独立 Review 节点及三种 outcome 回流 | passed/changes/replan 均有可追溯样本 |
+| [Task 04](task-04-host-adapters.md) Adapter | Codex/Claude 恢复、Node Brief、能力披露 | 两宿主 conformance 和真实 Hook smoke 通过 |
 | [Task 05](task-05-l3.md) L3 | Plan、Feasibility Review、Execute、Integrate | Plan Review 前 Execute 不可运行；revision 保持可追溯 |
 | [Task 06](task-06-watch.md) Watch | 只读 Board、详情、Runtime、Diagnostics | 页面、CLI JSON、breadcrumb 的 status/next 一致 |
 
@@ -41,6 +41,6 @@
 | 投影成为第二事实源 | Watch、Markdown、breadcrumb、cache 和 telemetry 只读 |
 | 宿主观察被误当成任务结果 | `agent_runs` 只存 observation，必须经 reducer command 转成 runtime fact |
 | Review 独立性被夸大 | 保存 `reviewed_attempt_id`、capability 与 independence status |
-| Hook 能力被文档假设替代 | 先做真实 host smoke，未通过时只声明 advisory/limited |
+| Hook 能力被文档假设替代 | 先做真实 host smoke，失败时明确报错和诊断 |
 | Trellis 与 Taskcraft 双写 | 按迁移 runbook 冻结、卸载并在新会话切换唯一活动系统 |
 | Trellis 规范复制产品合同 | `.trellis/spec` 只保存索引与代码约定，产品事实仍在 `development/` |

@@ -85,7 +85,6 @@
         "objective": {"type": "string", "minLength": 1},
         "procedureRef": {"type": "string", "minLength": 1},
         "scope": {"type": "object"},
-        "actorConstraint": {"type": "object"},
         "entryGate": {"type": "object"},
         "exitGate": {"type": "object"},
         "retryPolicy": {"type": "object"},
@@ -114,7 +113,7 @@
         "outcome": {
           "enum": [
             "success",
-            "passed_with_fix",
+            "passed",
             "changes_requested",
             "replan_required",
             "blocked",

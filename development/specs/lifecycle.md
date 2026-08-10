@@ -6,7 +6,7 @@ Level 定义最低治理强度与证据预算，任务级节点图定义执行�
 
 ## 2. 判级规则
 
-判级输入采用结构化事实：`riskFlags`、`affectedContracts`、`sideEffects`、`writeScope`、`validationPlan`、`parallelism` 与 `uncertainties`。Agent 依据这些事实给出 Level 和理由，Taskcraft 保存输入与判定结果。
+Agent 建卡时只需提交任务目标、Level 和判级理由。`riskFlags`、`affectedContracts`、`sideEffects`、`writeScope`、`validationPlan`、`parallelism` 与 `uncertainties` 等结构化事实按需补充；未提交的字段保持不存在，不写 `unknown` 或占位值。
 
 ### L1 Quick
 
@@ -15,7 +15,7 @@ Agent 将以下事实同时成立的任务判为 L1：
 - 目标和验收清晰。
 - 修改局部、可逆、无外部不可逆副作用。
 - 不改变 API、schema、权限、安全、数据完整性或架构边界。
-- 单 Agent 可完成，无共享写入协调。
+- 当前 Agent 可完成，无共享写入协调。
 - 最小自动验证可立即运行。
 
 ### L3 Initiative
@@ -23,7 +23,7 @@ Agent 将以下事实同时成立的任务判为 L1：
 出现以下任一事实时，Agent 将任务判为 L3：
 
 - 改变跨模块/API/schema/迁移/权限/安全/数据完整性边界。
-- 需要多个子任务或多个 Agent 的依赖与集成。
+- 需要多个子任务的依赖与集成。
 - 产品方向或验收需访谈、研究或决策。
 - 有不可逆外部动作或高影响发布。
 - 需要阶段级集成验收。
@@ -42,7 +42,6 @@ Agent 将以下事实同时成立的任务判为 L1：
 id, kind, title
 objective, procedureRef, scope
 inputSchema, outputSchema
-actorConstraint
 obligationDefinitions[]
 entryGate, exitGate
 retryPolicy
@@ -84,7 +83,7 @@ execute [required]
   - minimum validation recorded
 record [required]
   - result and changed scope retained
-independent review [optional]
+review [optional]
 ```
 
 L1 的 `minimum validation recorded` 覆盖最小自检义务。
@@ -106,8 +105,8 @@ research [optional]
 
 ```text
 frame [required]
-plan [required, main Agent]
-feasibility review [required, separate Agent, reviews plan attempt]
+plan [required]
+feasibility review [required, separate attempt, reviews plan attempt]
   - user intent coverage retained
   - blocking feasibility assumptions probed
   - decomposition and integration path accepted
@@ -154,6 +153,11 @@ revision 切换事务将旧 revision 中 `created` 或 `running` 的 attempt 标
 - 已满足的输入、可读取证据、执行范围和依赖。
 - `required`、`recommended`、`optional` obligations 及其当前结果。
 - 允许提交的 typed outcomes、验收条件与结果登记命令。
+- 当前宿主、已知工具能力和可选派发说明。Agent 有 subagent 工具时可以派发，
+  没有时由当前 Agent 自己执行；Taskcraft 不启动 subagent。
+- 本地结果 Schema。Agent 按该格式提交，Taskcraft 在写入前校验；宿主或模型的
+  原生结构化输出能力只是可选辅助。
+- 需要用户决定的高风险动作，以及不得写入 Task Store 的 secret 边界。
 
 Projector 使用节点 definition、当前任务 facts、已有 attempt/evidence 和 procedure registry 生成节点执行卡。Procedure registry 为 `frame`、`plan`、`execute`、`review`、`integrate` 与 `record` 提供通用执行方法；当前节点 definition 的 `objective`、`procedureRef`、`scope`、输入输出合同与 obligations 提供任务特定内容。Lifecycle compiler 只 materialize 能解析 `procedureRef` 的 typed node。
 
@@ -175,29 +179,39 @@ flowchart TD
     V -- done/cancelled --> T[Agent stops]
 ```
 
-每个成功的事实写命令必须返回提交后的 task status、waiting reason、完成节点和唯一 next。Task 为 `active` 且存在 runnable/running node 时，Agent 必须立即执行 next，持续完成“领取节点执行卡、执行、提交结果”的循环。
+每个成功的事实写命令必须返回提交后的 task status、waiting reason、完成节点和唯一 next。正常执行时，Task 为 `active` 且存在 runnable/running node，Agent 继续完成“领取节点执行卡、执行、提交结果”的循环。Taskcraft 只提供 next 和 Node Brief，不替 Agent 执行节点。
 
 Agent 在以下投影条件下结束当前连续运行：
 
 - `done`：当前 revision 的 required obligations 与 record 已满足。
 - `cancelled`：任务存在显式取消事实。
-- `waiting`：用户输入、授权、外部依赖或失败重试决策尚未满足。
+- `waiting`：用户输入、用户决定、外部依赖或失败重试决策尚未满足。
 - 宿主返回明确的资源或能力限制；Agent 将限制登记为 observation 或 typed blocker。
+
+用户可以随时中断当前运行。中断不等于任务失败或取消，已有事实保持不变；下次
+会话从 Task Store 投影出的 next 恢复。
 
 ### 7.3 Hook 协作
 
 Entry Hook 在任务首次进入、会话恢复或上下文重建时注入 breadcrumb。节点之间的正常推进由 CLI command result 中的 next 完成。
 
-Stop Hook 在 Agent 准备结束当前运行时读取最新 breadcrumb：
+Stop Hook 只在 Agent 自己准备正常结束当前运行时读取最新 breadcrumb：
 
-- `active` 且存在 runnable/running node：返回当前节点和 next；`enforced` 模式阻止结束并恢复连续循环。
+- `active` 且存在 runnable/running node：返回当前节点和 next，阻止这次正常结束并恢复连续循环。
 - `waiting`、`done` 或 `cancelled`：允许当前运行结束。
 
-Host Adapter 必须通过 `continuationMode` 披露 `enforced` 或 `advisory`。`enforced` 表示宿主支持停止拦截；`advisory` 表示 Adapter 提供继续提示和恢复 breadcrumb。`tc agent capabilities`、Watch Runtime 与 diagnostics 展示该能力。
+用户主动中断始终放行，不受 Stop Hook 限制。首版只支持已验证具备 Entry/Stop
+Hook 的 Codex 和 Claude；Hook 缺失或失效时明确报错并进入 diagnostics，不在
+首版内提供无 Hook 降级流程。
 
 ## 8. 状态与闭环
 
 ### Task status
+
+`tc task new` 只创建 Task、初始 lifecycle revision 和 required obligations，公开
+状态为 `queued`，不创建 attempt。`tc run <task-id>` 是唯一激活入口；第一次运行
+在同一 reducer 事务中写入激活事实并创建或领取首个 runnable node attempt。
+已激活任务上的后续 `run` 只处理目标 node attempt，不重复激活。
 
 ```text
 queued | active | waiting | done | cancelled
@@ -218,7 +232,7 @@ pending | running | waiting | satisfied | skipped
 ### Review outcome
 
 ```text
-passed | passed_with_fix | changes_requested | replan_required
+passed | changes_requested | replan_required
 ```
 
 Review outcome 归属于 attempt；projector 根据当前 revision 的全部事实独立推导 task status。
@@ -243,17 +257,21 @@ stateDiagram-v2
 
 ### 9.1 L3 Feasibility Review
 
-L3 在 Plan 与 Execute 之间生成 required Feasibility Review。主 Agent 负责 Frame 与 Plan；Feasibility Reviewer 使用独立 Agent instance 审核 Plan attempt；Execute Reviewer 使用另一个独立 Agent instance。三个执行者使用不同 `actor_instance_id`。Adapter 保存 `context-only`、`manual-attach` 或 `host-observed` 能力；界面显示 `observed-distinct`、`unverified`、`same-actor` 或 `unsupported`。`same-actor` 不满足 L3 Feasibility Review 和 Delivery Review 的 actor constraint。
+L3 在 Plan 与 Execute 之间生成 required Feasibility Review。Review 使用独立节点和
+attempt。独立 reviewer 可用时优先使用；不可用时当前 Agent 可以完成 Review，
+并如实记录 `same-actor`。Adapter 保存 `context-only`、`manual-attach` 或
+`host-observed` 关联能力；界面显示 `observed-distinct`、`unverified`、
+`same-actor` 或 `unsupported`。独立性是披露信息，不是 Execute 的硬性 gate。
 
 ```mermaid
 flowchart LR
     F[Frame by main Agent] --> P1[Plan attempt 1 by main Agent]
-    P1 --> R1[Feasibility Review attempt 1]
-    R1 -- advisory facts + passed --> E[Execute]
-    R1 -- material changes requested --> P2[Plan attempt 2]
-    P2 --> R2[Feasibility Review attempt 2]
-    R2 -- passed --> E
-    R1 -- user decision required --> W[Waiting]
+    P1 --> V1[Feasibility Review attempt 1]
+    V1 -- advisory facts + passed --> E[Execute]
+    V1 -- material changes requested --> P2[Plan attempt 2]
+    P2 --> V2[Feasibility Review attempt 2]
+    V2 -- passed --> E
+    V1 -- user decision required --> W[Waiting]
 ```
 
 Feasibility Reviewer 的 required obligations 固定为：
@@ -263,7 +281,10 @@ Feasibility Reviewer 的 required obligations 固定为：
 - 检查子任务边界、依赖顺序、写入冲突、验证责任和最终集成路径。
 - 将探测结果追加为 Task fact 与 evidence，并标明来源、时间和结论。
 
-安全、只读、低成本的探测由 Feasibility Reviewer 直接执行。需要副作用、付费、高风险权限或用户凭据的探测创建 `waiting(needs_decision|needs_input)`。
+Feasibility Reviewer 使用宿主已有工具完成必要检查，Taskcraft 不提供 probe
+runner。需要副作用、付费、新凭据或高风险权限的检查先创建
+`waiting(needs_decision|needs_input)` 并询问用户。非敏感回答写为当前 revision
+来源 attempt 的 `task_facts`；secret 不进入 Task Store、event 或 evidence。
 
 Feasibility Review 在以下条件同时成立时通过：
 
@@ -281,34 +302,37 @@ Feasibility Reviewer 可以追加 `intent`、`probe`、`constraint`、`assumptio
 
 ```mermaid
 flowchart LR
-    E1[Execute attempt 1] --> R1[Review attempt 1]
-    R1 -- passed --> Z[Record / Integrate]
-    R1 -- R1 direct fix --> F1[passed_with_fix]
-    F1 --> Z
-    R1 -- R2 implementation finding --> E2[Execute attempt 2]
-    R1 -- R3 contract change --> P2[Plan revision]
+    E1[Execute attempt 1] --> V1[Review attempt 1]
+    V1 -- passed --> Z[Record / Integrate]
+    V1 -- changes_requested --> E2[Execute attempt 2]
+    V1 -- replan_required --> P2[New lifecycle revision]
     P2 --> E2
-    E2 --> R2[Review attempt 2]
-    R2 -- passed --> Z
+    E2 --> V2[Review attempt 2]
+    V2 -- passed --> Z
 ```
 
-Delivery Review 使用以下三级回流：
+Review 只使用三个 outcome：
 
-- `R1 direct_fix`：Reviewer 对局部、确定、可逆、低风险且完全位于当前 scope 的问题执行最小修复。Review 记录 `passed_with_fix`、变更摘要、diff/evidence、验证结果和 `reviewerFixed=true`。一次直接修复后仍未通过的 finding 升级为 R2。
-- `R2 execute_successor`：目标、范围、接口、Schema 与验收保持不变，finding 需要实质实现工作。Reducer 在当前 revision 创建 focused Execute successor attempt；下一次 Review 聚焦 successor 变更和受影响范围。
-- `R3 replan`：finding 改变目标、范围、接口、Schema、验收或 lifecycle graph。Reducer 创建新 lifecycle revision；L3 新 Plan 必须再次通过 Feasibility Review。
+- `passed`：当前 Review 完成，按 lifecycle edge 进入下一节点。Reviewer 在 Review
+  过程中修改过内容时，把变更、diff 和验证作为 evidence 记录，结果仍是 `passed`。
+- `changes_requested`：在当前 revision 为被审核 node kind 创建 successor attempt，
+  修复后重新 Review。
+- `replan_required`：finding 改变目标、范围、接口、Schema、验收或 lifecycle
+  graph，Reducer 创建新 lifecycle revision；L3 的新 Plan 再次经过 Feasibility
+  Review。
 
 共同约束：
 
 - Review 使用独立节点和独立 attempt，并记录 `reviewed_attempt_id` 与 `reviewPurpose`。`feasibility` 审核 plan attempt，`delivery` 审核 execute attempt，`integration` 审核 integrate attempt。Adapter 声明 `context-only`、`manual-attach` 或 `host-observed` 能力；UI 始终展示 `observed-distinct`、`unverified`、`same-actor` 或 `unsupported` 独立性状态。
 - finding 归属原 Task，不创建另一种 Review Task。
-- R2 与 R3 产生新 attempt 或 revision；R1 将修复事实归属于 Review attempt。所有路径保留旧产物和证据。
+- 不创建 `review_resolutions`；outcome、successor/revision 引用、finding、evidence
+  和 event 已足以说明处理结果。所有路径保留旧产物和证据。
 - `changes_requested` 在当前 revision 为被审核 node kind 创建 successor attempt；`replan_required` 在 scope、contract 或 lifecycle graph 改变时创建 lifecycle revision。
 - Integrate 只执行组合验证时可以进入 Record；Integrate 修改代码、配置或冲突结果时必须生成 `integration` Review。
 
 ## 10. Agent 编排与并行
 
-执行主体与工具边界遵循 [架构与唯一真相源](architecture.md#2-逻辑架构)。Taskcraft projector 返回可运行节点和依赖事实；reducer 负责 CAS、引用、节点归属和结果合同校验。完整首版允许 Agent 使用宿主原生 subagent 能力，并通过 manual-attach 关联可观察的运行标识。
+执行主体与工具边界遵循 [架构与唯一真相源](architecture.md#2-逻辑架构)。Taskcraft projector 返回可运行节点、依赖事实和可选派发说明；reducer 负责 CAS、引用、节点归属和结果合同校验。是否使用宿主原生 subagent 由当前 Agent 决定；没有该能力时当前 Agent 自己执行。Taskcraft 不创建派发实体，也不启动或调度 subagent；`manual-attach` 只记录已有运行关联。
 
 Agent 仅在写入范围不冲突、共享验证 owner 明确、依赖已满足且并行收益明确时并行执行。Reducer 在依赖、CAS 或节点归属冲突时写入 typed blocker，并返回稳定 remediation。
 

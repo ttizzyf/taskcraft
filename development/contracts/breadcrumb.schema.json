@@ -48,13 +48,7 @@
             "blocked_dependency",
             "needs_input",
             "needs_decision",
-            "awaiting_review",
-            "awaiting_host",
-            "failed_retries_exhausted",
-            "replan_required",
-            "manual_hold",
-            "unsupported_host",
-            "conflict"
+            "failed_retries_exhausted"
           ]
         },
         "node": {"type": ["string", "null"]},
