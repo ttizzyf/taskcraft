@@ -7,7 +7,7 @@
 - [x] 生成父 PRD requirement/acceptance 到交付物和证据的最终映射。
 - [x] 运行 Markdown 链接、JSON Schema、SQL、术语和 Git diff 检查。
 - [x] 对父任务范围做一次交叉一致性审阅，阻塞发现返回 owning 子任务。
-- [ ] 独立提交并归档本子任务。
+- [x] 独立提交并归档本子任务。
 
 ## Validation
 
