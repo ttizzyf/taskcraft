@@ -68,3 +68,24 @@ Applied the approved minimal activation, review, host, structured-result, interr
 ### Status
 
 [OK] **Completed**
+
+
+## Session 4: Finalize Taskcraft repository contract baseline
+
+**Date**: 2026-08-10
+**Task**: Finalize Taskcraft repository contract baseline
+**Branch**: `main`
+
+### Summary
+
+Added ADR navigation, clarified document authority and Task 01 engineering inputs, synchronized the parent acceptance rules, and recorded full contract/link validation evidence.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `18e25a8` | (see git log) |
+
+### Status
+
+[OK] **Completed**
