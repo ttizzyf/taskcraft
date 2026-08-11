@@ -110,3 +110,45 @@ Completed the parent integration review, marked Task 00 complete in repository d
 ### Status
 
 [OK] **Completed**
+
+
+## Session 6: Build Taskcraft engineering foundation
+
+**Date**: 2026-08-11
+**Task**: Build Taskcraft engineering foundation
+**Branch**: `main`
+
+### Summary
+
+Implemented the Node/TypeScript engineering foundation: single-package ESM toolchain (Node 24, pnpm 10, TypeScript 6 strict, Vitest 4, ESLint 10 + typescript-eslint 8, Prettier 3), Commander 15 tc CLI shell, better-sqlite3 connection policy and applyMigrations runner with schema_migrations ledger, and Ajv 2020 strict contract validators for Lifecycle/Breadcrumb. Toolchain decisions: @eslint/js pinned to 10.0.1 (mirror limit); ajv named import for CJS interop; esModuleInterop enabled; pnpm.onlyBuiltDependencies for better-sqlite3 native build.
+
+### Main Changes
+
+- Established pnpm/ESLint/Prettier/Vitest toolchain with 400-line max-lines policy
+- Added openDatabase connection policy and applyMigrations runner with TC_STORE_* error codes
+- Added Ajv 2020 strict validators for Lifecycle and Breadcrumb contracts
+- Added Commander 15 tc root CLI shell with package.json version source
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cc499f1` | (see git log) |
+| `ff76ea9` | (see git log) |
+| `f59120c` | (see git log) |
+| `d4ee87f` | (see git log) |
+| `99ac4f2` | (see git log) |
+| `b2c562a` | (see git log) |
+
+### Testing
+
+- [OK] pnpm check (17 tests, typecheck, lint, format, build) all pass
+- [OK] pnpm install --frozen-lockfile reproducible; CLI smoke passes
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Task 02 can directly import Store/migration/Schema helpers
