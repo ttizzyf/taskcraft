@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 6
+- **Total Sessions**: 7
 - **Last Active**: 2026-08-11
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~154 | Active |
+| `journal-1.md` | ~175 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 7 | 2026-08-11 | Task 02 L1 纵切：store-transaction 子任务 | `1b5428d` | `main` |
 | 6 | 2026-08-11 | Build Taskcraft engineering foundation | `cc499f1`, `ff76ea9`, `f59120c`, `d4ee87f`, `99ac4f2`, `b2c562a` | `main` |
 | 5 | 2026-08-10 | Complete Task 00 contract baseline | `d7bd36c` | `main` |
 | 4 | 2026-08-10 | Finalize Taskcraft repository contract baseline | `18e25a8` | `main` |

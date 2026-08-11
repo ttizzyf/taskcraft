@@ -152,3 +152,24 @@ Implemented the Node/TypeScript engineering foundation: single-package ESM toolc
 ### Next Steps
 
 - Task 02 can directly import Store/migration/Schema helpers
+
+
+## Session 7: Task 02 L1 纵切：store-transaction 子任务
+
+**Date**: 2026-08-11
+**Task**: Task 02 L1 纵切：store-transaction 子任务
+**Branch**: `main`
+
+### Summary
+
+规划 Task 02（父+3子），完成并归档 store-transaction：withTransaction、revision CAS 守卫、只读 query model，14 个新测试，trellis-check 通过
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1b5428d` | (see git log) |
+
+### Status
+
+[OK] **Completed**
