@@ -34,6 +34,13 @@ export function withTransaction<T>(
       database.exec("ROLLBACK");
     }
 
+    // Reducer errors (CAS conflicts, reference validation, result schema
+    // failures) carry stable TC_* codes and must reach the command boundary
+    // untouched. Only unexpected failures are wrapped as store errors.
+    if (cause instanceof TaskcraftError) {
+      throw cause;
+    }
+
     throw new TaskcraftError(ERROR_CODES.TC_STORE_TRANSACTION_FAILED, {
       problem: `Transaction failed and was rolled back: ${describeCause(cause)}`,
       impact:

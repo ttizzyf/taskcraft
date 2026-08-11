@@ -300,7 +300,7 @@ export function getLastEventSeq(
 ): number {
   const row = database
     .prepare(
-      "SELECT COALESCE(MAX(seq), 0) AS lastSeq FROM events WHERE task_id = ?",
+      "SELECT COALESCE(MAX(task_seq), 0) AS lastSeq FROM events WHERE task_id = ?",
     )
     .get(taskId) as { lastSeq: number };
 
