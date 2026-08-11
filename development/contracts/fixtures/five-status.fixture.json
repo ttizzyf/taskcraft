@@ -1,0 +1,249 @@
+{
+  "schemaVersion": "tc-fixture/v1",
+  "id": "five-status",
+  "description": "Five tasks covering all public statuses: queued, active, waiting, done and cancelled. Each task carries the full L1 graph so the projector reads a consistent snapshot.",
+  "tasks": [
+    {
+      "id": "T-501",
+      "title": "Queued task",
+      "level": 1,
+      "objectiveMd": "Queued objective",
+      "activatedAt": null,
+      "cancelledAt": null,
+      "cancelReason": null,
+      "revision": 1,
+      "currentLifecycleRevision": 1
+    },
+    {
+      "id": "T-502",
+      "title": "Active task",
+      "level": 1,
+      "objectiveMd": "Active objective",
+      "activatedAt": "2026-08-11T00:00:00.000Z",
+      "cancelledAt": null,
+      "cancelReason": null,
+      "revision": 2,
+      "currentLifecycleRevision": 1
+    },
+    {
+      "id": "T-503",
+      "title": "Waiting task",
+      "level": 1,
+      "objectiveMd": "Waiting objective",
+      "activatedAt": "2026-08-11T00:00:00.000Z",
+      "cancelledAt": null,
+      "cancelReason": null,
+      "revision": 3,
+      "currentLifecycleRevision": 1
+    },
+    {
+      "id": "T-504",
+      "title": "Done task",
+      "level": 1,
+      "objectiveMd": "Done objective",
+      "activatedAt": "2026-08-11T00:00:00.000Z",
+      "cancelledAt": null,
+      "cancelReason": null,
+      "revision": 3,
+      "currentLifecycleRevision": 1
+    },
+    {
+      "id": "T-505",
+      "title": "Cancelled task",
+      "level": 1,
+      "objectiveMd": "Cancelled objective",
+      "activatedAt": "2026-08-11T00:00:00.000Z",
+      "cancelledAt": "2026-08-11T01:00:00.000Z",
+      "cancelReason": "superseded",
+      "revision": 3,
+      "currentLifecycleRevision": 1
+    }
+  ],
+  "lifecycles": [
+    {
+      "taskId": "T-501",
+      "nodes": [
+        {"id": "execute-1", "kind": "execute", "title": "Execute", "objective": "Queued objective", "procedureRef": "l1:execute"},
+        {"id": "record-1", "kind": "record", "title": "Record", "objective": "Queued objective", "procedureRef": "l1:record"}
+      ],
+      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "obligations": [
+        {"nodeId": "execute-1", "id": "requested-outcome-produced", "duty": "required", "title": "Requested outcome produced"},
+        {"nodeId": "execute-1", "id": "minimum-validation-recorded", "duty": "required", "title": "Minimum validation recorded"},
+        {"nodeId": "record-1", "id": "result-and-scope-retained", "duty": "required", "title": "Result and scope retained"}
+      ]
+    },
+    {
+      "taskId": "T-502",
+      "nodes": [
+        {"id": "execute-1", "kind": "execute", "title": "Execute", "objective": "Active objective", "procedureRef": "l1:execute"},
+        {"id": "record-1", "kind": "record", "title": "Record", "objective": "Active objective", "procedureRef": "l1:record"}
+      ],
+      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "obligations": [
+        {"nodeId": "execute-1", "id": "requested-outcome-produced", "duty": "required", "title": "Requested outcome produced"},
+        {"nodeId": "execute-1", "id": "minimum-validation-recorded", "duty": "required", "title": "Minimum validation recorded"},
+        {"nodeId": "record-1", "id": "result-and-scope-retained", "duty": "required", "title": "Result and scope retained"}
+      ]
+    },
+    {
+      "taskId": "T-503",
+      "nodes": [
+        {"id": "execute-1", "kind": "execute", "title": "Execute", "objective": "Waiting objective", "procedureRef": "l1:execute"},
+        {"id": "record-1", "kind": "record", "title": "Record", "objective": "Waiting objective", "procedureRef": "l1:record"}
+      ],
+      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "obligations": [
+        {"nodeId": "execute-1", "id": "requested-outcome-produced", "duty": "required", "title": "Requested outcome produced"},
+        {"nodeId": "execute-1", "id": "minimum-validation-recorded", "duty": "required", "title": "Minimum validation recorded"},
+        {"nodeId": "record-1", "id": "result-and-scope-retained", "duty": "required", "title": "Result and scope retained"}
+      ]
+    },
+    {
+      "taskId": "T-504",
+      "nodes": [
+        {"id": "execute-1", "kind": "execute", "title": "Execute", "objective": "Done objective", "procedureRef": "l1:execute"},
+        {"id": "record-1", "kind": "record", "title": "Record", "objective": "Done objective", "procedureRef": "l1:record"}
+      ],
+      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "obligations": [
+        {"nodeId": "execute-1", "id": "requested-outcome-produced", "duty": "required", "title": "Requested outcome produced"},
+        {"nodeId": "execute-1", "id": "minimum-validation-recorded", "duty": "required", "title": "Minimum validation recorded"},
+        {"nodeId": "record-1", "id": "result-and-scope-retained", "duty": "required", "title": "Result and scope retained"}
+      ]
+    },
+    {
+      "taskId": "T-505",
+      "nodes": [
+        {"id": "execute-1", "kind": "execute", "title": "Execute", "objective": "Cancelled objective", "procedureRef": "l1:execute"},
+        {"id": "record-1", "kind": "record", "title": "Record", "objective": "Cancelled objective", "procedureRef": "l1:record"}
+      ],
+      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "obligations": [
+        {"nodeId": "execute-1", "id": "requested-outcome-produced", "duty": "required", "title": "Requested outcome produced"},
+        {"nodeId": "execute-1", "id": "minimum-validation-recorded", "duty": "required", "title": "Minimum validation recorded"},
+        {"nodeId": "record-1", "id": "result-and-scope-retained", "duty": "required", "title": "Result and scope retained"}
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "id": "att-T-502-execute-1-1",
+      "taskId": "T-502",
+      "nodeId": "execute-1",
+      "attemptNumber": 1,
+      "status": "running",
+      "outcome": null,
+      "resultJson": null,
+      "startedAt": "2026-08-11T00:00:00.000Z",
+      "finishedAt": null
+    },
+    {
+      "id": "att-T-503-execute-1-1",
+      "taskId": "T-503",
+      "nodeId": "execute-1",
+      "attemptNumber": 1,
+      "status": "failed",
+      "outcome": "failed",
+      "resultJson": null,
+      "startedAt": "2026-08-11T00:00:00.000Z",
+      "finishedAt": "2026-08-11T00:00:01.000Z"
+    },
+    {
+      "id": "att-T-504-execute-1-1",
+      "taskId": "T-504",
+      "nodeId": "execute-1",
+      "attemptNumber": 1,
+      "status": "finished",
+      "outcome": "success",
+      "resultJson": {"summary": "Done", "evidence": []},
+      "startedAt": "2026-08-11T00:00:00.000Z",
+      "finishedAt": "2026-08-11T00:00:01.000Z"
+    },
+    {
+      "id": "att-T-504-record-1-1",
+      "taskId": "T-504",
+      "nodeId": "record-1",
+      "attemptNumber": 1,
+      "status": "finished",
+      "outcome": "success",
+      "resultJson": {"summary": "Recorded"},
+      "startedAt": "2026-08-11T00:00:02.000Z",
+      "finishedAt": "2026-08-11T00:00:02.000Z"
+    },
+    {
+      "id": "att-T-505-execute-1-1",
+      "taskId": "T-505",
+      "nodeId": "execute-1",
+      "attemptNumber": 1,
+      "status": "cancelled",
+      "outcome": "abandoned",
+      "resultJson": null,
+      "startedAt": "2026-08-11T00:00:00.000Z",
+      "finishedAt": "2026-08-11T01:00:00.000Z"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-T-504-att-T-504-execute-1-1-1",
+      "taskId": "T-504",
+      "nodeAttemptId": "att-T-504-execute-1-1",
+      "type": "validation",
+      "reference": "ref://validation",
+      "summary": "Validation passes",
+      "digest": null
+    },
+    {
+      "id": "ev-T-504-att-T-504-record-1-1-1",
+      "taskId": "T-504",
+      "nodeAttemptId": "att-T-504-record-1-1",
+      "type": "note",
+      "reference": "record://T-504",
+      "summary": "Recorded",
+      "digest": null
+    }
+  ],
+  "obligationResults": [
+    {
+      "taskId": "T-504",
+      "nodeId": "execute-1",
+      "obligationId": "requested-outcome-produced",
+      "status": "satisfied",
+      "satisfiedByEvidenceId": "ev-T-504-att-T-504-execute-1-1-1"
+    },
+    {
+      "taskId": "T-504",
+      "nodeId": "execute-1",
+      "obligationId": "minimum-validation-recorded",
+      "status": "satisfied",
+      "satisfiedByEvidenceId": "ev-T-504-att-T-504-execute-1-1-1"
+    },
+    {
+      "taskId": "T-504",
+      "nodeId": "record-1",
+      "obligationId": "result-and-scope-retained",
+      "status": "satisfied",
+      "satisfiedByEvidenceId": "ev-T-504-att-T-504-record-1-1-1"
+    }
+  ],
+  "blockers": [
+    {
+      "id": "blk-T-503-1",
+      "taskId": "T-503",
+      "nodeId": "execute-1",
+      "kind": "needs_input",
+      "waitingReason": "needs_input",
+      "status": "open",
+      "reason": "Schema decision needed",
+      "remediationCommand": null
+    }
+  ],
+  "agentRuns": [],
+  "events": [
+    {"taskId": "T-501", "eventType": "task.created", "nodeId": null, "attemptId": null, "postTaskRevision": 1},
+    {"taskId": "T-502", "eventType": "task.created", "nodeId": null, "attemptId": null, "postTaskRevision": 1},
+    {"taskId": "T-503", "eventType": "task.created", "nodeId": null, "attemptId": null, "postTaskRevision": 1},
+    {"taskId": "T-504", "eventType": "task.created", "nodeId": null, "attemptId": null, "postTaskRevision": 1},
+    {"taskId": "T-505", "eventType": "task.created", "nodeId": null, "attemptId": null, "postTaskRevision": 1}
+  ]
+}

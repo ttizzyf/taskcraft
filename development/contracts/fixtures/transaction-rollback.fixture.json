@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "tc-fixture/v1",
+  "id": "transaction-rollback",
+  "description": "An activated task with a running execute attempt. Failing runComplete commands (schema-invalid result, or a result without validation evidence) must roll back atomically: no evidence, no closed attempt, unchanged revision.",
+  "tasks": [
+    {
+      "id": "T-105",
+      "title": "Rollback task",
+      "level": 1,
+      "objectiveMd": "Objective",
+      "activatedAt": "2026-08-11T00:00:00.000Z",
+      "cancelledAt": null,
+      "cancelReason": null,
+      "revision": 2,
+      "currentLifecycleRevision": 1
+    }
+  ],
+  "lifecycles": [
+    {
+      "taskId": "T-105",
+      "nodes": [
+        {"id": "execute-1", "kind": "execute", "title": "Execute", "objective": "Objective", "procedureRef": "l1:execute"},
+        {"id": "record-1", "kind": "record", "title": "Record", "objective": "Objective", "procedureRef": "l1:record"}
+      ],
+      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "obligations": [
+        {"nodeId": "execute-1", "id": "requested-outcome-produced", "duty": "required", "title": "Requested outcome produced"},
+        {"nodeId": "execute-1", "id": "minimum-validation-recorded", "duty": "required", "title": "Minimum validation recorded"},
+        {"nodeId": "record-1", "id": "result-and-scope-retained", "duty": "required", "title": "Result and scope retained"}
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "id": "att-T-105-execute-1-1",
+      "taskId": "T-105",
+      "nodeId": "execute-1",
+      "attemptNumber": 1,
+      "status": "running",
+      "outcome": null,
+      "resultJson": null,
+      "startedAt": "2026-08-11T00:00:00.000Z",
+      "finishedAt": null
+    }
+  ],
+  "evidence": [],
+  "obligationResults": [],
+  "blockers": [],
+  "agentRuns": [],
+  "events": [
+    {"taskId": "T-105", "eventType": "task.created", "nodeId": null, "attemptId": null, "postTaskRevision": 1},
+    {"taskId": "T-105", "eventType": "task.activated", "nodeId": "execute-1", "attemptId": "att-T-105-execute-1-1", "postTaskRevision": 2}
+  ]
+}

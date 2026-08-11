@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "tc-fixture/v1",
+  "id": "revision-conflict",
+  "description": "A task whose current revision is 2. Any write command carrying expectedRevision=1 must be rejected with TC_REVISION_CONFLICT and write nothing.",
+  "tasks": [
+    {
+      "id": "T-104",
+      "title": "Revision conflict task",
+      "level": 1,
+      "objectiveMd": "Objective",
+      "activatedAt": "2026-08-11T00:00:00.000Z",
+      "cancelledAt": null,
+      "cancelReason": null,
+      "revision": 2,
+      "currentLifecycleRevision": 1
+    }
+  ],
+  "lifecycles": [
+    {
+      "taskId": "T-104",
+      "nodes": [
+        {"id": "execute-1", "kind": "execute", "title": "Execute", "objective": "Objective", "procedureRef": "l1:execute"},
+        {"id": "record-1", "kind": "record", "title": "Record", "objective": "Objective", "procedureRef": "l1:record"}
+      ],
+      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "obligations": [
+        {"nodeId": "execute-1", "id": "requested-outcome-produced", "duty": "required", "title": "Requested outcome produced"},
+        {"nodeId": "execute-1", "id": "minimum-validation-recorded", "duty": "required", "title": "Minimum validation recorded"},
+        {"nodeId": "record-1", "id": "result-and-scope-retained", "duty": "required", "title": "Result and scope retained"}
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "id": "att-T-104-execute-1-1",
+      "taskId": "T-104",
+      "nodeId": "execute-1",
+      "attemptNumber": 1,
+      "status": "created",
+      "outcome": null,
+      "resultJson": null,
+      "startedAt": null,
+      "finishedAt": null
+    }
+  ],
+  "evidence": [],
+  "obligationResults": [],
+  "blockers": [],
+  "agentRuns": [],
+  "events": [
+    {"taskId": "T-104", "eventType": "task.created", "nodeId": null, "attemptId": null, "postTaskRevision": 1}
+  ]
+}

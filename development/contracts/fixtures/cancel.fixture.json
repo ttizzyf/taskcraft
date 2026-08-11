@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "tc-fixture/v1",
+  "id": "cancel",
+  "description": "A cancelled task: cancellation facts plus the terminated attempt (cancelled/abandoned). Projector derives cancelled with next=tc task show; a second cancel is rejected as TC_TASK_ALREADY_CANCELLED.",
+  "tasks": [
+    {
+      "id": "T-106",
+      "title": "Cancel fixture task",
+      "level": 1,
+      "objectiveMd": "Objective",
+      "activatedAt": "2026-08-11T00:00:00.000Z",
+      "cancelledAt": "2026-08-11T01:00:00.000Z",
+      "cancelReason": "superseded",
+      "revision": 3,
+      "currentLifecycleRevision": 1
+    }
+  ],
+  "lifecycles": [
+    {
+      "taskId": "T-106",
+      "nodes": [
+        {"id": "execute-1", "kind": "execute", "title": "Execute", "objective": "Objective", "procedureRef": "l1:execute"},
+        {"id": "record-1", "kind": "record", "title": "Record", "objective": "Objective", "procedureRef": "l1:record"}
+      ],
+      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "obligations": [
+        {"nodeId": "execute-1", "id": "requested-outcome-produced", "duty": "required", "title": "Requested outcome produced"},
+        {"nodeId": "execute-1", "id": "minimum-validation-recorded", "duty": "required", "title": "Minimum validation recorded"},
+        {"nodeId": "record-1", "id": "result-and-scope-retained", "duty": "required", "title": "Result and scope retained"}
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "id": "att-T-106-execute-1-1",
+      "taskId": "T-106",
+      "nodeId": "execute-1",
+      "attemptNumber": 1,
+      "status": "cancelled",
+      "outcome": "abandoned",
+      "resultJson": null,
+      "startedAt": "2026-08-11T00:00:00.000Z",
+      "finishedAt": "2026-08-11T01:00:00.000Z"
+    }
+  ],
+  "evidence": [],
+  "obligationResults": [],
+  "blockers": [],
+  "agentRuns": [],
+  "events": [
+    {"taskId": "T-106", "eventType": "task.created", "nodeId": null, "attemptId": null, "postTaskRevision": 1},
+    {"taskId": "T-106", "eventType": "task.activated", "nodeId": "execute-1", "attemptId": "att-T-106-execute-1-1", "postTaskRevision": 2},
+    {"taskId": "T-106", "eventType": "task.cancelled", "nodeId": null, "attemptId": null, "postTaskRevision": 3}
+  ]
+}

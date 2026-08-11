@@ -1,0 +1,114 @@
+{
+  "schemaVersion": "tc-fixture/v1",
+  "id": "validation-missing",
+  "description": "The execute attempt is running with only test evidence; a finished agent_run observation exists but no validation evidence and no satisfied obligations. L1 must not project done, and observations never drive completion.",
+  "tasks": [
+    {
+      "id": "T-102",
+      "title": "Refactor helper module",
+      "level": 1,
+      "objectiveMd": "Refactor the shared helper module",
+      "activatedAt": "2026-08-11T00:00:00.000Z",
+      "cancelledAt": null,
+      "cancelReason": null,
+      "revision": 2,
+      "currentLifecycleRevision": 1
+    }
+  ],
+  "lifecycles": [
+    {
+      "taskId": "T-102",
+      "nodes": [
+        {
+          "id": "execute-1",
+          "kind": "execute",
+          "title": "Execute",
+          "objective": "Refactor the shared helper module",
+          "procedureRef": "l1:execute"
+        },
+        {
+          "id": "record-1",
+          "kind": "record",
+          "title": "Record",
+          "objective": "Refactor the shared helper module",
+          "procedureRef": "l1:record"
+        }
+      ],
+      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "obligations": [
+        {
+          "nodeId": "execute-1",
+          "id": "requested-outcome-produced",
+          "duty": "required",
+          "title": "Requested outcome produced",
+          "evaluator": {"kind": "evidence-exists"}
+        },
+        {
+          "nodeId": "execute-1",
+          "id": "minimum-validation-recorded",
+          "duty": "required",
+          "title": "Minimum validation recorded",
+          "evaluator": {"kind": "evidence-type", "type": "validation"}
+        },
+        {
+          "nodeId": "record-1",
+          "id": "result-and-scope-retained",
+          "duty": "required",
+          "title": "Result and scope retained",
+          "evaluator": {"kind": "record-result"}
+        }
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "id": "att-T-102-execute-1-1",
+      "taskId": "T-102",
+      "nodeId": "execute-1",
+      "attemptNumber": 1,
+      "status": "running",
+      "outcome": null,
+      "resultJson": null,
+      "startedAt": "2026-08-11T00:00:00.000Z",
+      "finishedAt": null
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-T-102-att-T-102-execute-1-1-1",
+      "taskId": "T-102",
+      "nodeAttemptId": "att-T-102-execute-1-1",
+      "type": "test",
+      "reference": "ref://unit-test",
+      "summary": "Unit tests pass",
+      "digest": null
+    }
+  ],
+  "obligationResults": [],
+  "blockers": [],
+  "agentRuns": [
+    {
+      "id": "run-T-102-1",
+      "taskId": "T-102",
+      "nodeAttemptId": "att-T-102-execute-1-1",
+      "observationStatus": "finished",
+      "finishReason": "completed"
+    }
+  ],
+  "events": [
+    {
+      "taskId": "T-102",
+      "eventType": "task.created",
+      "nodeId": null,
+      "attemptId": null,
+      "postTaskRevision": 1
+    },
+    {
+      "taskId": "T-102",
+      "eventType": "task.activated",
+      "nodeId": "execute-1",
+      "attemptId": "att-T-102-execute-1-1",
+      "postTaskRevision": 2
+    }
+  ]
+}
