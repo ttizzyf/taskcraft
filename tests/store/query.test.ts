@@ -155,6 +155,7 @@ describe("query model", () => {
       "getObligationResults",
       "getOpenBlockers",
       "getTask",
+      "listTasks",
     ]);
   });
 });
@@ -174,4 +175,5 @@ type ReadOnlyQueryModel = {
   ): ObligationResultRow[];
   getOpenBlockers(database: TaskcraftDatabase, taskId: string): BlockerRow[];
   getLastEventSeq(database: TaskcraftDatabase, taskId: string): number;
+  listTasks(database: TaskcraftDatabase): TaskSnapshot[];
 };

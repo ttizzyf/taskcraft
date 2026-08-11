@@ -14,13 +14,17 @@ function runCli(argument: string) {
 }
 
 describe("tc CLI shell", () => {
-  it("prints root help without business commands", () => {
+  it("prints root help with the L1 business commands", () => {
     const result = runCli("--help");
 
     expect(result.status).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.stdout).toContain("Usage: tc [options]");
-    expect(result.stdout).not.toContain("Commands:");
+    expect(result.stdout).toContain("Commands:");
+    expect(result.stdout).toContain("init");
+    expect(result.stdout).toContain("task");
+    expect(result.stdout).toContain("run");
+    expect(result.stdout).toContain("status");
   });
 
   it("reads the version from package.json", () => {

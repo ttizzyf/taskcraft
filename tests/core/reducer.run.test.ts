@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ERROR_CODES } from "../../src/core/errors.js";
-import { run, taskNew } from "../../src/core/reducer.js";
+import { run, runComplete, taskNew } from "../../src/core/reducer.js";
 import {
   getAttempts,
   getLastEventSeq,
@@ -11,7 +11,7 @@ import {
   captureTaskcraftError,
   createMigratedDatabase,
 } from "../store/helpers.js";
-import { countAttempts, queryEvents } from "./reducer-utils.js";
+import { countAttempts, queryEvents, VALID_RESULT } from "./reducer-utils.js";
 
 describe("reducer run", () => {
   it("activates a queued task and claims the execute-1 attempt", () => {
@@ -120,7 +120,7 @@ describe("reducer run", () => {
     }
   });
 
-  it("rejects a non-execute node with TC_ATTEMPT_REF_INVALID", () => {
+  it("rejects a blocked node with TC_ATTEMPT_REF_INVALID", () => {
     const database = createMigratedDatabase();
 
     try {
@@ -130,12 +130,83 @@ describe("reducer run", () => {
         reason: "reason",
       }).taskId;
 
+      // record-1 is blocked until execute-1 is satisfied.
       const error = captureTaskcraftError(() =>
         run(database, taskId, { nodeId: "record-1" }),
       );
 
       expect(error.code).toBe(ERROR_CODES.TC_ATTEMPT_REF_INVALID);
       expect(countAttempts(database)).toBe(0);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("claims record-1 once execute-1 is satisfied", () => {
+    const database = createMigratedDatabase();
+
+    try {
+      const taskId = taskNew(database, {
+        title: "Record claim",
+        level: 1,
+        reason: "reason",
+      }).taskId;
+      run(database, taskId);
+      runComplete(database, taskId, {
+        result: {
+          summary: "Done",
+          evidence: [{ type: "validation", reference: "r", summary: "ok" }],
+        },
+      });
+
+      const result = run(database, taskId, { nodeId: "record-1" });
+
+      expect(result.nodeBrief).toMatchObject({
+        taskId,
+        nodeId: "record-1",
+        nodeKind: "record",
+        nextCommand: `tc run complete ${taskId} --node record-1`,
+      });
+      expect(
+        result.nodeBrief!.obligations.map((obligation) => obligation.id),
+      ).toEqual(["result-and-scope-retained"]);
+      expect(JSON.parse(result.nodeBrief!.resultSchemaJson).required).toEqual([
+        "summary",
+      ]);
+      expect(getAttempts(database, taskId)).toContainEqual(
+        expect.objectContaining({
+          nodeId: "record-1",
+          attemptNumber: 1,
+          status: "created",
+        }),
+      );
+    } finally {
+      database.close();
+    }
+  });
+
+  it("rejects claiming an already satisfied node", () => {
+    const database = createMigratedDatabase();
+
+    try {
+      const taskId = taskNew(database, {
+        title: "Satisfied node",
+        level: 1,
+        reason: "reason",
+      }).taskId;
+      run(database, taskId);
+      runComplete(database, taskId, { result: VALID_RESULT });
+
+      const error = captureTaskcraftError(() =>
+        run(database, taskId, { nodeId: "execute-1" }),
+      );
+
+      expect(error.code).toBe(ERROR_CODES.TC_ATTEMPT_REF_INVALID);
+      expect(
+        getAttempts(database, taskId).filter(
+          (attempt) => attempt.nodeId === "execute-1",
+        ),
+      ).toHaveLength(1);
     } finally {
       database.close();
     }

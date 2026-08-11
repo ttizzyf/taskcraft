@@ -103,6 +103,64 @@ describe("reducer taskNew", () => {
     }
   });
 
+  it("persists classificationFacts verbatim and defaults them to an empty object", () => {
+    const database = createMigratedDatabase();
+
+    try {
+      const facts = { domain: "docs", risk: "low" };
+      const withFacts = taskNew(database, {
+        title: "Facts task",
+        level: 1,
+        reason: "reason",
+        classificationFacts: facts,
+      });
+
+      const row = database
+        .prepare(
+          "SELECT classification_facts_json AS facts FROM tasks WHERE id = ?",
+        )
+        .get(withFacts.taskId) as { facts: string };
+      expect(JSON.parse(row.facts)).toEqual(facts);
+
+      const withoutFacts = taskNew(database, {
+        title: "Plain task",
+        level: 1,
+        reason: "reason",
+      });
+      const plainRow = database
+        .prepare(
+          "SELECT classification_facts_json AS facts FROM tasks WHERE id = ?",
+        )
+        .get(withoutFacts.taskId) as { facts: string };
+      expect(plainRow.facts).toBe("{}");
+    } finally {
+      database.close();
+    }
+  });
+
+  it("rejects classification facts that are not a JSON object", () => {
+    const database = createMigratedDatabase();
+
+    try {
+      for (const badFacts of [[1, 2], "text", 42, null]) {
+        const error = captureTaskcraftError(() =>
+          taskNew(database, {
+            title: "Bad facts",
+            level: 1,
+            reason: "reason",
+            classificationFacts: badFacts,
+          }),
+        );
+
+        expect(error.code).toBe(ERROR_CODES.TC_TASK_INPUT_INVALID);
+      }
+
+      expect(countTasks(database)).toBe(0);
+    } finally {
+      database.close();
+    }
+  });
+
   it("issues sequential task ids across task creations", () => {
     const database = createMigratedDatabase();
 

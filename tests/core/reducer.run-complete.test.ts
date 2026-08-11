@@ -120,9 +120,127 @@ describe("reducer runComplete", () => {
       expect(projection.doneObligations).toBe(2);
       expect(projection.totalObligations).toBe(3);
       expect(getObligationResults(database, taskId)).toHaveLength(2);
-      // L1 has no standalone record run: the unique next re-claims execute-1,
-      // whose result can carry the missing record segment.
-      expect(projection.next).toBe(`tc run ${taskId} --node execute-1`);
+      expect(projection.runnableNodes).toEqual(["record-1"]);
+      // The unique next claims the runnable record-1 node; the missing record
+      // segment is submitted as the standalone record result.
+      expect(projection.next).toBe(`tc run ${taskId} --node record-1`);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("reaches done by completing record-1 standalone after a record-less execute result", () => {
+    const database = createMigratedDatabase();
+
+    try {
+      const taskId = taskNew(database, {
+        title: "Record late",
+        level: 1,
+        reason: "reason",
+      }).taskId;
+      run(database, taskId);
+      runComplete(database, taskId, {
+        result: {
+          summary: "Done",
+          evidence: [{ type: "validation", reference: "r", summary: "ok" }],
+        },
+      });
+
+      const claimed = run(database, taskId, { nodeId: "record-1" });
+      const result = runComplete(database, taskId, {
+        nodeId: "record-1",
+        attemptId: claimed.nodeBrief!.attemptId,
+        result: { summary: "Recorded late" },
+      });
+
+      expect(result.status).toBe("done");
+      expect(result.next).toBeNull();
+      expect(project(database, taskId).doneObligations).toBe(3);
+
+      const attempts = getAttempts(database, taskId);
+      expect(attempts).toEqual([
+        expect.objectContaining({
+          nodeId: "execute-1",
+          status: "finished",
+          outcome: "success",
+        }),
+        expect.objectContaining({
+          nodeId: "record-1",
+          status: "finished",
+          outcome: "success",
+          resultJson: JSON.stringify({ summary: "Recorded late" }),
+        }),
+      ]);
+      expect(getEvidence(database, taskId)).toHaveLength(2);
+      expect(getEvidence(database, taskId)[1]).toMatchObject({
+        nodeAttemptId: attempts[1]!.id,
+        type: "note",
+        reference: `record://${taskId}`,
+      });
+    } finally {
+      database.close();
+    }
+  });
+
+  it("rejects a record result that fails the record schema with TC_LIFECYCLE_RESULT_INVALID", () => {
+    const database = createMigratedDatabase();
+
+    try {
+      const taskId = taskNew(database, {
+        title: "Bad record",
+        level: 1,
+        reason: "reason",
+      }).taskId;
+      run(database, taskId);
+      runComplete(database, taskId, {
+        result: {
+          summary: "Done",
+          evidence: [{ type: "validation", reference: "r", summary: "ok" }],
+        },
+      });
+      run(database, taskId, { nodeId: "record-1" });
+
+      const error = captureTaskcraftError(() =>
+        runComplete(database, taskId, {
+          nodeId: "record-1",
+          result: { summary: "" },
+        }),
+      );
+
+      expect(error.code).toBe(ERROR_CODES.TC_LIFECYCLE_RESULT_INVALID);
+      // No record facts were written: the record attempt stays created and
+      // the revision and evidence set are unchanged.
+      expect(getTask(database, taskId)!.revision).toBe(4);
+      expect(getAttempts(database, taskId)[1]).toMatchObject({
+        nodeId: "record-1",
+        status: "created",
+      });
+      expect(getEvidence(database, taskId)).toHaveLength(1);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("rejects completing an unknown node with TC_ATTEMPT_REF_INVALID", () => {
+    const database = createMigratedDatabase();
+
+    try {
+      const taskId = taskNew(database, {
+        title: "Unknown node",
+        level: 1,
+        reason: "reason",
+      }).taskId;
+      run(database, taskId);
+
+      const error = captureTaskcraftError(() =>
+        runComplete(database, taskId, {
+          nodeId: "review-1",
+          result: { summary: "x" },
+        }),
+      );
+
+      expect(error.code).toBe(ERROR_CODES.TC_ATTEMPT_REF_INVALID);
+      expect(getEvidence(database, taskId)).toHaveLength(0);
     } finally {
       database.close();
     }
