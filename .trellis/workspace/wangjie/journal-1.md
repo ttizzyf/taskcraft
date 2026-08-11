@@ -195,3 +195,26 @@ Implemented the Node/TypeScript engineering foundation: single-package ESM toolc
 ### Status
 
 [OK] **Completed**
+
+
+## Session 9: Task 02 L1 纵切：l1-cli-smoke 子任务
+
+**Date**: 2026-08-11
+**Task**: Task 02 L1 纵切：l1-cli-smoke 子任务
+**Branch**: `main`
+
+### Summary
+
+实现并归档 l1-cli-smoke：8+ 命令面、Node Brief、同源 text/JSON 渲染、26 个 CLI 集成测试、真实 smoke 到 done；trellis-check 裁决 --facts 回 core 持久化与 record 补交闭环（run/run-complete 按节点分支）
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1921755` | (see git log) |
+| `384c41e` | (see git log) |
+| `1c91b48` | (see git log) |
+
+### Status
+
+[OK] **Completed**

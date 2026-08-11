@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 8
+- **Total Sessions**: 9
 - **Last Active**: 2026-08-11
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~197 | Active |
+| `journal-1.md` | ~220 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 9 | 2026-08-11 | Task 02 L1 纵切：l1-cli-smoke 子任务 | `1921755`, `384c41e`, `1c91b48` | `main` |
 | 8 | 2026-08-11 | Task 02 L1 纵切：reducer-projector 子任务 | `b6e1f08`, `0915e0a` | `main` |
 | 7 | 2026-08-11 | Task 02 L1 纵切：store-transaction 子任务 | `1b5428d` | `main` |
 | 6 | 2026-08-11 | Build Taskcraft engineering foundation | `cc499f1`, `ff76ea9`, `f59120c`, `d4ee87f`, `99ac4f2`, `b2c562a` | `main` |
