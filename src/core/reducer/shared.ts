@@ -11,8 +11,10 @@ import {
 import type { TaskcraftDatabase } from "../../store/database.js";
 import { getLastEventSeq } from "../../store/query.js";
 import type { TaskSnapshot } from "../../store/revision-guard.js";
-import { L1_EXECUTE_RESULT_SCHEMA } from "../lifecycle/l1.js";
-import type { ExecuteResult } from "./context.js";
+import {
+  L1_EXECUTE_RESULT_SCHEMA,
+  L1_RECORD_RESULT_SCHEMA,
+} from "../lifecycle/l1.js";
 
 export interface EventInput {
   taskId: string;
@@ -137,7 +139,7 @@ export function attemptId(
 export function finishAttempt(
   database: TaskcraftDatabase,
   attemptId: string,
-  result: ExecuteResult,
+  result: unknown,
   now: string,
 ): void {
   database
@@ -146,6 +148,46 @@ export function finishAttempt(
               result_json = ?, finished_at = ? WHERE id = ?`,
     )
     .run(JSON.stringify(result), now, attemptId);
+}
+
+export interface EvidenceInput {
+  id: string;
+  taskId: string;
+  attemptId: string;
+  type: "validation" | "test" | "artifact" | "note";
+  reference: string;
+  summary: string;
+  digest: string | null;
+  actor: string;
+  now: string;
+}
+
+/** Writes one evidence row bound to the owning attempt. The satisfied
+ * obligation trigger requires the evidence to belong to an attempt of the
+ * same node and revision, which callers guarantee by passing the target
+ * attempt id. */
+export function insertEvidence(
+  database: TaskcraftDatabase,
+  input: EvidenceInput,
+): void {
+  database
+    .prepare(
+      `INSERT INTO evidence (
+         id, task_id, node_attempt_id, type, reference, summary, digest,
+         created_by, created_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      input.id,
+      input.taskId,
+      input.attemptId,
+      input.type,
+      input.reference,
+      input.summary,
+      input.digest,
+      input.actor,
+      input.now,
+    );
 }
 
 /** Writes a satisfied obligation result. The evidence-owner trigger requires
@@ -178,6 +220,7 @@ export function satisfyObligation(
 }
 
 let executeResultValidator: ValidateFunction | null = null;
+let recordResultValidator: ValidateFunction | null = null;
 
 export function validateExecuteResult(result: unknown): boolean {
   if (executeResultValidator === null) {
@@ -188,6 +231,17 @@ export function validateExecuteResult(result: unknown): boolean {
   }
 
   return executeResultValidator(result) === true;
+}
+
+export function validateRecordResult(result: unknown): boolean {
+  if (recordResultValidator === null) {
+    recordResultValidator = new Ajv2020({
+      strict: true,
+      allErrors: true,
+    }).compile(L1_RECORD_RESULT_SCHEMA as AnySchema);
+  }
+
+  return recordResultValidator(result) === true;
 }
 
 export function isUniqueConstraint(cause: unknown): boolean {

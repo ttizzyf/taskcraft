@@ -42,6 +42,9 @@ export interface TaskNewInput {
   level: number;
   reason: string;
   objectiveMd?: string;
+  /** Classification facts persisted verbatim as JSON (must be a plain
+   * object); absent means an empty fact set. */
+  classificationFacts?: unknown;
   actorInstanceId?: string;
 }
 
@@ -54,6 +57,9 @@ export interface RunInput {
 
 export interface RunCompleteInput {
   result: unknown;
+  /** Target node of the result (default execute-1); record-1 completes the
+   * record node when the execute result carried no record segment. */
+  nodeId?: string;
   attemptId?: string;
   expectedRevision?: number;
   actorInstanceId?: string;
@@ -70,18 +76,6 @@ export interface AttemptFailureInput {
   reason: string;
   expectedRevision?: number;
   actorInstanceId?: string;
-}
-
-/** The shape accepted by the execute-1 result schema (after Ajv passed). */
-export interface ExecuteResult {
-  summary: string;
-  evidence: Array<{
-    type: "validation" | "test" | "artifact" | "note";
-    reference: string;
-    summary: string;
-    digest?: string;
-  }>;
-  record?: { summary: string };
 }
 
 /** CAS guard: an explicit expectedRevision must match, an omitted one passes

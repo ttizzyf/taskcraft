@@ -1,13 +1,16 @@
 // run: activates a queued task and claims the execute-1 attempt in one
 // transaction. On an already-activated task it claims the target node
 // attempt (creating a successor when none is active) and returns the Node
-// Brief; repeating run on an active attempt writes nothing.
+// Brief; repeating run on an active attempt writes nothing. Any runnable
+// node of the current revision can be claimed (record-1 too, so a missing
+// record segment can be submitted without redoing the execute work).
 
 import type { TaskcraftDatabase } from "../../store/database.js";
 import { getAttempts, getLifecycle } from "../../store/query.js";
 import { withTransaction } from "../../store/transaction.js";
 import { ERROR_CODES, TaskcraftError } from "../errors.js";
 import { L1_DEFAULT_ACTOR, L1_EXECUTE_NODE_ID } from "../lifecycle/l1.js";
+import { project } from "../projector.js";
 import type { CommandData, NodeBrief, RunInput } from "./context.js";
 import {
   assertNotCancelled,
@@ -33,13 +36,27 @@ export function run(
     const snapshot = resolveSnapshot(database, taskId, input.expectedRevision);
     assertNotCancelled(snapshot);
     const nodeId = input.nodeId ?? L1_EXECUTE_NODE_ID;
+    const nodeProjection = project(database, taskId).nodeStatuses.find(
+      (node) => node.nodeId === nodeId,
+    );
 
-    if (nodeId !== L1_EXECUTE_NODE_ID) {
+    if (nodeProjection === undefined || nodeProjection.status === "blocked") {
       throw new TaskcraftError(ERROR_CODES.TC_ATTEMPT_REF_INVALID, {
-        problem: `L1 node ${nodeId} has no runnable attempt; only execute-1 can be claimed`,
+        problem:
+          nodeProjection === undefined
+            ? `Node ${nodeId} does not exist in the current lifecycle revision`
+            : `Node ${nodeId} is not runnable yet: its predecessors are not satisfied`,
         impact: "No facts were written",
-        remediation:
-          "The record result is submitted with: tc run complete <task-id>",
+        remediation: "List runnable nodes with: tc task next <task-id> --json",
+        context: { taskId, nodeId },
+      });
+    }
+
+    if (nodeProjection.status === "satisfied") {
+      throw new TaskcraftError(ERROR_CODES.TC_ATTEMPT_REF_INVALID, {
+        problem: `Node ${nodeId} is already satisfied; no new attempt can be claimed`,
+        impact: "No facts were written",
+        remediation: "Follow the projected next command from: tc status --json",
         context: { taskId, nodeId },
       });
     }
@@ -92,10 +109,10 @@ export function run(
       bumpRevision(database, snapshot, now);
     } else if (activeAttempt === undefined) {
       const nextNumber =
-        attempts.reduce(
-          (max, attempt) => Math.max(max, attempt.attemptNumber),
-          0,
-        ) + 1;
+        attempts
+          .filter((attempt) => attempt.nodeId === nodeId)
+          .reduce((max, attempt) => Math.max(max, attempt.attemptNumber), 0) +
+        1;
       const attempt = attemptId(taskId, nodeId, nextNumber);
       claimedAttemptId = attempt;
       insertAttempt(database, {
@@ -132,27 +149,33 @@ export function run(
     const data = commandData(database, taskId, snapshotOf(database, taskId));
     return {
       ...data,
-      nodeBrief: nodeBrief(database, taskId, snapshot, claimedAttemptId),
+      nodeBrief: nodeBrief(
+        database,
+        taskId,
+        snapshot,
+        claimedAttemptId,
+        nodeId,
+      ),
     };
   });
 }
 
-/** Node Brief for execute-1: objective, obligations, result schema and the
- * registered completion command, all read from the current revision. */
+/** Node Brief for the claimed node: objective, its obligations, the node
+ * result schema and the registered completion command, all read from the
+ * current revision. */
 function nodeBrief(
   database: TaskcraftDatabase,
   taskId: string,
   snapshot: { title: string; currentLifecycleRevision: number },
   claimedAttemptId: string,
+  nodeId: string,
 ): NodeBrief {
   const graph = getLifecycle(
     database,
     taskId,
     snapshot.currentLifecycleRevision,
   );
-  const node = graph.nodes.find(
-    (candidate) => candidate.id === L1_EXECUTE_NODE_ID,
-  )!;
+  const node = graph.nodes.find((candidate) => candidate.id === nodeId)!;
 
   return {
     taskId,
@@ -163,13 +186,16 @@ function nodeBrief(
     objective: node.objective,
     procedureRef: node.procedureRef,
     obligations: graph.obligations
-      .filter((obligation) => obligation.nodeId === L1_EXECUTE_NODE_ID)
+      .filter((obligation) => obligation.nodeId === nodeId)
       .map((obligation) => ({
         id: obligation.id,
         duty: obligation.duty,
         title: obligation.title,
       })),
     resultSchemaJson: node.outputSchemaJson,
-    nextCommand: `tc run complete ${taskId}`,
+    nextCommand:
+      nodeId === L1_EXECUTE_NODE_ID
+        ? `tc run complete ${taskId}`
+        : `tc run complete ${taskId} --node ${nodeId}`,
   };
 }

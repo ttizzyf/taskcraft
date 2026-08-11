@@ -11,7 +11,6 @@ export type {
   AttemptFailureInput,
   CancelInput,
   CommandData,
-  ExecuteResult,
   NodeBrief,
   RunCompleteInput,
   RunInput,

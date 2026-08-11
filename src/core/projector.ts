@@ -158,16 +158,17 @@ export function project(
     next = blockers[0]!.remediationCommand;
   } else {
     status = "active";
-    const activeExecuteAttempt = attempts.some(
-      (attempt) =>
-        attempt.nodeId === "execute-1" &&
-        (attempt.status === "created" || attempt.status === "running"),
-    );
-    next = activeExecuteAttempt
-      ? `tc run complete ${taskId}`
-      : runnableNodes.length === 0
-        ? null
-        : `tc run ${taskId} --node ${L1_EXECUTE_NODE_ID}`;
+
+    if (runningNode !== null) {
+      next =
+        runningNode === L1_EXECUTE_NODE_ID
+          ? `tc run complete ${taskId}`
+          : `tc run complete ${taskId} --node ${runningNode}`;
+    } else if (runnableNodes.length > 0) {
+      next = `tc run ${taskId} --node ${runnableNodes[0]!}`;
+    } else {
+      next = null;
+    }
   }
 
   const nodeForAnchor =

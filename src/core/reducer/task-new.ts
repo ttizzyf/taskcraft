@@ -76,6 +76,21 @@ function validateTaskNewInput(input: TaskNewInput): void {
       remediation: "Retry with --title and --reason filled in",
     });
   }
+
+  if (
+    input.classificationFacts !== undefined &&
+    (input.classificationFacts === null ||
+      typeof input.classificationFacts !== "object" ||
+      Array.isArray(input.classificationFacts))
+  ) {
+    throw new TaskcraftError(ERROR_CODES.TC_TASK_INPUT_INVALID, {
+      problem:
+        'Classification facts must be a JSON object, e.g. {"domain": "docs"}',
+      impact: "The task was not created",
+      remediation: "Retry with --facts containing a JSON object",
+      context: { factsType: typeof input.classificationFacts },
+    });
+  }
 }
 
 function nextTaskId(database: TaskcraftDatabase): string {
@@ -99,10 +114,17 @@ function insertTaskRow(
          non_goals_json, classification_facts_json, classification_reasons_json,
          parent_task_id, activated_at, cancelled_at, cancel_reason,
          current_lifecycle_revision, revision, created_at, updated_at
-       ) VALUES (?, ?, 1, ?, '{}', '[]', '[]', '{}', '[]', NULL, NULL, NULL,
+       ) VALUES (?, ?, 1, ?, '{}', '[]', '[]', ?, '[]', NULL, NULL, NULL,
          NULL, 1, 1, ?, ?)`,
     )
-    .run(taskId, input.title, input.objectiveMd ?? input.title, now, now);
+    .run(
+      taskId,
+      input.title,
+      input.objectiveMd ?? input.title,
+      JSON.stringify(input.classificationFacts ?? {}),
+      now,
+      now,
+    );
 }
 
 function materializeL1Lifecycle(
