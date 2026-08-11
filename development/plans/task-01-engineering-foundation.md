@@ -25,13 +25,17 @@
 
 - Node.js 24，`package.json` 声明支持的主版本。
 - pnpm 10，提交 `pnpm-lock.yaml`，可用 frozen lockfile 安装。
-- TypeScript strict，不引入运行时 decorator 或另一套 DTO class。
+- TypeScript 6 strict，不引入运行时 decorator 或另一套 DTO class。
 - `better-sqlite3` 12，只由 Store 边界直接使用。
 - Ajv 8，Draft 2020-12 strict；当前不安装 `ajv-formats`。
+- Commander.js 15 作为 CLI 框架；Task 01 只装配根命令、`--version` 和 `--help`。
+- ESLint 10 与 typescript-eslint 8 校验 TypeScript/JavaScript，并启用内置
+  `max-lines`：每个文件最多 400 行，空行和纯注释不计入。
+- Prettier 3 提供 `format:check`，只覆盖 Taskcraft 源码、测试和工程配置。
 - Vitest 4；后端单元测试硬超时为 60 秒。
 
 具体 patch 版本由锁文件固定。Task 01 不再重新选择语言、包管理器、SQLite
-driver、Schema 校验器或测试框架。
+driver、Schema 校验器、CLI 框架、lint 工具或测试框架。
 
 ## 范围
 
@@ -51,8 +55,9 @@ driver、Schema 校验器或测试框架。
 package.json
 pnpm-lock.yaml
 tsconfig.json
+eslint.config.*
 src/
-  cli.ts                    # 只输出版本和帮助
+  cli.ts                    # Commander 根命令，只输出版本和帮助
   store/                    # SQLite connection 与 migration runner
   contracts/                # Ajv 编译和 fixture 加载
 migrations/
@@ -88,6 +93,8 @@ Task 02 的真实闭环开始实现。
   必须通过校验，其余 fixture 至少通过 JSON 解析。不得用错误的 Schema 校验
   不同类型的 fixture。
 - 测试不会写入仓库固定路径或依赖用户机器状态。
+- `pnpm lint` 对超过 400 个有效行的 TypeScript/JavaScript 文件返回失败；
+  `dist/`、`coverage/` 和生成文件不参与检查，普通源码和测试不豁免。
 - 不存在吞掉异常或假装成功的 fallback。
 
 ## 非目标
@@ -104,6 +111,8 @@ Task 02 的真实闭环开始实现。
 4. `pnpm build`。
 5. 空数据库 migration、重复运行、checksum drift、失败回滚和
    `foreign_key_check` smoke。
+6. 在临时目录分别用 400 行以内和超过 400 个有效行的 TypeScript 文件验证
+   ESLint 通过与失败；临时文件不写入仓库。
 
 ## 后续启动提示
 
