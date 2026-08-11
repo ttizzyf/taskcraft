@@ -173,3 +173,25 @@ Implemented the Node/TypeScript engineering foundation: single-package ESM toolc
 ### Status
 
 [OK] **Completed**
+
+
+## Session 8: Task 02 L1 纵切：reducer-projector 子任务
+
+**Date**: 2026-08-11
+**Task**: Task 02 L1 纵切：reducer-projector 子任务
+**Branch**: `main`
+
+### Summary
+
+实现并归档 reducer-projector：L1 内置图、单 reducer（taskNew/run/runComplete/cancel+失败语义）、单 projector（五状态）、command-result/breadcrumb、7 个 fixtures、47 个新测试；发现并裁决 record obligation 与 storage.sql trigger 的冲突（物化 record attempt），trellis-check 修复 4 处问题
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b6e1f08` | (see git log) |
+| `0915e0a` | (see git log) |
+
+### Status
+
+[OK] **Completed**
