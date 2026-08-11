@@ -131,13 +131,7 @@ export interface BlockerRow {
   resolvedAt: string | null;
 }
 
-export function getTask(
-  database: TaskcraftDatabase,
-  taskId: string,
-): TaskSnapshot | null {
-  const row = database
-    .prepare(
-      `SELECT id, title, level,
+const TASK_SELECT = `SELECT id, title, level,
               objective_md AS objectiveMd,
               scope_json AS scopeJson,
               acceptance_json AS acceptanceJson,
@@ -152,12 +146,21 @@ export function getTask(
               revision,
               created_at AS createdAt,
               updated_at AS updatedAt
-       FROM tasks
-       WHERE id = ?`,
-    )
-    .get(taskId);
+       FROM tasks`;
+
+export function getTask(
+  database: TaskcraftDatabase,
+  taskId: string,
+): TaskSnapshot | null {
+  const row = database.prepare(`${TASK_SELECT} WHERE id = ?`).get(taskId);
 
   return (row as TaskSnapshot | undefined) ?? null;
+}
+
+export function listTasks(database: TaskcraftDatabase): TaskSnapshot[] {
+  return database
+    .prepare(`${TASK_SELECT} ORDER BY rowid`)
+    .all() as TaskSnapshot[];
 }
 
 export function getLifecycle(
