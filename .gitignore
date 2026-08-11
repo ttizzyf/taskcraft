@@ -1,3 +1,7 @@
 .DS_Store
 *.log
 .taskcraft/cache/
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
