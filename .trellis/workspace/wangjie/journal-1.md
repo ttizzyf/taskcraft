@@ -328,3 +328,25 @@ Implemented the Node/TypeScript engineering foundation: single-package ESM toolc
 ### Status
 
 [OK] **Completed**
+
+
+## Session 15: Task 04：hook-wiring 子任务
+
+**Date**: 2026-08-12
+**Task**: Task 04：hook-wiring 子任务
+**Branch**: `main`
+
+### Summary
+
+实现并归档 hook-wiring：静默入口 gate（off/ask/always 矩阵）、Entry/Stop Hook 安装（项目级配置、write-if-absent 幂等）、tc init --agent/enable/agent 命令、TC_ADAPTER_* diagnostics、52 新测试；trellis-check 修复 3 处（enable 显示 bug、重复定义、工作区残留清理）
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fb99d59` | (see git log) |
+| `d43da99` | (see git log) |
+
+### Status
+
+[OK] **Completed**

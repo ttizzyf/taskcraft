@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 14
+- **Total Sessions**: 15
 - **Last Active**: 2026-08-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~329 | Active |
+| `journal-1.md` | ~352 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 15 | 2026-08-12 | Task 04：hook-wiring 子任务 | `fb99d59`, `d43da99` | `main` |
 | 14 | 2026-08-12 | Task 04：adapter-core 子任务 | commit1 | `main` |
 | 13 | 2026-08-12 | Task 03 父任务：集成验收与归档 | `6f4a0a0` | `main` |
 | 12 | 2026-08-12 | Task 03：review-cli 子任务 | `5faa9d5`, `6c8cd75`, `c2d536a` | `main` |
