@@ -1,0 +1,30 @@
+{
+  "id": "host-adapters",
+  "name": "host-adapters",
+  "title": "Implement Codex and Claude adapters with continuation",
+  "description": "HostAdapter interface, codex/claude adapters, Entry/Stop hook wiring, agent commands, diagnostics, real-host smoke",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "wangjie",
+  "assignee": "wangjie",
+  "createdAt": "2026-08-12",
+  "completedAt": "2026-08-12",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-12-adapter-core",
+    "08-12-hook-wiring",
+    "08-12-host-smoke"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
