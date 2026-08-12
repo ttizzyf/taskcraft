@@ -12,7 +12,7 @@ import {
   captureTaskcraftError,
   createMigratedDatabase,
 } from "../store/helpers.js";
-import { countEvents, countTasks, queryEvents } from "./reducer-utils.js";
+import { countTasks, queryEvents } from "./reducer-utils.js";
 
 describe("reducer taskNew", () => {
   it("writes the task, the L1 graph and the task.created event (revision 1, task_seq 1)", () => {
@@ -68,7 +68,7 @@ describe("reducer taskNew", () => {
     }
   });
 
-  it("materializes the L2 graph for level 2 and rejects level 3", () => {
+  it("materializes the L2 graph for level 2", () => {
     const database = createMigratedDatabase();
 
     try {
@@ -103,18 +103,49 @@ describe("reducer taskNew", () => {
         "result-and-scope-retained",
         "review-completed",
       ]);
+    } finally {
+      database.close();
+    }
+  });
 
-      const error = captureTaskcraftError(() =>
-        taskNew(database, {
-          title: "L3 task",
-          level: 3,
-          reason: "Initiative",
-        }),
-      );
+  it("materializes the L3 graph for level 3 (covered in detail by projector.l3)", () => {
+    const database = createMigratedDatabase();
 
-      expect(error.code).toBe(ERROR_CODES.TC_TASK_LEVEL_UNSUPPORTED);
-      expect(countTasks(database)).toBe(1);
-      expect(countEvents(database)).toBe(1);
+    try {
+      const l3 = taskNew(database, {
+        title: "L3 task",
+        level: 3,
+        reason: "Initiative",
+      });
+
+      expect(l3.taskId).toBe("T-1");
+      expect(l3.status).toBe("queued");
+      expect(l3.next).toBe("tc run T-1 --node frame-1");
+
+      const graph = getLifecycle(database, "T-1", 1);
+      expect(graph.nodes).toHaveLength(8);
+      expect(graph.nodes.map((node) => node.kind)).toEqual([
+        "frame",
+        "plan",
+        "review",
+        "execute",
+        "review",
+        "integrate",
+        "review",
+        "record",
+      ]);
+      expect(graph.obligations).toHaveLength(9);
+      expect(graph.obligations.map((obligation) => obligation.id)).toEqual([
+        "minimum-validation-recorded",
+        "requested-outcome-produced",
+        "frame-completed",
+        "integration-completed",
+        "plan-completed",
+        "result-and-scope-retained",
+        "delivery-completed",
+        "integration-review-completed",
+        "feasibility-completed",
+      ]);
     } finally {
       database.close();
     }

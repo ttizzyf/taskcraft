@@ -84,6 +84,18 @@ export interface FixtureDocument {
     summary: string;
     digest?: string | null;
   }>;
+  /** Appended task facts; supersedes chains are ordered (a fact may only
+   * supersede an earlier fact of the array). */
+  taskFacts: Array<{
+    id: string;
+    taskId: string;
+    category: string;
+    subject: string;
+    value: unknown;
+    sourceAttemptId: string;
+    evidenceId?: string | null;
+    supersedesFactId?: string | null;
+  }>;
   obligationResults: Array<{
     taskId: string;
     /** Lifecycle revision of this result (default: the task's current one).

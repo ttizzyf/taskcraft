@@ -161,6 +161,7 @@ describe("query model", () => {
       "getReviewFindings",
       "getReviewLinks",
       "getTask",
+      "getTaskFacts",
       "listTasks",
     ]);
   });

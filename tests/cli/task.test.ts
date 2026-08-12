@@ -53,7 +53,7 @@ describe("tc task new", () => {
     });
   });
 
-  it("creates an L2 task with the frame node and rejects level 3", () => {
+  it("creates L2 and L3 tasks, each materializing its own frame node", () => {
     withInitializedDirectory((cwd) => {
       const created = runCli(
         ["task", "new", "--title", "L2", "--level", "2", "--reason", "r"],
@@ -64,14 +64,15 @@ describe("tc task new", () => {
       expect(created.stdout).toContain("Status: queued");
       expect(created.stdout).toContain("Next: tc run T-1 --node frame-1");
 
-      const rejected = runCli(
+      const l3 = runCli(
         ["task", "new", "--title", "L3", "--level", "3", "--reason", "r"],
         cwd,
       );
 
-      expect(rejected.status).toBe(1);
-      expect(rejected.stdout).toBe("");
-      expect(rejected.stderr).toContain("TC_TASK_LEVEL_UNSUPPORTED");
+      expect(l3.status).toBe(0);
+      expect(l3.stdout).toContain("Task: T-2");
+      expect(l3.stdout).toContain("Status: queued");
+      expect(l3.stdout).toContain("Next: tc run T-2 --node frame-1");
     });
   });
 

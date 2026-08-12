@@ -7,8 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import type { TaskcraftDatabase } from "../../src/store/database.js";
 import type { FixtureDocument, FixtureTask } from "./fixture-document.js";
-
-const FIXED_TIMESTAMP = "2026-08-11T00:00:00.000Z";
+import { FIXED_TIMESTAMP, insertTaskFact } from "./load-fixture-facts.js";
 
 export function fixturePath(name: string): string {
   return fileURLToPath(
@@ -58,6 +57,10 @@ export function loadFixture(database: TaskcraftDatabase, raw: unknown): void {
 
     for (const evidence of fixture.evidence) {
       insertEvidence(database, evidence);
+    }
+
+    for (const fact of fixture.taskFacts ?? []) {
+      insertTaskFact(database, fact);
     }
 
     for (const link of fixture.reviewLinks ?? []) {

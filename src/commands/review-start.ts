@@ -42,9 +42,9 @@ export function register(review: Command): void {
       "--purpose <purpose>",
       "review purpose: feasibility, delivery or integration",
     )
-    .requiredOption(
+    .option(
       "--reviewed-attempt <attempt-id>",
-      "reviewed execute attempt id",
+      "reviewed attempt id (default: latest finished attempt of the audited kind)",
     )
     .option("--host <host>", "host name")
     .option(
@@ -79,10 +79,13 @@ export function register(review: Command): void {
           taskId,
           nodeId: options.node,
           purpose,
-          reviewedAttemptId: options.reviewedAttempt,
           capability,
           independenceStatus,
         };
+
+        if (options.reviewedAttempt !== undefined) {
+          input.reviewedAttemptId = options.reviewedAttempt;
+        }
 
         if (options.host !== undefined) {
           input.host = options.host;

@@ -59,7 +59,7 @@ describe("projector L2 graph", () => {
     }
   });
 
-  it("keeps the L1 graph for level 1 and rejects level 3", () => {
+  it("keeps the L1 graph for level 1 and rejects unknown levels", () => {
     const database = createMigratedDatabase();
 
     try {
@@ -72,7 +72,7 @@ describe("projector L2 graph", () => {
       expect(project(database, taskId).totalObligations).toBe(3);
 
       const error = captureTaskcraftError(() =>
-        taskNew(database, { title: "L3", level: 3, reason: "reason" }),
+        taskNew(database, { title: "L4", level: 4, reason: "reason" }),
       );
       expect(error.code).toBe(ERROR_CODES.TC_TASK_LEVEL_UNSUPPORTED);
     } finally {
