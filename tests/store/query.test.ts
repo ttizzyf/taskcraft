@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { TaskcraftDatabase } from "../../src/store/database.js";
 import * as query from "../../src/store/query.js";
 import type {
+  AgentRunRow,
   AttemptRow,
   BlockerRow,
   EvidenceRow,
@@ -29,6 +30,8 @@ describe("query model", () => {
       });
       expect(query.getAttempts(database, "task-unknown")).toEqual([]);
       expect(query.getEvidence(database, "task-unknown")).toEqual([]);
+      expect(query.getAgentRuns(database, "task-unknown")).toEqual([]);
+      expect(query.getAgentRuns(database)).toEqual([]);
       expect(query.getObligationResults(database, "task-unknown")).toEqual([]);
       expect(query.getOpenBlockers(database, "task-unknown")).toEqual([]);
       expect(query.getLastEventSeq(database, "task-unknown")).toBe(0);
@@ -148,6 +151,7 @@ describe("query model", () => {
     const readOnly: ReadOnlyQueryModel = query;
 
     expect(Object.keys(readOnly).sort()).toEqual([
+      "getAgentRuns",
       "getAttempts",
       "getEvidence",
       "getLastEventSeq",
@@ -163,6 +167,7 @@ describe("query model", () => {
 });
 
 type ReadOnlyQueryModel = {
+  getAgentRuns(database: TaskcraftDatabase, taskId?: string): AgentRunRow[];
   getTask(database: TaskcraftDatabase, taskId: string): TaskSnapshot | null;
   getLifecycle(
     database: TaskcraftDatabase,
