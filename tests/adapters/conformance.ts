@@ -122,7 +122,10 @@ export function runConformance(
         );
 
         const entryContent = readFileSync(first.hookPaths[0]!, "utf8");
-        expect(entryContent).toContain("state --breadcrumb");
+        // The wrapper invokes the compiled gate entry point (resolved from
+        // the module location, never cwd-dependent).
+        expect(entryContent).toContain("hooks/entry.js");
+        expect(entryContent).toContain("config.json");
 
         const second = adapter.installEntry({
           projectDir: projectDir.path,

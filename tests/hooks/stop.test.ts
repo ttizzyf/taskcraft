@@ -1,0 +1,146 @@
+// Stop gate decision matrix (pure decideStop) and the thin IO wrapper
+// (runStopGate): waiting/done/cancelled tasks and active tasks without work
+// are allowed to stop; an active task with runnable or running nodes blocks
+// and prints the breadcrumb. off mode always allows with zero output.
+
+import { describe, expect, it } from "vitest";
+
+import { ERROR_CODES } from "../../src/core/errors.js";
+import { decideStop, runStopGate } from "../../src/hooks/stop.js";
+import { insertL1Fixture, insertNode, insertTask } from "../store/helpers.js";
+import {
+  activeProjection,
+  createHookProject,
+  createStoreAt,
+  FIXED_TIMESTAMP,
+  nonActiveProjection,
+} from "./helpers.js";
+
+describe("decideStop pure matrix", () => {
+  it("allows when there is no task", () => {
+    expect(decideStop(null)).toBe("allow");
+  });
+
+  it("allows non-active projections", () => {
+    for (const status of ["waiting", "done", "cancelled", "queued"] as const) {
+      expect(decideStop(nonActiveProjection(status))).toBe("allow");
+    }
+  });
+
+  it("blocks an active task with a runnable node and names the next command", () => {
+    const projection = activeProjection();
+
+    expect(decideStop(projection)).toEqual({
+      action: "block",
+      next: "tc run T-1 --node execute-1",
+    });
+  });
+
+  it("blocks an active task with a running node", () => {
+    const projection = activeProjection({
+      runnableNodes: [],
+      runningNode: "execute-1",
+      next: "tc run complete T-1",
+    });
+
+    expect(decideStop(projection)).toEqual({
+      action: "block",
+      next: "tc run complete T-1",
+    });
+  });
+
+  it("allows an active task without runnable or running work", () => {
+    const projection = activeProjection({
+      runnableNodes: [],
+      runningNode: null,
+      next: null,
+    });
+
+    expect(decideStop(projection)).toBe("allow");
+  });
+});
+
+describe("runStopGate IO wrapper", () => {
+  it("off always allows with zero output, even with an active task", () => {
+    const project = createHookProject({ takeOver: "off" }, true);
+    const database = createStoreAt(project.databasePath);
+    insertTask(database, { id: "T-1", activatedAt: FIXED_TIMESTAMP });
+    insertNode(database, "T-1", "execute-1", "execute");
+    database.close();
+
+    try {
+      const result = runStopGate(project.configPath);
+
+      expect(result.decision).toBe("allow");
+      expect(result.output).toBeNull();
+    } finally {
+      project.cleanup();
+    }
+  });
+
+  it("a project without a Task Store allows the stop", () => {
+    const project = createHookProject({ takeOver: "always" }, false);
+
+    try {
+      const result = runStopGate(project.configPath);
+
+      expect(result.decision).toBe("allow");
+      expect(result.output).toBeNull();
+    } finally {
+      project.cleanup();
+    }
+  });
+
+  it("blocks an active task and prints the breadcrumb", () => {
+    const project = createHookProject({ takeOver: "ask" }, true);
+    const database = createStoreAt(project.databasePath);
+    insertTask(database, { id: "T-1", activatedAt: FIXED_TIMESTAMP });
+    insertNode(database, "T-1", "execute-1", "execute");
+    database.close();
+
+    try {
+      const result = runStopGate(project.configPath);
+
+      expect(result.decision).toEqual({
+        action: "block",
+        next: "tc run T-1 --node execute-1",
+      });
+      expect(result.output).toContain("tc-breadcrumb/v1");
+    } finally {
+      project.cleanup();
+    }
+  });
+
+  it("a waiting task allows the stop", () => {
+    const project = createHookProject({ takeOver: "always" }, true);
+    const database = createStoreAt(project.databasePath);
+    insertL1Fixture(database);
+    database.close();
+
+    try {
+      const result = runStopGate(project.configPath);
+
+      expect(result.decision).toBe("allow");
+      expect(result.output).toBeNull();
+    } finally {
+      project.cleanup();
+    }
+  });
+
+  it("maps a missing or malformed config to a stable diagnostic", () => {
+    for (const config of ["not json", { takeOver: "bogus" }]) {
+      const project = createHookProject(config, false);
+
+      try {
+        expect(() => runStopGate(project.configPath)).toThrowError(
+          expect.objectContaining({
+            code: ERROR_CODES.TC_ADAPTER_HOOK_INSTALL_FAILED,
+            remediation: expect.stringContaining("tc init --agent"),
+          }),
+        );
+      } finally {
+        project.cleanup();
+      }
+    }
+  });
+});
