@@ -59,8 +59,7 @@ export function run(
       throw new TaskcraftError(ERROR_CODES.TC_ATTEMPT_REF_INVALID, {
         problem: `Node ${nodeId} is a review node; review attempts are opened with review start`,
         impact: "No facts were written",
-        remediation:
-          "Start the review with: tc review start <task-id> --purpose delivery",
+        remediation: `Start the review with: tc review start <task-id> --node ${nodeId} --purpose <feasibility|delivery|integration>`,
         context: { taskId, nodeId },
       });
     }

@@ -1,11 +1,19 @@
-// reviewStart: opens a delivery review. In one transaction it validates the
-// review node is runnable (execute satisfied and no open review attempt),
-// resolves the reviewed execute attempt of the current revision, checks the
-// purpose/kind match and the independence disclosure, then writes the review
-// attempt, the review link and the audit event. No outcome is written.
+// reviewStart: opens a feasibility, delivery or integration review. In one
+// transaction it validates the review node is runnable (reviewed node
+// satisfied and no open review attempt), resolves the reviewed attempt of the
+// current revision (explicit id, or the latest finished/success attempt of
+// the node kind matching the purpose), checks the purpose/kind match and the
+// independence disclosure, then writes the review attempt, the review link
+// and the audit event. No outcome is written.
 
 import type { TaskcraftDatabase } from "../../store/database.js";
-import { getAttempts, getLifecycle } from "../../store/query.js";
+import {
+  getAttempts,
+  getLifecycle,
+  type AttemptRow,
+  type LifecycleGraph,
+  type ReviewPurpose,
+} from "../../store/query.js";
 import { withTransaction } from "../../store/transaction.js";
 import { ERROR_CODES, TaskcraftError } from "../errors.js";
 import { L1_DEFAULT_ACTOR } from "../lifecycle/l1.js";
@@ -34,6 +42,14 @@ const REVIEW_INDEPENDENCE_STATUSES = [
   "same-actor",
   "unsupported",
 ];
+
+/** The node kind a review purpose audits: feasibility reviews the plan
+ * attempt, delivery the execute attempt, integration the integrate attempt. */
+const PURPOSE_KIND = {
+  feasibility: "plan",
+  delivery: "execute",
+  integration: "integrate",
+} as const;
 
 export function reviewStart(
   database: TaskcraftDatabase,
@@ -74,27 +90,31 @@ export function reviewStart(
     const attempts = getAttempts(database, taskId).filter(
       (attempt) => attempt.lifecycleRevision === revision,
     );
+    const expectedKind = PURPOSE_KIND[input.purpose];
+    const reviewedAttemptId =
+      input.reviewedAttemptId ??
+      resolveDefaultReviewedAttempt(taskId, attempts, graph, input.purpose);
     const reviewed = attempts.find(
-      (attempt) => attempt.id === input.reviewedAttemptId,
+      (attempt) => attempt.id === reviewedAttemptId,
     );
     const reviewedNode = graph.nodes.find(
       (candidate) => candidate.id === reviewed?.nodeId,
     );
 
-    if (reviewed === undefined || reviewedNode?.kind !== "execute") {
+    if (reviewed === undefined) {
       throw reviewRefError(
         taskId,
-        `Attempt ${input.reviewedAttemptId} is not an execute attempt of the current revision`,
-        "Pass the execute attempt id from: tc task show <task-id> --json",
+        `Attempt ${reviewedAttemptId} is not an attempt of the current revision`,
+        "Pass the attempt id from: tc task show <task-id> --json",
       );
     }
 
-    if (input.purpose !== "delivery") {
+    if (reviewedNode?.kind !== expectedKind) {
       throw new TaskcraftError(ERROR_CODES.TC_REVIEW_PURPOSE_MISMATCH, {
-        problem: `Review purpose ${input.purpose} does not match the reviewed execute attempt`,
+        problem: `Review purpose ${input.purpose} does not match the reviewed ${reviewedNode?.kind ?? "unknown"} attempt`,
         impact:
-          "No facts were written; the review link requires delivery for execute attempts",
-        remediation: "Retry with --purpose delivery for an execute attempt",
+          "No facts were written; the review link requires the purpose to match the reviewed node kind",
+        remediation: `Retry with --purpose ${reviewedNode?.kind === "plan" ? "feasibility" : reviewedNode?.kind === "integrate" ? "integration" : "delivery"} for this attempt`,
         context: {
           taskId,
           purpose: input.purpose,
@@ -167,6 +187,39 @@ export function reviewStart(
       reviewedAttemptId: reviewed.id,
     };
   });
+}
+
+/** Default reviewed attempt: the latest finished/success attempt of the
+ * node kind the purpose audits (feasibility -> plan, delivery -> execute,
+ * integration -> integrate) in the current revision. */
+function resolveDefaultReviewedAttempt(
+  taskId: string,
+  attempts: AttemptRow[],
+  graph: LifecycleGraph,
+  purpose: ReviewPurpose,
+): string {
+  const kind = PURPOSE_KIND[purpose];
+  const nodeIds = new Set(
+    graph.nodes.filter((node) => node.kind === kind).map((node) => node.id),
+  );
+  const reviewed = [...attempts]
+    .filter(
+      (attempt) =>
+        nodeIds.has(attempt.nodeId) &&
+        attempt.status === "finished" &&
+        attempt.outcome === "success",
+    )
+    .at(-1);
+
+  if (reviewed === undefined) {
+    throw reviewRefError(
+      taskId,
+      `No finished ${kind} attempt of the current revision is available to review`,
+      "Complete the node first, then retry the review start",
+    );
+  }
+
+  return reviewed.id;
 }
 
 /** The observed-distinct disclosure must be backed by a host-observed

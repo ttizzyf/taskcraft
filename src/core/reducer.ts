@@ -3,6 +3,12 @@
 // 400 effective-line limit; this barrel keeps the consumer interface stable.
 
 export { taskNew } from "./reducer/task-new.js";
+export { taskFactAdd } from "./reducer/task-fact-add.js";
+export type {
+  TaskFactAddInput,
+  TaskFactCategory,
+  TaskFactResult,
+} from "./reducer/task-fact-add.js";
 export { run } from "./reducer/run.js";
 export { runComplete } from "./reducer/run-complete.js";
 export { cancel } from "./reducer/cancel.js";

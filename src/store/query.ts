@@ -5,6 +5,11 @@
 import type { TaskcraftDatabase } from "./database.js";
 import type { TaskSnapshot } from "./revision-guard.js";
 
+// Appended task facts live in their own module (task-facts.ts) to keep this
+// file under the line limit; the re-export keeps one query-model entry point.
+export { getTaskFacts } from "./task-facts.js";
+export type { TaskFactRow } from "./task-facts.js";
+
 export type NodeKind =
   "frame" | "plan" | "execute" | "review" | "integrate" | "record";
 

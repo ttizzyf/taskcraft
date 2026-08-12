@@ -9,8 +9,10 @@ import type { BreadcrumbV1 } from "./breadcrumb.js";
 import type {
   AttemptRow,
   BlockerWaitingReason,
+  EdgeRow,
   NodeKind,
   ReviewLinkRow,
+  ReviewPurpose,
 } from "../store/query.js";
 import type { TaskcraftDatabase } from "../store/database.js";
 import {
@@ -23,6 +25,10 @@ import {
 } from "../store/query.js";
 import { L1_EXECUTE_NODE_ID, L1_RECORD_NODE_ID } from "./lifecycle/l1.js";
 import { L2_FRAME_NODE_ID } from "./lifecycle/l2.js";
+import {
+  L3_INTEGRATE_NODE_ID,
+  L3_REVIEW_INTEGRATE_NODE_ID,
+} from "./lifecycle/l3.js";
 
 export type ProjectStatus =
   "queued" | "active" | "waiting" | "done" | "cancelled";
@@ -83,19 +89,102 @@ export function project(
       .filter((result) => result.status === "satisfied")
       .map((result) => result.obligationId),
   );
+
+  const nodeKindById = new Map(graph.nodes.map((node) => [node.id, node.kind]));
+
+  /** A review is satisfied only by a passed attempt whose link purpose
+   * matches the reviewed node kind (feasibility->plan, delivery->execute,
+   * integration->integrate) and whose reviewed attempt is the latest
+   * finished attempt of that node. The latest-finished rule keeps the
+   * Feasibility gate and the multi-branch delivery gate closed while a newer
+   * plan/execute attempt awaits its own review (lifecycle spec 9.1). */
+  const isNodeSatisfied = (nodeId: string): boolean =>
+    attempts.some((attempt) => {
+      if (attempt.nodeId !== nodeId || attempt.status !== "finished") {
+        return false;
+      }
+
+      const kind = nodeKindById.get(nodeId);
+
+      if (kind !== "review") {
+        return attempt.outcome === "success";
+      }
+
+      if (attempt.outcome !== "passed") {
+        return false;
+      }
+
+      const link = reviewLinks.find(
+        (candidate) => candidate.reviewAttemptId === attempt.id,
+      );
+
+      if (link === undefined) {
+        return false;
+      }
+
+      const reviewed = attempts.find(
+        (candidate) => candidate.id === link.reviewedAttemptId,
+      );
+
+      if (reviewed === undefined) {
+        return false;
+      }
+
+      const reviewedKind = nodeKindById.get(reviewed.nodeId);
+
+      if (link.reviewPurpose !== REVIEW_PURPOSE_BY_KIND[reviewedKind ?? ""]) {
+        return false;
+      }
+
+      const latestFinished = attempts
+        .filter(
+          (candidate) =>
+            candidate.nodeId === reviewed.nodeId &&
+            candidate.status === "finished",
+        )
+        .at(-1);
+
+      return reviewed.id === latestFinished?.id;
+    });
+
+  // The integration review is on-demand (lifecycle spec 9.2): when the
+  // integrate result did not modify deliverables, review-integrate-1 is
+  // skipped and record-1 gates directly on integrate-1.
+  const latestIntegrateAttempt = [...attempts]
+    .filter(
+      (attempt) =>
+        attempt.nodeId === L3_INTEGRATE_NODE_ID &&
+        attempt.status === "finished" &&
+        attempt.outcome === "success",
+    )
+    .at(-1);
+  let modifiedDeliverables = false;
+
+  if (latestIntegrateAttempt?.resultJson !== null) {
+    modifiedDeliverables =
+      (
+        JSON.parse(latestIntegrateAttempt?.resultJson ?? "{}") as {
+          modifiedDeliverables?: unknown;
+        }
+      ).modifiedDeliverables === true;
+  }
+
+  const integrationReviewBypassed =
+    latestIntegrateAttempt !== undefined && !modifiedDeliverables;
+
+  if (integrationReviewBypassed) {
+    // The skipped on-demand integration review leaves its obligations
+    // vacuous: count them as satisfied so a record can close the task.
+    for (const obligation of graph.obligations) {
+      if (obligation.nodeId === L3_REVIEW_INTEGRATE_NODE_ID) {
+        satisfiedObligationIds.add(obligation.id);
+      }
+    }
+  }
+
   const satisfiedRequired = requiredObligations.filter((obligation) =>
     satisfiedObligationIds.has(obligation.id),
   );
-
-  const nodeKindById = new Map(graph.nodes.map((node) => [node.id, node.kind]));
-  const isNodeSatisfied = (nodeId: string): boolean =>
-    attempts.some(
-      (attempt) =>
-        attempt.nodeId === nodeId &&
-        attempt.status === "finished" &&
-        attempt.outcome ===
-          (nodeKindById.get(nodeId) === "review" ? "passed" : "success"),
-    );
 
   const nodeStates = graph.nodes.map((node) => {
     const nodeAttempts = attempts.filter(
@@ -110,6 +199,9 @@ export function project(
     const blockedByBlocker = blockers.some(
       (blocker) => blocker.nodeId === node.id,
     );
+    const predecessorSatisfied = (nodeId: string): boolean =>
+      (integrationReviewBypassed && nodeId === L3_REVIEW_INTEGRATE_NODE_ID) ||
+      isNodeSatisfied(nodeId);
 
     let status: NodeProjectionStatus = "blocked";
     if (runningAttempt !== undefined) {
@@ -121,7 +213,8 @@ export function project(
       status = "satisfied";
     } else if (
       !blockedByBlocker &&
-      predecessors.every((id) => isNodeSatisfied(id))
+      predecessors.every((id) => predecessorSatisfied(id)) &&
+      !(integrationReviewBypassed && node.id === L3_REVIEW_INTEGRATE_NODE_ID)
     ) {
       status = "runnable";
     }
@@ -192,7 +285,13 @@ export function project(
 
       next =
         runnableState?.kind === "review"
-          ? reviewStartCommand(taskId, runnableState, attempts)
+          ? reviewStartCommand(
+              taskId,
+              runnableState,
+              attempts,
+              graph.edges,
+              nodeKindById,
+            )
           : `tc run ${taskId} --node ${runnableNodes[0]!}`;
     } else {
       next = null;
@@ -255,21 +354,44 @@ function reviewPassCommand(
   return `tc review pass ${taskId} --attempt ${reviewAttempt.id} --reviewed-attempt ${link.reviewedAttemptId}`;
 }
 
-/** A runnable review node (execute satisfied, no open review attempt) is
- * started with review start against the latest finished execute attempt. */
+/** A runnable review node (reviewed node satisfied, no open review attempt)
+ * is started with review start against the latest finished/success attempt
+ * of the node it audits; the purpose follows the audited kind. */
 function reviewStartCommand(
   taskId: string,
   node: NodeProjection,
   attempts: AttemptRow[],
+  edges: EdgeRow[],
+  nodeKindById: Map<string, NodeKind>,
 ): string {
+  const reviewedNodeId = edges.find(
+    (edge) => edge.toNodeId === node.nodeId,
+  )?.fromNodeId;
   const reviewedAttempt = [...attempts]
     .filter(
       (attempt) =>
-        attempt.nodeId === L1_EXECUTE_NODE_ID &&
+        attempt.nodeId === reviewedNodeId &&
         attempt.status === "finished" &&
         attempt.outcome === "success",
     )
     .at(-1);
 
-  return `tc review start ${taskId} --node ${node.nodeId} --purpose delivery --reviewed-attempt ${reviewedAttempt!.id}`;
+  if (reviewedAttempt === undefined) {
+    // A runnable review node without a finished reviewed attempt cannot be
+    // started with a named attempt; fall back to the task card.
+    return `tc task show ${taskId}`;
+  }
+
+  const purpose =
+    REVIEW_PURPOSE_BY_KIND[nodeKindById.get(reviewedNodeId ?? "") ?? ""] ??
+    "delivery";
+
+  return `tc review start ${taskId} --node ${node.nodeId} --purpose ${purpose} --reviewed-attempt ${reviewedAttempt.id}`;
 }
+
+/** Review purpose by the audited node kind (lifecycle spec 9.1/9.2). */
+const REVIEW_PURPOSE_BY_KIND: Readonly<Record<string, ReviewPurpose>> = {
+  plan: "feasibility",
+  execute: "delivery",
+  integrate: "integration",
+};

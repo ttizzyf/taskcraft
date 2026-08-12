@@ -17,9 +17,15 @@ import {
   L1_RETRY_POLICY,
 } from "../lifecycle/l1.js";
 import { L2_COMPILER_VERSION } from "../lifecycle/l2.js";
+import {
+  L3_COMPILER_VERSION,
+  L3_FACTS_DIGEST,
+  L3_POLICY_DIGEST,
+} from "../lifecycle/l3.js";
 import type { CommandData, TaskNewInput } from "./context.js";
 import { commandData, snapshotOf } from "./context.js";
 import { materializeL2Graph } from "./l2-materialize.js";
+import { materializeL3Graph } from "./l3-materialize.js";
 import { insertEvent, isUniqueConstraint, nowIso } from "./shared.js";
 
 export function taskNew(
@@ -43,7 +49,21 @@ export function taskNew(
       insertTaskRow(database, taskId, input, now);
     }
 
-    if (input.level === 2) {
+    if (input.level === 3) {
+      materializeL3Graph(database, {
+        taskId,
+        revision: 1,
+        reasonCode: "initial",
+        reason: "initial L3 lifecycle",
+        compilerVersion: L3_COMPILER_VERSION,
+        factsDigest: L3_FACTS_DIGEST,
+        policyDigest: L3_POLICY_DIGEST,
+        changeSummary: {},
+        objective: input.objectiveMd ?? input.title,
+        actor,
+        now,
+      });
+    } else if (input.level === 2) {
       materializeL2Graph(database, {
         taskId,
         revision: 1,
@@ -79,11 +99,11 @@ export function taskNew(
 }
 
 function validateTaskNewInput(input: TaskNewInput): void {
-  if (input.level !== 1 && input.level !== 2) {
+  if (input.level !== 1 && input.level !== 2 && input.level !== 3) {
     throw new TaskcraftError(ERROR_CODES.TC_TASK_LEVEL_UNSUPPORTED, {
-      problem: `Level ${input.level} is not supported yet: only L1 and L2 are available`,
-      impact: "The task was not created; the L3 graph is not compiled",
-      remediation: "Create an L1 or L2 task, or wait for the L3 lifecycle",
+      problem: `Level ${input.level} is not supported yet: only L1, L2 and L3 are available`,
+      impact: "The task was not created; the lifecycle graph is not compiled",
+      remediation: "Create an L1, L2 or L3 task",
       context: { level: input.level },
     });
   }

@@ -14,6 +14,11 @@ import {
   L2_FACTS_DIGEST,
   L2_POLICY_DIGEST,
 } from "../lifecycle/l2.js";
+import {
+  L3_COMPILER_VERSION,
+  L3_FACTS_DIGEST,
+  L3_POLICY_DIGEST,
+} from "../lifecycle/l3.js";
 import type { ReviewReplanInput, ReviewResultData } from "./context.js";
 import {
   assertNotCancelled,
@@ -22,6 +27,7 @@ import {
   snapshotOf,
 } from "./context.js";
 import { materializeL2Graph } from "./l2-materialize.js";
+import { materializeL3Graph } from "./l3-materialize.js";
 import { bumpRevision, insertEvent, nowIso } from "./shared.js";
 import {
   insertFinding,
@@ -90,14 +96,14 @@ export function reviewReplan(
       now,
     });
 
-    materializeL2Graph(database, {
+    // A replan rebuilds the graph of the task's own level: an L3 replan
+    // re-compiles the L3 graph, so the new Plan goes through the Feasibility
+    // Review again (lifecycle spec 9.1/9.2).
+    const graphInput = {
       taskId,
       revision: newRevision,
       reasonCode: input.reasonCode,
       reason: input.finding,
-      compilerVersion: L2_COMPILER_VERSION,
-      factsDigest: L2_FACTS_DIGEST,
-      policyDigest: L2_POLICY_DIGEST,
       changeSummary: {
         oldRevision,
         newRevision,
@@ -107,7 +113,23 @@ export function reviewReplan(
       objective: snapshot.objectiveMd,
       actor,
       now,
-    });
+    };
+
+    if (snapshot.level === 3) {
+      materializeL3Graph(database, {
+        ...graphInput,
+        compilerVersion: L3_COMPILER_VERSION,
+        factsDigest: L3_FACTS_DIGEST,
+        policyDigest: L3_POLICY_DIGEST,
+      });
+    } else {
+      materializeL2Graph(database, {
+        ...graphInput,
+        compilerVersion: L2_COMPILER_VERSION,
+        factsDigest: L2_FACTS_DIGEST,
+        policyDigest: L2_POLICY_DIGEST,
+      });
+    }
 
     database
       .prepare(

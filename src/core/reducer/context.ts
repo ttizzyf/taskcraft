@@ -84,7 +84,9 @@ export interface ReviewStartInput {
   /** Review node of the current revision (default review-1). */
   nodeId?: string;
   purpose: "feasibility" | "delivery" | "integration";
-  reviewedAttemptId: string;
+  /** Reviewed attempt of the current revision (default: the latest
+   * finished/success attempt of the node kind matching the purpose). */
+  reviewedAttemptId?: string;
   capability: "context-only" | "manual-attach" | "host-observed";
   independenceStatus:
     "observed-distinct" | "unverified" | "same-actor" | "unsupported";

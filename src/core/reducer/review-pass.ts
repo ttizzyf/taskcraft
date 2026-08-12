@@ -6,10 +6,10 @@
 // finding and the audit event; the next node becomes record-1.
 
 import type { TaskcraftDatabase } from "../../store/database.js";
+import { getLifecycle } from "../../store/query.js";
 import { withTransaction } from "../../store/transaction.js";
 import { ERROR_CODES, TaskcraftError } from "../errors.js";
 import { L1_DEFAULT_ACTOR } from "../lifecycle/l1.js";
-import { L2_OBLIGATION_IDS, L2_REVIEW_NODE_ID } from "../lifecycle/l2.js";
 import type { ReviewPassInput, ReviewResultData } from "./context.js";
 import {
   assertNotCancelled,
@@ -97,12 +97,23 @@ export function reviewPass(
         now,
         attempt.id,
       );
+    // The review node's own required obligation (feasibility-completed /
+    // delivery-completed / integration-review-completed / review-completed)
+    // is resolved from the current graph so every review node passes alike.
+    const reviewObligation = getLifecycle(
+      database,
+      taskId,
+      snapshot.currentLifecycleRevision,
+    ).obligations.find(
+      (obligation) =>
+        obligation.nodeId === attempt.nodeId && obligation.duty === "required",
+    );
     satisfyObligation(
       database,
       taskId,
       snapshot,
-      L2_REVIEW_NODE_ID,
-      L2_OBLIGATION_IDS.reviewCompleted,
+      attempt.nodeId,
+      reviewObligation!.id,
       evidenceIds[0]!,
       now,
     );

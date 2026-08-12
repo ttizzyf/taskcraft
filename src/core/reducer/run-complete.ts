@@ -20,6 +20,7 @@ import {
   L1_RECORD_NODE_ID,
 } from "../lifecycle/l1.js";
 import { L2_FRAME_NODE_ID, L2_OBLIGATION_IDS } from "../lifecycle/l2.js";
+import { L3_INTEGRATE_NODE_ID, L3_PLAN_NODE_ID } from "../lifecycle/l3.js";
 import type { CommandData, RunCompleteInput } from "./context.js";
 import {
   assertNotCancelled,
@@ -33,13 +34,18 @@ import {
   bumpRevision,
   finishAttempt,
   insertAttempt,
-  insertEvent,
   insertEvidence,
   nowIso,
   satisfyObligation,
   validateExecuteResult,
   validateRecordResult,
 } from "./shared.js";
+import {
+  completeIntegrateNode,
+  completePlanNode,
+  insertAttemptFinishedEvent,
+  resolveTargetAttempt,
+} from "./run-complete-nodes.js";
 import { validateFrameResult } from "./l2-materialize.js";
 
 export function runComplete(
@@ -56,8 +62,16 @@ export function runComplete(
       return completeFrameNode(database, taskId, snapshot, input);
     }
 
+    if (nodeId === L3_PLAN_NODE_ID) {
+      return completePlanNode(database, taskId, snapshot, input);
+    }
+
     if (nodeId === L1_EXECUTE_NODE_ID) {
       return completeExecuteNode(database, taskId, snapshot, input);
+    }
+
+    if (nodeId === L3_INTEGRATE_NODE_ID) {
+      return completeIntegrateNode(database, taskId, snapshot, input);
     }
 
     if (nodeId === L1_RECORD_NODE_ID) {
@@ -68,7 +82,7 @@ export function runComplete(
       problem: `Node ${nodeId} cannot be completed`,
       impact: "No facts were written",
       remediation:
-        "Complete frame-1, execute-1 or record-1 with: tc run complete <task-id> --node <node>",
+        "Complete frame-1, plan-1, execute-1, integrate-1 or record-1 with: tc run complete <task-id> --node <node>",
       context: { taskId, nodeId },
     });
   });
@@ -309,67 +323,6 @@ function completeRecordNode(
   bumpRevision(database, snapshot, now);
 
   return commandData(database, taskId, snapshotOf(database, taskId));
-}
-
-function insertAttemptFinishedEvent(
-  database: TaskcraftDatabase,
-  taskId: string,
-  snapshot: TaskSnapshot,
-  attemptIdToFinish: string,
-  nodeId: string,
-  host: string,
-  actor: string,
-  now: string,
-): void {
-  insertEvent(database, {
-    taskId,
-    lifecycleRevision: snapshot.currentLifecycleRevision,
-    nodeId,
-    attemptId: attemptIdToFinish,
-    eventType: "attempt.finished",
-    payload: { outcome: "success" },
-    postTaskRevision: snapshot.revision + 1,
-    actorInstanceId: actor,
-    host,
-    occurredAt: now,
-  });
-}
-
-/** Picks the attempt to close: the caller's attemptId (validated against the
- * current revision and node) or the active attempt of the target node. */
-function resolveTargetAttempt(
-  database: TaskcraftDatabase,
-  taskId: string,
-  snapshot: TaskSnapshot,
-  expectedAttemptId: string | undefined,
-  nodeId: string,
-) {
-  const attempts = getAttempts(database, taskId).filter(
-    (attempt) =>
-      attempt.lifecycleRevision === snapshot.currentLifecycleRevision,
-  );
-  const attempt = expectedAttemptId
-    ? attempts.find((candidate) => candidate.id === expectedAttemptId)
-    : attempts.find(
-        (candidate) =>
-          candidate.nodeId === nodeId &&
-          (candidate.status === "created" || candidate.status === "running"),
-      );
-
-  if (
-    attempt === undefined ||
-    attempt.nodeId !== nodeId ||
-    (attempt.status !== "created" && attempt.status !== "running")
-  ) {
-    throw new TaskcraftError(ERROR_CODES.TC_ATTEMPT_REF_INVALID, {
-      problem: `No active ${nodeId} attempt belongs to this task revision`,
-      impact: "No facts were written",
-      remediation: `Claim an attempt first with: tc run <task-id> --node ${nodeId}`,
-      context: { taskId, attemptId: expectedAttemptId ?? null, nodeId },
-    });
-  }
-
-  return attempt;
 }
 
 /** The record node has no independent run: a record segment in the execute
