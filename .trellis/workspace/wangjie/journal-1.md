@@ -262,3 +262,26 @@ Implemented the Node/TypeScript engineering foundation: single-package ESM toolc
 ### Status
 
 [OK] **Completed**
+
+
+## Session 12: Task 03：review-cli 子任务
+
+**Date**: 2026-08-12
+**Task**: Task 03：review-cli 子任务
+**Branch**: `main`
+
+### Summary
+
+实现并归档 review-cli：tc review 四命令、L2 三路径闭环（passed/changes/replan）真实 smoke、可回放样本 l2-review-sample.md、9 个 CLI 测试；修复跨 revision attempt id 撞车与 obligation 重复满足 UNIQUE 冲突（含 writeRecordResult 编号遗漏）
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5faa9d5` | (see git log) |
+| `6c8cd75` | (see git log) |
+| `c2d536a` | (see git log) |
+
+### Status
+
+[OK] **Completed**

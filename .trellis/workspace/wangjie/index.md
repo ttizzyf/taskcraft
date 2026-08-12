@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 11
+- **Total Sessions**: 12
 - **Last Active**: 2026-08-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~264 | Active |
+| `journal-1.md` | ~287 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 12 | 2026-08-12 | Task 03：review-cli 子任务 | `5faa9d5`, `6c8cd75`, `c2d536a` | `main` |
 | 11 | 2026-08-12 | Task 03：review-reducer 子任务 | `fae87c5`, `4f27011`, `d44904d` | `main` |
 | 10 | 2026-08-11 | Task 02 父任务：集成验收与归档 | `d6dc614` | `main` |
 | 9 | 2026-08-11 | Task 02 L1 纵切：l1-cli-smoke 子任务 | `1921755`, `384c41e`, `1c91b48` | `main` |
