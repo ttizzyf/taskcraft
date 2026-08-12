@@ -131,6 +131,39 @@ export interface BlockerRow {
   resolvedAt: string | null;
 }
 
+export type ReviewPurpose = "feasibility" | "delivery" | "integration";
+
+export type ReviewCapability =
+  "context-only" | "manual-attach" | "host-observed";
+
+export type ReviewIndependenceStatus =
+  "observed-distinct" | "unverified" | "same-actor" | "unsupported";
+
+export interface ReviewLinkRow {
+  taskId: string;
+  reviewAttemptId: string;
+  reviewedAttemptId: string;
+  reviewPurpose: ReviewPurpose;
+  capability: ReviewCapability;
+  independenceStatus: ReviewIndependenceStatus;
+  reviewerPrincipalId: string | null;
+  observedHostSessionId: string | null;
+  createdAt: string;
+}
+
+export interface ReviewFindingRow {
+  id: string;
+  taskId: string;
+  reviewAttemptId: string;
+  severity: "blocking" | "advisory";
+  disposition: "open" | "resolved" | "accepted";
+  summary: string;
+  evidenceRefsJson: string;
+  resolvedByAttemptId: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
 const TASK_SELECT = `SELECT id, title, level,
               objective_md AS objectiveMd,
               scope_json AS scopeJson,
@@ -295,6 +328,48 @@ export function getOpenBlockers(
        ORDER BY created_at, id`,
     )
     .all(taskId) as BlockerRow[];
+}
+
+export function getReviewLinks(
+  database: TaskcraftDatabase,
+  taskId: string,
+): ReviewLinkRow[] {
+  return database
+    .prepare(
+      `SELECT task_id AS taskId,
+              review_attempt_id AS reviewAttemptId,
+              reviewed_attempt_id AS reviewedAttemptId,
+              review_purpose AS reviewPurpose,
+              capability,
+              independence_status AS independenceStatus,
+              reviewer_principal_id AS reviewerPrincipalId,
+              observed_host_session_id AS observedHostSessionId,
+              created_at AS createdAt
+       FROM review_links
+       WHERE task_id = ?
+       ORDER BY created_at, review_attempt_id`,
+    )
+    .all(taskId) as ReviewLinkRow[];
+}
+
+export function getReviewFindings(
+  database: TaskcraftDatabase,
+  taskId: string,
+): ReviewFindingRow[] {
+  return database
+    .prepare(
+      `SELECT id, task_id AS taskId,
+              review_attempt_id AS reviewAttemptId,
+              severity, disposition, summary,
+              evidence_refs_json AS evidenceRefsJson,
+              resolved_by_attempt_id AS resolvedByAttemptId,
+              created_at AS createdAt,
+              resolved_at AS resolvedAt
+       FROM review_findings
+       WHERE task_id = ?
+       ORDER BY created_at, id`,
+    )
+    .all(taskId) as ReviewFindingRow[];
 }
 
 export function getLastEventSeq(

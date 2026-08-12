@@ -7,11 +7,20 @@ export { run } from "./reducer/run.js";
 export { runComplete } from "./reducer/run-complete.js";
 export { cancel } from "./reducer/cancel.js";
 export { recordAttemptFailure } from "./reducer/failure.js";
+export { reviewStart } from "./reducer/review-start.js";
+export { reviewPass } from "./reducer/review-pass.js";
+export { reviewChanges } from "./reducer/review-changes.js";
+export { reviewReplan } from "./reducer/review-replan.js";
 export type {
   AttemptFailureInput,
   CancelInput,
   CommandData,
   NodeBrief,
+  ReviewChangesInput,
+  ReviewPassInput,
+  ReviewReplanInput,
+  ReviewResultData,
+  ReviewStartInput,
   RunCompleteInput,
   RunInput,
   TaskNewInput,

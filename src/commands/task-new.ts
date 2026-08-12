@@ -1,5 +1,5 @@
 // tc task new: creates the card (revision 1, queued) through the reducer.
-// Level 2/3 are rejected by the reducer with TC_TASK_LEVEL_UNSUPPORTED.
+// Level 3 is rejected by the reducer with TC_TASK_LEVEL_UNSUPPORTED.
 // --facts is parsed as JSON (@path / @- / raw) and persisted verbatim by the
 // reducer; facts that are not a JSON object are rejected with
 // TC_TASK_INPUT_INVALID.
@@ -20,9 +20,9 @@ import { renderCommandData } from "./render.js";
 export function register(task: Command): void {
   task
     .command("new")
-    .description("create a task card (level 1 only)")
+    .description("create a task card (level 1 or 2)")
     .requiredOption("--title <title>", "task title")
-    .requiredOption("--level <level>", "task level (1)")
+    .requiredOption("--level <level>", "task level (1 or 2)")
     .requiredOption("--reason <reason>", "creation judgment")
     .option("--facts <facts>", "classification facts: JSON, @path or @-")
     .action(async (options, command) => {
@@ -67,7 +67,7 @@ function parseLevel(value: string): number {
     throw new TaskcraftError(ERROR_CODES.TC_TASK_INPUT_INVALID, {
       problem: `Level must be a positive integer, got: ${value}`,
       impact: "The task was not created",
-      remediation: "Retry with --level 1",
+      remediation: "Retry with --level 1 or --level 2",
     });
   }
 

@@ -6,16 +6,23 @@
 import { ERROR_CODES, TaskcraftError } from "./errors.js";
 import { buildBreadcrumb } from "./breadcrumb.js";
 import type { BreadcrumbV1 } from "./breadcrumb.js";
-import type { BlockerWaitingReason, NodeKind } from "../store/query.js";
+import type {
+  AttemptRow,
+  BlockerWaitingReason,
+  NodeKind,
+  ReviewLinkRow,
+} from "../store/query.js";
 import type { TaskcraftDatabase } from "../store/database.js";
 import {
   getAttempts,
   getLifecycle,
   getObligationResults,
   getOpenBlockers,
+  getReviewLinks,
   getTask,
 } from "../store/query.js";
 import { L1_EXECUTE_NODE_ID, L1_RECORD_NODE_ID } from "./lifecycle/l1.js";
+import { L2_FRAME_NODE_ID } from "./lifecycle/l2.js";
 
 export type ProjectStatus =
   "queued" | "active" | "waiting" | "done" | "cancelled";
@@ -66,6 +73,7 @@ export function project(
     (result) => result.lifecycleRevision === revision,
   );
   const blockers = getOpenBlockers(database, taskId);
+  const reviewLinks = getReviewLinks(database, taskId);
 
   const requiredObligations = graph.obligations.filter(
     (obligation) => obligation.duty === "required",
@@ -79,12 +87,14 @@ export function project(
     satisfiedObligationIds.has(obligation.id),
   );
 
+  const nodeKindById = new Map(graph.nodes.map((node) => [node.id, node.kind]));
   const isNodeSatisfied = (nodeId: string): boolean =>
     attempts.some(
       (attempt) =>
         attempt.nodeId === nodeId &&
         attempt.status === "finished" &&
-        attempt.outcome === "success",
+        attempt.outcome ===
+          (nodeKindById.get(nodeId) === "review" ? "passed" : "success"),
     );
 
   const nodeStates = graph.nodes.map((node) => {
@@ -102,10 +112,13 @@ export function project(
     );
 
     let status: NodeProjectionStatus = "blocked";
-    if (isNodeSatisfied(node.id)) {
-      status = "satisfied";
-    } else if (runningAttempt !== undefined) {
+    if (runningAttempt !== undefined) {
+      // A created/running attempt wins over a historical satisfied one: a
+      // changes_requested successor execute attempt is in flight even though
+      // the previous attempt already passed.
       status = "running";
+    } else if (isNodeSatisfied(node.id)) {
+      status = "satisfied";
     } else if (
       !blockedByBlocker &&
       predecessors.every((id) => isNodeSatisfied(id))
@@ -145,7 +158,9 @@ export function project(
     next = `tc task show ${taskId}`;
   } else if (snapshot.activatedAt === null) {
     status = "queued";
-    next = `tc run ${taskId}`;
+    next = graph.nodes.some((node) => node.kind === "frame")
+      ? `tc run ${taskId} --node ${L2_FRAME_NODE_ID}`
+      : `tc run ${taskId}`;
   } else if (recordObligationSatisfied && allRequiredSatisfied) {
     status = "done";
   } else if (
@@ -160,12 +175,25 @@ export function project(
     status = "active";
 
     if (runningNode !== null) {
+      const runningState = nodeStates.find(
+        (node) => node.nodeId === runningNode,
+      );
+
       next =
-        runningNode === L1_EXECUTE_NODE_ID
-          ? `tc run complete ${taskId}`
-          : `tc run complete ${taskId} --node ${runningNode}`;
+        runningState?.kind === "review"
+          ? reviewPassCommand(taskId, runningState, attempts, reviewLinks)
+          : runningNode === L1_EXECUTE_NODE_ID
+            ? `tc run complete ${taskId}`
+            : `tc run complete ${taskId} --node ${runningNode}`;
     } else if (runnableNodes.length > 0) {
-      next = `tc run ${taskId} --node ${runnableNodes[0]!}`;
+      const runnableState = nodeStates.find(
+        (node) => node.nodeId === runnableNodes[0],
+      );
+
+      next =
+        runnableState?.kind === "review"
+          ? reviewStartCommand(taskId, runnableState, attempts)
+          : `tc run ${taskId} --node ${runnableNodes[0]!}`;
     } else {
       next = null;
     }
@@ -199,4 +227,49 @@ export function project(
       blocked: blockers.map((blocker) => blocker.waitingReason),
     }),
   };
+}
+
+/** A review attempt that is created/running is completed with review pass,
+ * naming both the review attempt and the reviewed execute attempt. */
+function reviewPassCommand(
+  taskId: string,
+  node: NodeProjection,
+  attempts: AttemptRow[],
+  links: ReviewLinkRow[],
+): string {
+  const reviewAttempt = attempts.find(
+    (attempt) =>
+      attempt.nodeId === node.nodeId &&
+      (attempt.status === "created" || attempt.status === "running"),
+  );
+  const link = links.find(
+    (candidate) => candidate.reviewAttemptId === reviewAttempt?.id,
+  );
+
+  if (reviewAttempt === undefined || link === undefined) {
+    // A running review node without its link cannot be passed; fall back to
+    // the task card instead of throwing.
+    return `tc task show ${taskId}`;
+  }
+
+  return `tc review pass ${taskId} --attempt ${reviewAttempt.id} --reviewed-attempt ${link.reviewedAttemptId}`;
+}
+
+/** A runnable review node (execute satisfied, no open review attempt) is
+ * started with review start against the latest finished execute attempt. */
+function reviewStartCommand(
+  taskId: string,
+  node: NodeProjection,
+  attempts: AttemptRow[],
+): string {
+  const reviewedAttempt = [...attempts]
+    .filter(
+      (attempt) =>
+        attempt.nodeId === L1_EXECUTE_NODE_ID &&
+        attempt.status === "finished" &&
+        attempt.outcome === "success",
+    )
+    .at(-1);
+
+  return `tc review start ${taskId} --node ${node.nodeId} --purpose delivery --reviewed-attempt ${reviewedAttempt!.id}`;
 }

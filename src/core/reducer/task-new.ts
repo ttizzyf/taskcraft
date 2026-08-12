@@ -1,6 +1,6 @@
-// taskNew: creates the task row (revision 1), materializes the L1 lifecycle
-// into the four definition tables and appends the task.created audit event.
-// No activation facts are written; the task projects as queued.
+// taskNew: creates the task row (revision 1), materializes the L1 or L2
+// lifecycle into the four definition tables and appends the task.created
+// audit event. No activation facts are written; the task projects as queued.
 
 import type { TaskcraftDatabase } from "../../store/database.js";
 import { withTransaction } from "../../store/transaction.js";
@@ -16,8 +16,10 @@ import {
   L1_RECORD_RESULT_SCHEMA,
   L1_RETRY_POLICY,
 } from "../lifecycle/l1.js";
+import { L2_COMPILER_VERSION } from "../lifecycle/l2.js";
 import type { CommandData, TaskNewInput } from "./context.js";
 import { commandData, snapshotOf } from "./context.js";
+import { materializeL2Graph } from "./l2-materialize.js";
 import { insertEvent, isUniqueConstraint, nowIso } from "./shared.js";
 
 export function taskNew(
@@ -41,14 +43,31 @@ export function taskNew(
       insertTaskRow(database, taskId, input, now);
     }
 
-    materializeL1Lifecycle(database, taskId, input, actor, now);
+    if (input.level === 2) {
+      materializeL2Graph(database, {
+        taskId,
+        revision: 1,
+        reasonCode: "initial",
+        reason: "initial L2 lifecycle",
+        compilerVersion: L2_COMPILER_VERSION,
+        factsDigest: L1_FACTS_DIGEST,
+        policyDigest: L1_POLICY_DIGEST,
+        changeSummary: {},
+        objective: input.objectiveMd ?? input.title,
+        actor,
+        now,
+      });
+    } else {
+      materializeL1Lifecycle(database, taskId, input, actor, now);
+    }
+
     insertEvent(database, {
       taskId,
       lifecycleRevision: 1,
       nodeId: null,
       attemptId: null,
       eventType: "task.created",
-      payload: { level: 1, reason: input.reason },
+      payload: { level: input.level, reason: input.reason },
       postTaskRevision: 1,
       actorInstanceId: actor,
       host: null,
@@ -60,11 +79,11 @@ export function taskNew(
 }
 
 function validateTaskNewInput(input: TaskNewInput): void {
-  if (input.level !== 1) {
+  if (input.level !== 1 && input.level !== 2) {
     throw new TaskcraftError(ERROR_CODES.TC_TASK_LEVEL_UNSUPPORTED, {
-      problem: `Level ${input.level} is not supported yet: only L1 is available`,
-      impact: "The task was not created; L2/L3 graphs are not compiled",
-      remediation: "Create an L1 task, or wait for the lifecycle compiler",
+      problem: `Level ${input.level} is not supported yet: only L1 and L2 are available`,
+      impact: "The task was not created; the L3 graph is not compiled",
+      remediation: "Create an L1 or L2 task, or wait for the L3 lifecycle",
       context: { level: input.level },
     });
   }
@@ -114,12 +133,13 @@ function insertTaskRow(
          non_goals_json, classification_facts_json, classification_reasons_json,
          parent_task_id, activated_at, cancelled_at, cancel_reason,
          current_lifecycle_revision, revision, created_at, updated_at
-       ) VALUES (?, ?, 1, ?, '{}', '[]', '[]', ?, '[]', NULL, NULL, NULL,
+       ) VALUES (?, ?, ?, ?, '{}', '[]', '[]', ?, '[]', NULL, NULL, NULL,
          NULL, 1, 1, ?, ?)`,
     )
     .run(
       taskId,
       input.title,
+      input.level,
       input.objectiveMd ?? input.title,
       JSON.stringify(input.classificationFacts ?? {}),
       now,

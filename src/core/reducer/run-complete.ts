@@ -19,6 +19,7 @@ import {
   L1_OBLIGATION_IDS,
   L1_RECORD_NODE_ID,
 } from "../lifecycle/l1.js";
+import { L2_FRAME_NODE_ID, L2_OBLIGATION_IDS } from "../lifecycle/l2.js";
 import type { CommandData, RunCompleteInput } from "./context.js";
 import {
   assertNotCancelled,
@@ -39,6 +40,7 @@ import {
   validateExecuteResult,
   validateRecordResult,
 } from "./shared.js";
+import { validateFrameResult } from "./l2-materialize.js";
 
 export function runComplete(
   database: TaskcraftDatabase,
@@ -49,6 +51,10 @@ export function runComplete(
     const snapshot = resolveSnapshot(database, taskId, input.expectedRevision);
     assertNotCancelled(snapshot);
     const nodeId = input.nodeId ?? L1_EXECUTE_NODE_ID;
+
+    if (nodeId === L2_FRAME_NODE_ID) {
+      return completeFrameNode(database, taskId, snapshot, input);
+    }
 
     if (nodeId === L1_EXECUTE_NODE_ID) {
       return completeExecuteNode(database, taskId, snapshot, input);
@@ -62,7 +68,7 @@ export function runComplete(
       problem: `Node ${nodeId} cannot be completed`,
       impact: "No facts were written",
       remediation:
-        "Complete execute-1 or record-1 with: tc run complete <task-id> --node <node>",
+        "Complete frame-1, execute-1 or record-1 with: tc run complete <task-id> --node <node>",
       context: { taskId, nodeId },
     });
   });
@@ -154,6 +160,74 @@ function completeExecuteNode(
     writeRecordResult(database, taskId, snapshot, result.record, actor, now);
   }
 
+  insertAttemptFinishedEvent(
+    database,
+    taskId,
+    snapshot,
+    attempt.id,
+    attempt.nodeId,
+    attempt.host,
+    actor,
+    now,
+  );
+  bumpRevision(database, snapshot, now);
+
+  return commandData(database, taskId, snapshotOf(database, taskId));
+}
+
+/** Frame completion (L2): validates the frame result, generates the note
+ * evidence bound to the frame attempt, closes the attempt and satisfies the
+ * frame-completed obligation. */
+function completeFrameNode(
+  database: TaskcraftDatabase,
+  taskId: string,
+  snapshot: TaskSnapshot,
+  input: RunCompleteInput,
+): CommandData {
+  const result = input.result as { objective: string };
+
+  if (!validateFrameResult(result)) {
+    throw new TaskcraftError(ERROR_CODES.TC_LIFECYCLE_RESULT_INVALID, {
+      problem: `Result for ${L2_FRAME_NODE_ID} failed the node result schema`,
+      impact: "No facts were written; the task keeps its current state",
+      remediation:
+        "Resubmit a result matching the frame-1 result schema (objective, scope, acceptance)",
+      context: { taskId },
+    });
+  }
+
+  const attempt = resolveTargetAttempt(
+    database,
+    taskId,
+    snapshot,
+    input.attemptId,
+    L2_FRAME_NODE_ID,
+  );
+  const actor = input.actorInstanceId ?? L1_DEFAULT_ACTOR;
+  const now = nowIso();
+  const evidenceId = `ev-${taskId}-${attempt.id}-1`;
+
+  insertEvidence(database, {
+    id: evidenceId,
+    taskId,
+    attemptId: attempt.id,
+    type: "note",
+    reference: `frame://${taskId}`,
+    summary: result.objective,
+    digest: null,
+    actor,
+    now,
+  });
+  finishAttempt(database, attempt.id, result, now);
+  satisfyObligation(
+    database,
+    taskId,
+    snapshot,
+    L2_FRAME_NODE_ID,
+    L2_OBLIGATION_IDS.frameCompleted,
+    evidenceId,
+    now,
+  );
   insertAttemptFinishedEvent(
     database,
     taskId,

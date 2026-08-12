@@ -52,6 +52,19 @@ export function run(
       });
     }
 
+    if (nodeProjection.kind === "review") {
+      // Review attempts only exist through reviewStart, which writes the
+      // review link in the same transaction; a bare run would leave a
+      // link-less review attempt the projector cannot resolve.
+      throw new TaskcraftError(ERROR_CODES.TC_ATTEMPT_REF_INVALID, {
+        problem: `Node ${nodeId} is a review node; review attempts are opened with review start`,
+        impact: "No facts were written",
+        remediation:
+          "Start the review with: tc review start <task-id> --purpose delivery",
+        context: { taskId, nodeId },
+      });
+    }
+
     if (nodeProjection.status === "satisfied") {
       throw new TaskcraftError(ERROR_CODES.TC_ATTEMPT_REF_INVALID, {
         problem: `Node ${nodeId} is already satisfied; no new attempt can be claimed`,

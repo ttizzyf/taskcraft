@@ -78,6 +78,71 @@ export interface AttemptFailureInput {
   actorInstanceId?: string;
 }
 
+export interface ReviewStartInput {
+  taskId: string;
+  expectedRevision?: number;
+  /** Review node of the current revision (default review-1). */
+  nodeId?: string;
+  purpose: "feasibility" | "delivery" | "integration";
+  reviewedAttemptId: string;
+  capability: "context-only" | "manual-attach" | "host-observed";
+  independenceStatus:
+    "observed-distinct" | "unverified" | "same-actor" | "unsupported";
+  host?: string;
+  observedHostSessionId?: string;
+  actorInstanceId?: string;
+}
+
+export interface ReviewPassInput {
+  taskId: string;
+  expectedRevision?: number;
+  attemptId: string;
+  reviewedAttemptId: string;
+  evidence: Array<{
+    type: "validation" | "test" | "artifact" | "note";
+    reference: string;
+    summary: string;
+    digest?: string;
+  }>;
+  /** Optional advisory finding; empty means no finding is written. */
+  finding?: string;
+  actorInstanceId?: string;
+}
+
+export interface ReviewChangesInput {
+  taskId: string;
+  expectedRevision?: number;
+  attemptId: string;
+  reviewedAttemptId: string;
+  finding: string;
+  actorInstanceId?: string;
+}
+
+export interface ReviewReplanInput {
+  taskId: string;
+  expectedRevision?: number;
+  attemptId: string;
+  reviewedAttemptId: string;
+  reasonCode:
+    | "replan_required"
+    | "scope_changed"
+    | "contract_changed"
+    | "level_changed"
+    | "manual_revision";
+  finding: string;
+  actorInstanceId?: string;
+}
+
+/** Review command result: the projected command data plus the exact
+ * attempt/link/finding ids written by the command. */
+export interface ReviewResultData extends CommandData {
+  reviewAttemptId: string;
+  reviewedAttemptId: string;
+  findingId?: string;
+  successorAttemptId?: string;
+  newRevision?: number;
+}
+
 /** CAS guard: an explicit expectedRevision must match, an omitted one passes
  * against the current snapshot revision. */
 export function resolveSnapshot(
