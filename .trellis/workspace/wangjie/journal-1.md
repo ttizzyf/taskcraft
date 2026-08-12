@@ -306,3 +306,25 @@ Implemented the Node/TypeScript engineering foundation: single-package ESM toolc
 ### Status
 
 [OK] **Completed**
+
+
+## Session 14: Task 04：adapter-core 子任务
+
+**Date**: 2026-08-12
+**Task**: Task 04：adapter-core 子任务
+**Branch**: `main`
+
+### Summary
+
+实现并归档 adapter-core：HostAdapter 接口、codex/claude 实现（capabilities 永不 crash、testHook 60s 超时、installEntry 幂等）、Node Brief 同源渲染、conformance 14 断言×2 宿主、43 测试
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ba9c2da` | feat(adapters): add host adapter interface and codex/claude implementations |
+| `75ddc2f` | test(adapters): cover adapter conformance and failure paths |
+
+### Status
+
+[OK] **Completed**
