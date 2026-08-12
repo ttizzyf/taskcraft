@@ -23,6 +23,7 @@ import { register as registerTaskFact } from "./commands/task-fact-add.js";
 import { register as registerTaskNew } from "./commands/task-new.js";
 import { register as registerTaskNext } from "./commands/task-next.js";
 import { register as registerTaskShow } from "./commands/task-show.js";
+import { register as registerWatch } from "./commands/watch.js";
 import type { StatusTaskEntry } from "./commands/render.js";
 import { renderCommandData, renderTaskList } from "./commands/render.js";
 
@@ -117,5 +118,6 @@ registerTaskCancel(task);
 registerRun(program);
 registerReview(program);
 registerStatus(program);
+registerWatch(program);
 
 await program.parseAsync();

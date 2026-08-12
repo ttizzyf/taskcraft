@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Taskcraft Watch</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Taskcraft Watch</h1>
+      <nav>
+        <a href="#/board">Board</a>
+        <a href="#/runtime">Runtime</a>
+        <a href="#/diag">Diagnostics</a>
+      </nav>
+    </header>
+    <main id="app">
+      <p>
+        The watch frontend lands in a later task. The read-only JSON API is
+        available at <code>/api/board</code>, <code>/api/task/&lt;id&gt;</code>,
+        <code>/api/runtime</code> and <code>/api/diagnostics</code>.
+      </p>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
