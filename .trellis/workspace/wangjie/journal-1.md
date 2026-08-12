@@ -388,7 +388,7 @@ Implemented the Node/TypeScript engineering foundation: single-package ESM toolc
 
 | Hash | Message |
 |------|---------|
-| `docs` | (see git log) |
+| `8d91b23` | docs: add Task 04 handoff and update roadmap |
 
 ### Status
 
