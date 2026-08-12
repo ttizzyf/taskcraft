@@ -1,0 +1,546 @@
+{
+  "schemaVersion": "tc-fixture/v1",
+  "id": "l3-two-children",
+  "description": "Two delivery branches: branch A reviewed, branch B awaits its delivery review",
+  "tasks": [
+    {
+      "id": "T-306",
+      "title": "Two delivery branches: branch A reviewed, branch B awaits its delivery review",
+      "level": 3,
+      "objectiveMd": "Ship the L3 initiative",
+      "activatedAt": "2026-08-11T00:00:00.000Z",
+      "cancelledAt": null,
+      "cancelReason": null,
+      "revision": 13,
+      "currentLifecycleRevision": 1
+    }
+  ],
+  "lifecycles": [
+    {
+      "taskId": "T-306",
+      "nodes": [
+        {
+          "id": "frame-1",
+          "kind": "frame",
+          "title": "Frame",
+          "objective": "Ship the L3 initiative",
+          "procedureRef": "l3:frame"
+        },
+        {
+          "id": "plan-1",
+          "kind": "plan",
+          "title": "Plan",
+          "objective": "Ship the L3 initiative",
+          "procedureRef": "l3:plan"
+        },
+        {
+          "id": "review-plan-1",
+          "kind": "review",
+          "title": "Feasibility review",
+          "objective": "Ship the L3 initiative",
+          "procedureRef": "l3:review"
+        },
+        {
+          "id": "execute-1",
+          "kind": "execute",
+          "title": "Execute",
+          "objective": "Ship the L3 initiative",
+          "procedureRef": "l3:execute"
+        },
+        {
+          "id": "review-execute-1",
+          "kind": "review",
+          "title": "Delivery review",
+          "objective": "Ship the L3 initiative",
+          "procedureRef": "l3:review"
+        },
+        {
+          "id": "integrate-1",
+          "kind": "integrate",
+          "title": "Integrate",
+          "objective": "Ship the L3 initiative",
+          "procedureRef": "l3:integrate"
+        },
+        {
+          "id": "review-integrate-1",
+          "kind": "review",
+          "title": "Integration review",
+          "objective": "Ship the L3 initiative",
+          "procedureRef": "l3:review"
+        },
+        {
+          "id": "record-1",
+          "kind": "record",
+          "title": "Record",
+          "objective": "Ship the L3 initiative",
+          "procedureRef": "l3:record"
+        }
+      ],
+      "edges": [
+        {
+          "from": "frame-1",
+          "to": "plan-1"
+        },
+        {
+          "from": "plan-1",
+          "to": "review-plan-1"
+        },
+        {
+          "from": "review-plan-1",
+          "to": "execute-1"
+        },
+        {
+          "from": "execute-1",
+          "to": "review-execute-1"
+        },
+        {
+          "from": "review-execute-1",
+          "to": "integrate-1"
+        },
+        {
+          "from": "integrate-1",
+          "to": "review-integrate-1"
+        },
+        {
+          "from": "review-integrate-1",
+          "to": "record-1"
+        }
+      ],
+      "obligations": [
+        {
+          "nodeId": "frame-1",
+          "id": "frame-completed",
+          "duty": "required",
+          "title": "Frame completed",
+          "evaluator": {
+            "kind": "frame-result"
+          }
+        },
+        {
+          "nodeId": "plan-1",
+          "id": "plan-completed",
+          "duty": "required",
+          "title": "Plan completed",
+          "evaluator": {
+            "kind": "plan-result"
+          }
+        },
+        {
+          "nodeId": "review-plan-1",
+          "id": "feasibility-completed",
+          "duty": "required",
+          "title": "Feasibility review completed",
+          "evaluator": {
+            "kind": "review-passed"
+          }
+        },
+        {
+          "nodeId": "execute-1",
+          "id": "requested-outcome-produced",
+          "duty": "required",
+          "title": "Requested outcome produced",
+          "evaluator": {
+            "kind": "evidence-exists"
+          }
+        },
+        {
+          "nodeId": "execute-1",
+          "id": "minimum-validation-recorded",
+          "duty": "required",
+          "title": "Minimum validation recorded",
+          "evaluator": {
+            "kind": "evidence-type",
+            "type": "validation"
+          }
+        },
+        {
+          "nodeId": "review-execute-1",
+          "id": "delivery-completed",
+          "duty": "required",
+          "title": "Delivery review completed",
+          "evaluator": {
+            "kind": "review-passed"
+          }
+        },
+        {
+          "nodeId": "integrate-1",
+          "id": "integration-completed",
+          "duty": "required",
+          "title": "Integration completed",
+          "evaluator": {
+            "kind": "integrate-result"
+          }
+        },
+        {
+          "nodeId": "review-integrate-1",
+          "id": "integration-review-completed",
+          "duty": "required",
+          "title": "Integration review completed",
+          "evaluator": {
+            "kind": "review-passed"
+          }
+        },
+        {
+          "nodeId": "record-1",
+          "id": "result-and-scope-retained",
+          "duty": "required",
+          "title": "Result and scope retained",
+          "evaluator": {
+            "kind": "record-result"
+          }
+        }
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "id": "att-T-306-frame-1-1",
+      "taskId": "T-306",
+      "nodeId": "frame-1",
+      "attemptNumber": 1,
+      "status": "finished",
+      "outcome": "success",
+      "resultJson": {
+        "objective": "Ship the L3 initiative",
+        "scope": {
+          "modules": [
+            "core"
+          ]
+        },
+        "acceptance": [
+          "L3 graph drives to done"
+        ]
+      },
+      "startedAt": "2026-08-11T00:00:00.000Z",
+      "finishedAt": "2026-08-11T00:00:01.000Z"
+    },
+    {
+      "id": "att-T-306-plan-1-1",
+      "taskId": "T-306",
+      "nodeId": "plan-1",
+      "attemptNumber": 1,
+      "status": "finished",
+      "outcome": "success",
+      "resultJson": {
+        "objectiveCoverage": [
+          "Objective covered by children A and B"
+        ],
+        "children": [
+          {
+            "id": "A",
+            "title": "Child A"
+          },
+          {
+            "id": "B",
+            "title": "Child B"
+          }
+        ],
+        "dependencies": [
+          {
+            "name": "api-availability"
+          }
+        ],
+        "validationOwners": [
+          {
+            "childId": "A",
+            "owner": "reviewer"
+          },
+          {
+            "childId": "B",
+            "owner": "reviewer"
+          }
+        ],
+        "integrationPath": "integrate://deliverables"
+      },
+      "startedAt": "2026-08-11T00:00:01.000Z",
+      "finishedAt": "2026-08-11T00:00:02.000Z"
+    },
+    {
+      "id": "att-T-306-review-plan-1-1",
+      "taskId": "T-306",
+      "nodeId": "review-plan-1",
+      "attemptNumber": 1,
+      "status": "finished",
+      "outcome": "passed",
+      "resultJson": {
+        "outcome": "passed",
+        "evidenceRefs": [
+          "ev-T-306-att-T-306-review-plan-1-1-1"
+        ]
+      },
+      "startedAt": "2026-08-11T00:00:02.000Z",
+      "finishedAt": "2026-08-11T00:00:02.000Z"
+    },
+    {
+      "id": "att-T-306-execute-1-1",
+      "taskId": "T-306",
+      "nodeId": "execute-1",
+      "attemptNumber": 1,
+      "status": "finished",
+      "outcome": "success",
+      "resultJson": {
+        "summary": "Child A delivered",
+        "evidence": [
+          {
+            "type": "validation",
+            "reference": "ref://a",
+            "summary": "A validated"
+          }
+        ]
+      },
+      "startedAt": "2026-08-11T00:00:02.000Z",
+      "finishedAt": "2026-08-11T00:00:03.000Z"
+    },
+    {
+      "id": "att-T-306-review-execute-1-1",
+      "taskId": "T-306",
+      "nodeId": "review-execute-1",
+      "attemptNumber": 1,
+      "status": "finished",
+      "outcome": "passed",
+      "resultJson": {
+        "outcome": "passed",
+        "evidenceRefs": [
+          "ev-T-306-att-T-306-review-execute-1-1-1"
+        ]
+      },
+      "startedAt": "2026-08-11T00:00:03.000Z",
+      "finishedAt": "2026-08-11T00:00:03.000Z"
+    },
+    {
+      "id": "att-T-306-execute-1-2",
+      "taskId": "T-306",
+      "nodeId": "execute-1",
+      "attemptNumber": 2,
+      "status": "finished",
+      "outcome": "success",
+      "resultJson": {
+        "summary": "Child B delivered",
+        "evidence": [
+          {
+            "type": "validation",
+            "reference": "ref://b",
+            "summary": "B validated"
+          }
+        ]
+      },
+      "startedAt": "2026-08-11T00:00:03.000Z",
+      "finishedAt": "2026-08-11T00:00:04.000Z"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-T-306-att-T-306-frame-1-1-1",
+      "taskId": "T-306",
+      "nodeAttemptId": "att-T-306-frame-1-1",
+      "type": "note",
+      "reference": "frame://T-306",
+      "summary": "Ship the L3 initiative",
+      "digest": null
+    },
+    {
+      "id": "ev-T-306-att-T-306-plan-1-1-1",
+      "taskId": "T-306",
+      "nodeAttemptId": "att-T-306-plan-1-1",
+      "type": "note",
+      "reference": "plan://T-306",
+      "summary": "integrate://deliverables",
+      "digest": null
+    },
+    {
+      "id": "ev-T-306-att-T-306-review-plan-1-1-1",
+      "taskId": "T-306",
+      "nodeAttemptId": "att-T-306-review-plan-1-1",
+      "type": "validation",
+      "reference": "ref://feasibility",
+      "summary": "Feasibility verified",
+      "digest": null
+    },
+    {
+      "id": "ev-T-306-att-T-306-execute-1-1-1",
+      "taskId": "T-306",
+      "nodeAttemptId": "att-T-306-execute-1-1",
+      "type": "validation",
+      "reference": "ref://a",
+      "summary": "A validated",
+      "digest": null
+    },
+    {
+      "id": "ev-T-306-att-T-306-review-execute-1-1-1",
+      "taskId": "T-306",
+      "nodeAttemptId": "att-T-306-review-execute-1-1",
+      "type": "validation",
+      "reference": "ref://delivery-a",
+      "summary": "Branch A delivery verified",
+      "digest": null
+    },
+    {
+      "id": "ev-T-306-att-T-306-execute-1-2-1",
+      "taskId": "T-306",
+      "nodeAttemptId": "att-T-306-execute-1-2",
+      "type": "validation",
+      "reference": "ref://b",
+      "summary": "B validated",
+      "digest": null
+    }
+  ],
+  "taskFacts": [],
+  "reviewLinks": [
+    {
+      "taskId": "T-306",
+      "reviewAttemptId": "att-T-306-review-plan-1-1",
+      "reviewedAttemptId": "att-T-306-plan-1-1",
+      "purpose": "feasibility",
+      "capability": "context-only",
+      "independenceStatus": "same-actor"
+    },
+    {
+      "taskId": "T-306",
+      "reviewAttemptId": "att-T-306-review-execute-1-1",
+      "reviewedAttemptId": "att-T-306-execute-1-1",
+      "purpose": "delivery",
+      "capability": "context-only",
+      "independenceStatus": "same-actor"
+    }
+  ],
+  "reviewFindings": [],
+  "obligationResults": [
+    {
+      "taskId": "T-306",
+      "nodeId": "frame-1",
+      "obligationId": "frame-completed",
+      "status": "satisfied",
+      "satisfiedByEvidenceId": "ev-T-306-att-T-306-frame-1-1-1"
+    },
+    {
+      "taskId": "T-306",
+      "nodeId": "plan-1",
+      "obligationId": "plan-completed",
+      "status": "satisfied",
+      "satisfiedByEvidenceId": "ev-T-306-att-T-306-plan-1-1-1"
+    },
+    {
+      "taskId": "T-306",
+      "nodeId": "review-plan-1",
+      "obligationId": "feasibility-completed",
+      "status": "satisfied",
+      "satisfiedByEvidenceId": "ev-T-306-att-T-306-review-plan-1-1-1"
+    },
+    {
+      "taskId": "T-306",
+      "nodeId": "execute-1",
+      "obligationId": "requested-outcome-produced",
+      "status": "satisfied",
+      "satisfiedByEvidenceId": "ev-T-306-att-T-306-execute-1-1-1"
+    },
+    {
+      "taskId": "T-306",
+      "nodeId": "execute-1",
+      "obligationId": "minimum-validation-recorded",
+      "status": "satisfied",
+      "satisfiedByEvidenceId": "ev-T-306-att-T-306-execute-1-1-1"
+    },
+    {
+      "taskId": "T-306",
+      "nodeId": "review-execute-1",
+      "obligationId": "delivery-completed",
+      "status": "satisfied",
+      "satisfiedByEvidenceId": "ev-T-306-att-T-306-review-execute-1-1-1"
+    }
+  ],
+  "blockers": [],
+  "agentRuns": [],
+  "events": [
+    {
+      "taskId": "T-306",
+      "eventType": "task.created",
+      "nodeId": null,
+      "attemptId": null,
+      "postTaskRevision": 1
+    },
+    {
+      "taskId": "T-306",
+      "eventType": "task.activated",
+      "nodeId": "frame-1",
+      "attemptId": "att-T-306-frame-1-1",
+      "postTaskRevision": 2
+    },
+    {
+      "taskId": "T-306",
+      "eventType": "attempt.finished",
+      "nodeId": "frame-1",
+      "attemptId": "att-T-306-frame-1-1",
+      "postTaskRevision": 3
+    },
+    {
+      "taskId": "T-306",
+      "eventType": "attempt.created",
+      "nodeId": "plan-1",
+      "attemptId": "att-T-306-plan-1-1",
+      "postTaskRevision": 4
+    },
+    {
+      "taskId": "T-306",
+      "eventType": "attempt.finished",
+      "nodeId": "plan-1",
+      "attemptId": "att-T-306-plan-1-1",
+      "postTaskRevision": 5
+    },
+    {
+      "taskId": "T-306",
+      "eventType": "review.started",
+      "nodeId": "review-plan-1",
+      "attemptId": "att-T-306-review-plan-1-1",
+      "postTaskRevision": 6
+    },
+    {
+      "taskId": "T-306",
+      "eventType": "review.passed",
+      "nodeId": "review-plan-1",
+      "attemptId": "att-T-306-review-plan-1-1",
+      "postTaskRevision": 7
+    },
+    {
+      "taskId": "T-306",
+      "eventType": "attempt.created",
+      "nodeId": "execute-1",
+      "attemptId": "att-T-306-execute-1-1",
+      "postTaskRevision": 8
+    },
+    {
+      "taskId": "T-306",
+      "eventType": "attempt.finished",
+      "nodeId": "execute-1",
+      "attemptId": "att-T-306-execute-1-1",
+      "postTaskRevision": 9
+    },
+    {
+      "taskId": "T-306",
+      "eventType": "review.started",
+      "nodeId": "review-execute-1",
+      "attemptId": "att-T-306-review-execute-1-1",
+      "postTaskRevision": 10
+    },
+    {
+      "taskId": "T-306",
+      "eventType": "review.passed",
+      "nodeId": "review-execute-1",
+      "attemptId": "att-T-306-review-execute-1-1",
+      "postTaskRevision": 11
+    },
+    {
+      "taskId": "T-306",
+      "eventType": "attempt.created",
+      "nodeId": "execute-1",
+      "attemptId": "att-T-306-execute-1-2",
+      "postTaskRevision": 12
+    },
+    {
+      "taskId": "T-306",
+      "eventType": "attempt.finished",
+      "nodeId": "execute-1",
+      "attemptId": "att-T-306-execute-1-2",
+      "postTaskRevision": 13
+    }
+  ]
+}
