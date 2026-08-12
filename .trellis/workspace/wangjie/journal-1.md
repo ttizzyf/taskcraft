@@ -393,3 +393,26 @@ Implemented the Node/TypeScript engineering foundation: single-package ESM toolc
 ### Status
 
 [OK] **Completed**
+
+
+## Session 18: Task 05：L3 graph-reducer + cli-sample 子任务
+
+**Date**: 2026-08-12
+**Task**: Task 05：L3 graph-reducer + cli-sample 子任务
+**Branch**: `main`
+
+### Summary
+
+实现并归档 l3-graph-reducer（L3 图/feasibility gate 不可绕过/taskFactAdd/8 fixtures/23 测试）与 l3-cli-sample（fact add 命令/L3 主闭环+回流/可回放样本/7 测试）；两个 trellis-check 均通过
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `522b3e2` | (see git log) |
+| `135866b` | (see git log) |
+| `80fdc52` | (see git log) |
+
+### Status
+
+[OK] **Completed**
