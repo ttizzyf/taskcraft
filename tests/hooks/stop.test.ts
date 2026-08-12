@@ -6,7 +6,11 @@
 import { describe, expect, it } from "vitest";
 
 import { ERROR_CODES } from "../../src/core/errors.js";
-import { decideStop, runStopGate } from "../../src/hooks/stop.js";
+import {
+  decideStop,
+  decideStopForHook,
+  runStopGate,
+} from "../../src/hooks/stop.js";
 import { insertL1Fixture, insertNode, insertTask } from "../store/helpers.js";
 import {
   activeProjection,
@@ -57,6 +61,27 @@ describe("decideStop pure matrix", () => {
     });
 
     expect(decideStop(projection)).toBe("allow");
+  });
+});
+
+describe("decideStopForHook loop guard", () => {
+  it("releases the second stop of a turn even when work is runnable", () => {
+    const projection = activeProjection();
+
+    expect(decideStopForHook(true, projection)).toBe("allow");
+  });
+
+  it("still blocks the first stop of a turn with runnable work", () => {
+    const projection = activeProjection();
+
+    expect(decideStopForHook(false, projection)).toEqual({
+      action: "block",
+      next: "tc run T-1 --node execute-1",
+    });
+  });
+
+  it("allows when the task is done regardless of the loop flag", () => {
+    expect(decideStopForHook(false, nonActiveProjection("done"))).toBe("allow");
   });
 });
 

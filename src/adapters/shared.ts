@@ -43,9 +43,10 @@ export const STOP_BLOCK_MARKER = "TC_STOP_BLOCK";
 export const STOP_ALLOW_MARKER = "TC_STOP_ALLOW";
 
 /** Resolves the tc CLI entry from the module location so hook templates and
- * registrations never depend on cwd. dist/adapters -> dist/cli.js. */
+ * registrations never depend on cwd. dist/adapters -> dist/cli.js (one
+ * parent hop; "../../" would land on the package root). */
 export function resolveTcPath(): string {
-  return fileURLToPath(new URL("../../cli.js", import.meta.url));
+  return fileURLToPath(new URL("../cli.js", import.meta.url));
 }
 
 export function defaultProbe(command: string, args: string[]): ProbeOutcome {

@@ -60,8 +60,11 @@ describe("tc init --agent (CLI)", () => {
         join(cwd, ".taskcraft", "hooks", "stop.sh"),
         "utf8",
       );
-      expect(entry).toContain("hooks/entry.js");
-      expect(stop).toContain("hooks/stop.js");
+      // The wrapper must point at the compiled gate under dist/hooks/ —
+      // "<root>/hooks/entry.js" would mean resolveTcPath lost a level and
+      // the host silently ignores the failing hook.
+      expect(entry).toContain("dist/hooks/entry.js");
+      expect(stop).toContain("dist/hooks/stop.js");
       expect(entry).toContain("config.json");
 
       const config = readFileSync(join(cwd, ".codex", "config.toml"), "utf8");

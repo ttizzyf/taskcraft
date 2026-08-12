@@ -2,10 +2,13 @@
 // cancelled tasks and tasks without runnable/running work are allowed to
 // stop; an active task with runnable or running nodes blocks the stop and
 // prints the unique next command. The pure decideStop is fully testable; the
-// IO wrapper is the thin hook script entry. stop_hook_active loop protection
-// is owned by the host protocol, so the script never re-blocks a turn.
+// IO wrapper is the thin hook script entry. Loop protection: both hosts feed
+// the current Stop input back as `stop_hook_active=true` on the second stop
+// of the same turn (verified by the Task 00 probes CX-02/CL-02); the hook
+// MUST honour it and allow the stop, or the agent loops forever re-blocking
+// its own turn.
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
 import type { Projection } from "../core/projector.js";
@@ -43,6 +46,21 @@ export function decideStop(projection: Projection | null): StopDecision {
   };
 }
 
+/** Loop guard: when the host reports `stop_hook_active=true` (this Stop is
+ * the re-entry of a turn the hook already blocked once), the hook must let
+ * the agent stop instead of re-blocking forever. Applied on top of
+ * decideStop. */
+export function decideStopForHook(
+  stopHookActive: boolean,
+  projection: Projection | null,
+): StopDecision {
+  if (stopHookActive) {
+    return "allow";
+  }
+
+  return decideStop(projection);
+}
+
 export interface StopGateOutput {
   decision: StopDecision;
   /** The breadcrumb line the hook prints while blocking; null when allowed. */
@@ -52,7 +70,10 @@ export interface StopGateOutput {
 /** IO wrapper: reads .taskcraft/config.json and the active task projection,
  * then maps the pure decision to the hook output. takeOver off disables the
  * block entirely (`tc enable off` must mean zero hook output). */
-export function runStopGate(configPath: string): StopGateOutput {
+export function runStopGate(
+  configPath: string,
+  stopHookActive = false,
+): StopGateOutput {
   const config = readConfig(configPath);
 
   if (config.takeOver === "off") {
@@ -67,7 +88,7 @@ export function runStopGate(configPath: string): StopGateOutput {
 
   try {
     const projection = findActiveProjection(database);
-    const decision = decideStop(projection);
+    const decision = decideStopForHook(stopHookActive, projection);
     const output =
       decision !== "allow" && projection !== null
         ? JSON.stringify(projection.breadcrumb)
@@ -113,6 +134,35 @@ if (isMainModule(import.meta.url)) {
   runAsHookScript();
 }
 
+/** Reads the host Stop hook input (JSON on stdin) and returns
+ * `stop_hook_active`. Both codex and claude feed the current Stop input back
+ * on re-entry; a malformed or absent payload simply means "first stop" and
+ * defaults to false. */
+function readStopHookActive(): boolean {
+  try {
+    const payload = readFileSync(0, "utf8").trim();
+
+    if (payload.length === 0) {
+      return false;
+    }
+
+    const parsed = JSON.parse(payload) as unknown;
+
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !("stop_hook_active" in parsed) ||
+      typeof parsed.stop_hook_active !== "boolean"
+    ) {
+      return false;
+    }
+
+    return parsed.stop_hook_active;
+  } catch {
+    return false;
+  }
+}
+
 function runAsHookScript(): void {
   const configPath = process.argv[2];
 
@@ -129,7 +179,7 @@ function runAsHookScript(): void {
   }
 
   try {
-    const { decision, output } = runStopGate(configPath);
+    const { decision, output } = runStopGate(configPath, readStopHookActive());
 
     if (decision !== "allow") {
       if (output !== null) {
