@@ -224,21 +224,21 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Hook script skeletons. The real gate logic lands in hook-wiring; the
- * template only pins the breadcrumb invocation contract. */
+/** Hook script templates: thin bash wrappers around the compiled gate entry
+ * points (dist/hooks/*.js). The config path is derived from the script
+ * location, so neither wrapper nor gate depends on cwd. */
 export function entryHookTemplate(tcPath: string): string {
-  return `#!/usr/bin/env bash
-# Taskcraft entry hook — prints the compact breadcrumb when a durable task is
-# active, stays silent otherwise. Skeleton: gate logic lands in hook-wiring.
-node "${tcPath}" state --breadcrumb 2>/dev/null
-`;
+  return hookTemplate(join(dirname(tcPath), "hooks", "entry.js"));
 }
 
 export function stopHookTemplate(tcPath: string): string {
+  return hookTemplate(join(dirname(tcPath), "hooks", "stop.js"));
+}
+
+function hookTemplate(scriptPath: string): string {
   return `#!/usr/bin/env bash
-# Taskcraft stop hook — blocks normal end while a node is runnable or running,
-# allows it otherwise. Skeleton: gate logic lands in hook-wiring.
-node "${tcPath}" state --breadcrumb 2>/dev/null
+# Taskcraft managed hook gate (tc init --agent <host>).
+node "${scriptPath}" "$(dirname "$0")/../config.json"
 `;
 }
 
