@@ -384,13 +384,17 @@ function writeRecordResult(
   actor: string,
   now: string,
 ): void {
-  const recordAttemptId = attemptId(taskId, L1_RECORD_NODE_ID, 1);
+  const recordNumber =
+    getAttempts(database, taskId)
+      .filter((attempt) => attempt.nodeId === L1_RECORD_NODE_ID)
+      .reduce((max, attempt) => Math.max(max, attempt.attemptNumber), 0) + 1;
+  const recordAttemptId = attemptId(taskId, L1_RECORD_NODE_ID, recordNumber);
   insertAttempt(database, {
     id: recordAttemptId,
     taskId,
     lifecycleRevision: snapshot.currentLifecycleRevision,
     nodeId: L1_RECORD_NODE_ID,
-    attemptNumber: 1,
+    attemptNumber: recordNumber,
     actorInstanceId: actor,
     host: L1_DEFAULT_ACTOR,
     status: "finished",

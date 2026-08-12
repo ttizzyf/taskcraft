@@ -121,8 +121,11 @@ export function run(
       });
       bumpRevision(database, snapshot, now);
     } else if (activeAttempt === undefined) {
+      // Attempt numbers advance per node across every lifecycle revision:
+      // node_attempts.id is a global primary key, so a replanned revision
+      // must not reuse the ids of superseded revision-1 attempts.
       const nextNumber =
-        attempts
+        getAttempts(database, taskId)
           .filter((attempt) => attempt.nodeId === nodeId)
           .reduce((max, attempt) => Math.max(max, attempt.attemptNumber), 0) +
         1;

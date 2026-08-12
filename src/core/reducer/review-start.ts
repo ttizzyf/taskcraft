@@ -108,8 +108,11 @@ export function reviewStart(
     const actor = input.actorInstanceId ?? L1_DEFAULT_ACTOR;
     const host = input.host ?? L1_DEFAULT_ACTOR;
     const now = nowIso();
+    // Review attempt numbers advance per node across every lifecycle
+    // revision: node_attempts.id is a global primary key, so a replanned
+    // revision must not reuse the ids of superseded review attempts.
     const reviewNumber =
-      attempts
+      getAttempts(database, taskId)
         .filter((attempt) => attempt.nodeId === nodeId)
         .reduce((max, attempt) => Math.max(max, attempt.attemptNumber), 0) + 1;
     const reviewAttempt = attemptId(taskId, nodeId, reviewNumber);

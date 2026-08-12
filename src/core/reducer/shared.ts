@@ -192,7 +192,10 @@ export function insertEvidence(
 
 /** Writes a satisfied obligation result. The evidence-owner trigger requires
  * the evidence to belong to an attempt of the same node and revision, which
- * the callers guarantee by binding evidence to the target attempt. */
+ * the callers guarantee by binding evidence to the target attempt. An
+ * obligation is satisfied at most once per revision (primary key): a
+ * successor attempt in the changes_requested flow re-completes a node whose
+ * obligations already hold, so a repeated satisfaction is a no-op. */
 export function satisfyObligation(
   database: TaskcraftDatabase,
   taskId: string,
@@ -202,6 +205,17 @@ export function satisfyObligation(
   evidenceId: string,
   now: string,
 ): void {
+  const existing = database
+    .prepare(
+      `SELECT 1 FROM obligation_results
+       WHERE task_id = ? AND lifecycle_revision = ? AND node_id = ? AND obligation_id = ?`,
+    )
+    .get(taskId, snapshot.currentLifecycleRevision, nodeId, obligationId);
+
+  if (existing !== undefined) {
+    return;
+  }
+
   database
     .prepare(
       `INSERT INTO obligation_results (

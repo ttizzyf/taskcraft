@@ -63,13 +63,12 @@ export function reviewChanges(
     const revision = snapshot.currentLifecycleRevision;
     const actor = input.actorInstanceId ?? L1_DEFAULT_ACTOR;
     const now = nowIso();
+    // Successor numbers advance per node across every lifecycle revision:
+    // node_attempts.id is a global primary key, so the successor must not
+    // reuse the id of a superseded attempt from an older revision.
     const successorNumber =
       getAttempts(database, taskId)
-        .filter(
-          (candidate) =>
-            candidate.lifecycleRevision === revision &&
-            candidate.nodeId === reviewedNodeId,
-        )
+        .filter((candidate) => candidate.nodeId === reviewedNodeId)
         .reduce((max, candidate) => Math.max(max, candidate.attemptNumber), 0) +
       1;
     const successorAttempt = attemptId(taskId, reviewedNodeId, successorNumber);
