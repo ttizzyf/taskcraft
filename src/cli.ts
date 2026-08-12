@@ -19,6 +19,7 @@ import { register as registerReview } from "./commands/review.js";
 import { register as registerRun } from "./commands/run.js";
 import { register as registerStatus } from "./commands/status.js";
 import { register as registerTaskCancel } from "./commands/task-cancel.js";
+import { register as registerTaskFact } from "./commands/task-fact-add.js";
 import { register as registerTaskNew } from "./commands/task-new.js";
 import { register as registerTaskNext } from "./commands/task-next.js";
 import { register as registerTaskShow } from "./commands/task-show.js";
@@ -108,6 +109,7 @@ registerAgent(program);
 
 const task = program.command("task").description("task management");
 registerTaskNew(task);
+registerTaskFact(task);
 registerTaskShow(task);
 registerTaskNext(task);
 registerTaskCancel(task);

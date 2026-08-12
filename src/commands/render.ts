@@ -51,6 +51,16 @@ export interface EvidenceSummary {
   nodeAttemptId: string | null;
 }
 
+export interface FactSummary {
+  id: string;
+  category: string;
+  subject: string;
+  value: unknown;
+  sourceAttemptId: string;
+  supersedesFactId: string | null;
+  createdAt: string;
+}
+
 export interface TaskShowData {
   taskId: string;
   title: string;
@@ -66,6 +76,7 @@ export interface TaskShowData {
   next: string | null;
   attempts: AttemptSummary[];
   evidence: EvidenceSummary[];
+  facts: FactSummary[];
   findings: FindingSummary[];
   breadcrumb: BreadcrumbV1;
 }
@@ -182,6 +193,21 @@ export function renderTaskShowData(data: TaskShowData): string {
     for (const evidence of data.evidence) {
       lines.push(
         `  ${evidence.id}  ${evidence.type}  ${evidence.reference}  ${evidence.summary}`,
+      );
+    }
+  }
+
+  lines.push("Facts:");
+
+  if (data.facts.length === 0) {
+    lines.push("  (none)");
+  } else {
+    for (const fact of data.facts) {
+      lines.push(
+        `  ${fact.id}  ${fact.category}  ${fact.subject}  ${JSON.stringify(fact.value)}  from ${fact.sourceAttemptId}` +
+          (fact.supersedesFactId === null
+            ? ""
+            : `  supersedes ${fact.supersedesFactId}`),
       );
     }
   }

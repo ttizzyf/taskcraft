@@ -11,6 +11,7 @@ import {
   getEvidence,
   getReviewFindings,
   getTask,
+  getTaskFacts,
 } from "../store/query.js";
 import {
   execute,
@@ -21,6 +22,7 @@ import {
 import type {
   EvidenceSummary,
   AttemptSummary,
+  FactSummary,
   FindingSummary,
   TaskShowData,
 } from "./render.js";
@@ -91,6 +93,17 @@ function buildTaskShowData(
       summary: row.summary,
     }),
   );
+  // task_facts is append-only; the newest row wins for readers and every
+  // fact (superseded included) stays queryable.
+  const facts: FactSummary[] = getTaskFacts(database, taskId).map((row) => ({
+    id: row.id,
+    category: row.category,
+    subject: row.subject,
+    value: JSON.parse(row.valueJson) as unknown,
+    sourceAttemptId: row.sourceAttemptId,
+    supersedesFactId: row.supersedesFactId,
+    createdAt: row.createdAt,
+  }));
 
   return {
     taskId,
@@ -107,6 +120,7 @@ function buildTaskShowData(
     next: projection.next,
     attempts,
     evidence,
+    facts,
     findings,
     breadcrumb: projection.breadcrumb,
   };
