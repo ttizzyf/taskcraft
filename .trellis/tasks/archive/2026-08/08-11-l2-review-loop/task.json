@@ -1,0 +1,29 @@
+{
+  "id": "l2-review-loop",
+  "name": "l2-review-loop",
+  "title": "Implement L2 tracked workflow and review feedback",
+  "description": "L2 graph, review command feedback (passed/changes_requested/replan_required), revision supersede, review CLI slice",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "wangjie",
+  "assignee": "wangjie",
+  "createdAt": "2026-08-11",
+  "completedAt": "2026-08-12",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-11-review-reducer",
+    "08-11-review-cli"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
