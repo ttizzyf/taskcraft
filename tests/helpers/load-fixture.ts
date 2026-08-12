@@ -6,94 +6,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import type { TaskcraftDatabase } from "../../src/store/database.js";
+import type { FixtureDocument, FixtureTask } from "./fixture-document.js";
 
 const FIXED_TIMESTAMP = "2026-08-11T00:00:00.000Z";
-
-interface FixtureTask {
-  id: string;
-  title: string;
-  level: 1 | 2 | 3;
-  objectiveMd: string;
-  activatedAt: string | null;
-  cancelledAt: string | null;
-  cancelReason: string | null;
-  revision: number;
-  currentLifecycleRevision?: number;
-}
-
-interface FixtureDocument {
-  tasks: FixtureTask[];
-  lifecycles: Array<{
-    taskId: string;
-    nodes: Array<{
-      id: string;
-      kind: string;
-      title: string;
-      objective: string;
-      procedureRef: string;
-      outputSchema?: unknown;
-    }>;
-    edges: Array<{ from: string; to: string; condition?: unknown }>;
-    obligations: Array<{
-      nodeId: string;
-      id: string;
-      duty: string;
-      title: string;
-      evaluator?: unknown;
-    }>;
-  }>;
-  attempts: Array<{
-    id: string;
-    taskId: string;
-    nodeId: string;
-    attemptNumber?: number;
-    status: string;
-    outcome: string | null;
-    resultJson?: unknown;
-    startedAt: string | null;
-    finishedAt: string | null;
-  }>;
-  evidence: Array<{
-    id: string;
-    taskId: string;
-    nodeAttemptId: string;
-    type: string;
-    reference: string;
-    summary: string;
-    digest?: string | null;
-  }>;
-  obligationResults: Array<{
-    taskId: string;
-    nodeId: string;
-    obligationId: string;
-    status: string;
-    satisfiedByEvidenceId: string | null;
-  }>;
-  blockers: Array<{
-    id: string;
-    taskId: string;
-    nodeId: string | null;
-    kind: string;
-    waitingReason: string;
-    status: string;
-    reason: string;
-    remediationCommand: string | null;
-  }>;
-  agentRuns: Array<{
-    id: string;
-    taskId: string;
-    nodeAttemptId: string;
-    observationStatus: string;
-    finishReason?: string | null;
-  }>;
-  events: Array<{
-    taskId: string;
-    eventType: string;
-    nodeId: string | null;
-    attemptId: string | null;
-    postTaskRevision?: number;
-  }>;
-}
 
 export function fixturePath(name: string): string {
   return fileURLToPath(
@@ -122,23 +37,43 @@ export function loadFixture(database: TaskcraftDatabase, raw: unknown): void {
   runInTransaction(database, () => {
     for (const task of fixture.tasks) {
       insertTask(database, task);
-      insertLifecycleRevision(database, task.id, revisionOf(task.id));
+      insertLifecycleRevisions(database, task);
     }
 
     for (const lifecycle of fixture.lifecycles) {
-      insertGraph(database, lifecycle, revisionOf(lifecycle.taskId));
+      insertGraph(
+        database,
+        lifecycle,
+        lifecycle.revision ?? revisionOf(lifecycle.taskId),
+      );
     }
 
     for (const attempt of fixture.attempts) {
-      insertAttempt(database, attempt, revisionOf(attempt.taskId));
+      insertAttempt(
+        database,
+        attempt,
+        attempt.lifecycleRevision ?? revisionOf(attempt.taskId),
+      );
     }
 
     for (const evidence of fixture.evidence) {
       insertEvidence(database, evidence);
     }
 
+    for (const link of fixture.reviewLinks ?? []) {
+      insertReviewLink(database, link);
+    }
+
     for (const result of fixture.obligationResults) {
-      insertObligationResult(database, result, revisionOf(result.taskId));
+      insertObligationResult(
+        database,
+        result,
+        result.lifecycleRevision ?? revisionOf(result.taskId),
+      );
+    }
+
+    for (const finding of fixture.reviewFindings ?? []) {
+      insertReviewFinding(database, finding);
     }
 
     for (const blocker of fixture.blockers) {
@@ -179,21 +114,29 @@ function insertTask(database: TaskcraftDatabase, task: FixtureTask): void {
     );
 }
 
-function insertLifecycleRevision(
+function insertLifecycleRevisions(
   database: TaskcraftDatabase,
-  taskId: string,
-  revision: number,
+  task: FixtureTask,
 ): void {
-  database
-    .prepare(
-      `INSERT INTO lifecycle_revisions (
-         task_id, revision, reason_code, reason, compiler_version,
-         facts_digest, policy_digest, change_summary_json, created_by,
-         created_at
-       ) VALUES (?, ?, 'initial', 'initial L1 lifecycle', 'tc-l1/1',
-         'facts-digest', 'policy-digest', '{}', 'tester', ?)`,
-    )
-    .run(taskId, revision, FIXED_TIMESTAMP);
+  const revisions = task.revisions ?? [task.currentLifecycleRevision ?? 1];
+  const insert = database.prepare(
+    `INSERT INTO lifecycle_revisions (
+       task_id, revision, reason_code, reason, compiler_version,
+       facts_digest, policy_digest, change_summary_json, created_by,
+       created_at
+     ) VALUES (?, ?, ?, ?, 'tc-l1/1',
+       'facts-digest', 'policy-digest', '{}', 'tester', ?)`,
+  );
+
+  for (const revision of revisions) {
+    insert.run(
+      task.id,
+      revision,
+      revision === 1 ? "initial" : "replan_required",
+      revision === 1 ? "initial L1 lifecycle" : "replanned fixture revision",
+      FIXED_TIMESTAMP,
+    );
+  }
 }
 
 function insertGraph(
@@ -307,6 +250,56 @@ function insertEvidence(
     );
 }
 
+function insertReviewLink(
+  database: TaskcraftDatabase,
+  link: FixtureDocument["reviewLinks"][number],
+): void {
+  database
+    .prepare(
+      `INSERT INTO review_links (
+         task_id, review_attempt_id, reviewed_attempt_id, review_purpose,
+         capability, independence_status, reviewer_principal_id,
+         observed_host_session_id, created_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      link.taskId,
+      link.reviewAttemptId,
+      link.reviewedAttemptId,
+      link.purpose,
+      link.capability,
+      link.independenceStatus,
+      link.reviewerPrincipalId ?? "actor-1",
+      link.observedHostSessionId ?? null,
+      FIXED_TIMESTAMP,
+    );
+}
+
+function insertReviewFinding(
+  database: TaskcraftDatabase,
+  finding: FixtureDocument["reviewFindings"][number],
+): void {
+  database
+    .prepare(
+      `INSERT INTO review_findings (
+         id, task_id, review_attempt_id, severity, disposition, summary,
+         evidence_refs_json, resolved_by_attempt_id, created_at, resolved_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      finding.id,
+      finding.taskId,
+      finding.reviewAttemptId,
+      finding.severity,
+      finding.disposition ?? "open",
+      finding.summary,
+      JSON.stringify(finding.evidenceRefs ?? []),
+      finding.resolvedByAttemptId ?? null,
+      FIXED_TIMESTAMP,
+      finding.resolvedAt ?? null,
+    );
+}
+
 function insertObligationResult(
   database: TaskcraftDatabase,
   result: FixtureDocument["obligationResults"][number],
@@ -400,7 +393,7 @@ function insertEvents(
         `evt-${event.taskId}-${taskSeq}`,
         event.taskId,
         taskSeq,
-        revisionOf(event.taskId),
+        event.lifecycleRevision ?? revisionOf(event.taskId),
         event.nodeId,
         event.attemptId,
         event.eventType,

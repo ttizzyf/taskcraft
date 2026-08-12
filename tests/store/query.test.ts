@@ -154,6 +154,8 @@ describe("query model", () => {
       "getLifecycle",
       "getObligationResults",
       "getOpenBlockers",
+      "getReviewFindings",
+      "getReviewLinks",
       "getTask",
       "listTasks",
     ]);

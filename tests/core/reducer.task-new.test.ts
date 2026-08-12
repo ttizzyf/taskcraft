@@ -68,21 +68,53 @@ describe("reducer taskNew", () => {
     }
   });
 
-  it("rejects unsupported levels with TC_TASK_LEVEL_UNSUPPORTED and writes nothing", () => {
+  it("materializes the L2 graph for level 2 and rejects level 3", () => {
     const database = createMigratedDatabase();
 
     try {
+      const l2 = taskNew(database, {
+        title: "L2 task",
+        level: 2,
+        reason: "Needs review",
+      });
+
+      expect(l2.taskId).toBe("T-1");
+      expect(l2.status).toBe("queued");
+      expect(l2.next).toBe("tc run T-1 --node frame-1");
+
+      const graph = getLifecycle(database, "T-1", 1);
+      expect(graph.nodes.map((node) => [node.id, node.kind])).toEqual([
+        ["frame-1", "frame"],
+        ["execute-1", "execute"],
+        ["review-1", "review"],
+        ["record-1", "record"],
+      ]);
+      expect(
+        graph.edges.map((edge) => [edge.fromNodeId, edge.toNodeId]),
+      ).toEqual([
+        ["execute-1", "review-1"],
+        ["frame-1", "execute-1"],
+        ["review-1", "record-1"],
+      ]);
+      expect(graph.obligations.map((obligation) => obligation.id)).toEqual([
+        "minimum-validation-recorded",
+        "requested-outcome-produced",
+        "frame-completed",
+        "result-and-scope-retained",
+        "review-completed",
+      ]);
+
       const error = captureTaskcraftError(() =>
         taskNew(database, {
-          title: "L2 task",
-          level: 2,
-          reason: "Needs review",
+          title: "L3 task",
+          level: 3,
+          reason: "Initiative",
         }),
       );
 
       expect(error.code).toBe(ERROR_CODES.TC_TASK_LEVEL_UNSUPPORTED);
-      expect(countTasks(database)).toBe(0);
-      expect(countEvents(database)).toBe(0);
+      expect(countTasks(database)).toBe(1);
+      expect(countEvents(database)).toBe(1);
     } finally {
       database.close();
     }

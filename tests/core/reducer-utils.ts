@@ -3,6 +3,7 @@
 import { expect } from "vitest";
 
 import type { TaskcraftDatabase } from "../../src/store/database.js";
+import { run, runComplete, taskNew } from "../../src/core/reducer.js";
 import {
   getAttempts,
   getEvidence,
@@ -22,6 +23,55 @@ export const VALID_RESULT = {
   ],
   record: { summary: "Recorded" },
 };
+
+export const L2_FRAME_RESULT = {
+  objective: "Frame the retry policy",
+  scope: { modules: ["core"] },
+  acceptance: ["Retry policy is configurable per adapter"],
+};
+
+export const L2_EXECUTE_RESULT = {
+  summary: "Retry policy implemented",
+  evidence: [
+    { type: "validation", reference: "ref://validation", summary: "Validated" },
+    { type: "test", reference: "ref://test", summary: "Tests pass" },
+  ],
+};
+
+/** Creates an L2 task and drives it to the review point: frame and execute
+ * finished, review-1 runnable. Returns the task id and the ids of the frame
+ * and execute attempts. */
+export function setupL2ToReview(
+  database: TaskcraftDatabase,
+  title = "L2 review task",
+): { taskId: string; executeAttemptId: string } {
+  const { taskId } = taskNew(database, { title, level: 2, reason: "reason" });
+  run(database, taskId, { nodeId: "frame-1" });
+  runComplete(database, taskId, { nodeId: "frame-1", result: L2_FRAME_RESULT });
+  run(database, taskId, { nodeId: "execute-1" });
+  runComplete(database, taskId, { result: L2_EXECUTE_RESULT });
+
+  return { taskId, executeAttemptId: `att-${taskId}-execute-1-1` };
+}
+
+export function reviewStartInput(
+  taskId: string,
+  reviewedAttemptId: string,
+): {
+  taskId: string;
+  purpose: "delivery";
+  reviewedAttemptId: string;
+  capability: "context-only";
+  independenceStatus: "same-actor";
+} {
+  return {
+    taskId,
+    purpose: "delivery",
+    reviewedAttemptId,
+    capability: "context-only",
+    independenceStatus: "same-actor",
+  };
+}
 
 /** Asserts a failed reducer command left the task exactly as it was:
  * no evidence, attempt still running, revision and event counter unchanged. */
