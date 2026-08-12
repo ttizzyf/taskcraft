@@ -68,6 +68,36 @@ node dist/cli.js run complete T-1 --node record-1 --result '{"summary":"..."}'
 命令实现位于 `src/commands/`，text 与 JSON 渲染共用 projector/query model
 输出，无第二套推导。
 
+### L2 Review CLI（含 review 回流）
+
+`task new --level 2` 建卡后按 L2 图推进：frame → execute → review → record。
+frame/execute/record 走 `run` / `run complete`，review 节点走 `tc review`
+四命令；`task next` / `status` 的输出直接给出可执行的 review 命令：
+
+```bash
+node dist/cli.js task new --title "Add retry policy" --level 2 --reason "<judgment>"
+node dist/cli.js run T-1 --node frame-1
+node dist/cli.js run complete T-1 --node frame-1 --result frame.json
+node dist/cli.js run T-1 --node execute-1
+node dist/cli.js run complete T-1 --result result.json
+node dist/cli.js review start T-1 --node review-1 --purpose delivery --reviewed-attempt <execute-attempt-id>
+node dist/cli.js review pass T-1 --attempt <review-attempt-id> --reviewed-attempt <execute-attempt-id> --evidence <json|@path|@->
+node dist/cli.js run T-1 --node record-1
+node dist/cli.js run complete T-1 --node record-1 --result record.json
+```
+
+- `review start`：`--capability`（缺省 `context-only`）与 `--independence`
+  （缺省 `unverified`）如实披露，`observed-distinct` 必须配 `host-observed`
+  与 `--session-id`。
+- `review pass`：`--evidence` 为 evidence gate（单条对象或数组均可）。
+- `review changes`：写 blocking finding + successor execute attempt，同
+  revision 内重做 execute 后再 review。
+- `review replan --reason scope_changed|...`：写新 lifecycle revision，
+  重走 frame/execute 后再 review；旧 revision 的 attempt/finding 历史在
+  `task show` 中保持可查询（attempt 编号按节点全局递增，跨 revision 不冲突）。
+- 完整可回放样本：`development/l2-review-sample.md`（三条路径 +
+  失败契约三件套）。
+
 ### Task 02 可复用入口
 
 - CLI：`src/cli.ts` 提供 Commander 15 的 `tc` 根入口；命令边界工具见

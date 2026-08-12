@@ -6,7 +6,12 @@ import type { Command } from "commander";
 
 import { project } from "../core/projector.js";
 import type { TaskcraftDatabase } from "../store/database.js";
-import { getAttempts, getEvidence, getTask } from "../store/query.js";
+import {
+  getAttempts,
+  getEvidence,
+  getReviewFindings,
+  getTask,
+} from "../store/query.js";
 import {
   execute,
   isJsonMode,
@@ -16,6 +21,7 @@ import {
 import type {
   EvidenceSummary,
   AttemptSummary,
+  FindingSummary,
   TaskShowData,
 } from "./render.js";
 import { renderTaskShowData } from "./render.js";
@@ -52,13 +58,12 @@ function buildTaskShowData(
 ): TaskShowData {
   const projection = project(database, taskId);
   const snapshot = getTask(database, taskId)!;
-  const attempts: AttemptSummary[] = getAttempts(database, taskId)
-    .filter(
-      (attempt) =>
-        attempt.lifecycleRevision === snapshot.currentLifecycleRevision,
-    )
-    .map((attempt) => ({
+  // Every attempt of every lifecycle revision stays queryable: replan
+  // supersedes the old revision's open attempts, it never deletes history.
+  const attempts: AttemptSummary[] = getAttempts(database, taskId).map(
+    (attempt) => ({
       id: attempt.id,
+      lifecycleRevision: attempt.lifecycleRevision,
       nodeId: attempt.nodeId,
       attemptNumber: attempt.attemptNumber,
       status: attempt.status,
@@ -66,7 +71,8 @@ function buildTaskShowData(
       resultJson: attempt.resultJson,
       startedAt: attempt.startedAt,
       finishedAt: attempt.finishedAt,
-    }));
+    }),
+  );
   const evidence: EvidenceSummary[] = getEvidence(database, taskId).map(
     (row) => ({
       id: row.id,
@@ -74,6 +80,15 @@ function buildTaskShowData(
       reference: row.reference,
       summary: row.summary,
       nodeAttemptId: row.nodeAttemptId,
+    }),
+  );
+  const findings: FindingSummary[] = getReviewFindings(database, taskId).map(
+    (row) => ({
+      id: row.id,
+      reviewAttemptId: row.reviewAttemptId,
+      severity: row.severity,
+      disposition: row.disposition,
+      summary: row.summary,
     }),
   );
 
@@ -92,6 +107,7 @@ function buildTaskShowData(
     next: projection.next,
     attempts,
     evidence,
+    findings,
     breadcrumb: projection.breadcrumb,
   };
 }

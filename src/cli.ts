@@ -13,6 +13,7 @@ import {
   printCommandResult,
 } from "./commands/helpers.js";
 import { register as registerInit } from "./commands/init.js";
+import { register as registerReview } from "./commands/review.js";
 import { register as registerRun } from "./commands/run.js";
 import { register as registerStatus } from "./commands/status.js";
 import { register as registerTaskCancel } from "./commands/task-cancel.js";
@@ -108,6 +109,7 @@ registerTaskNext(task);
 registerTaskCancel(task);
 
 registerRun(program);
+registerReview(program);
 registerStatus(program);
 
 await program.parseAsync();

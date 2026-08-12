@@ -19,6 +19,7 @@ import type { TaskcraftErrorCode } from "../core/errors.js";
 import type { TaskcraftDatabase } from "../store/database.js";
 import { openDatabase } from "../store/database.js";
 import { applyMigrations, MigrationError } from "../store/migrations.js";
+import { getReviewLinks } from "../store/query.js";
 
 export const TASKCRAFT_DIRECTORY_NAME = ".taskcraft";
 export const TASKCRAFT_DATABASE_FILE = "taskcraft.db";
@@ -116,6 +117,31 @@ export function parseExpectedRevision(
   }
 
   return revision;
+}
+
+/** Resolves the reviewed attempt named by the review link of a review
+ * attempt; changes/replan omit --reviewed-attempt because the link is
+ * authoritative. The reducer re-validates the pair in the same transaction. */
+export function resolveReviewedAttempt(
+  database: TaskcraftDatabase,
+  taskId: string,
+  attemptId: string,
+): string {
+  const link = getReviewLinks(database, taskId).find(
+    (candidate) => candidate.reviewAttemptId === attemptId,
+  );
+
+  if (link === undefined) {
+    throw new TaskcraftError(ERROR_CODES.TC_REVIEW_REF_INVALID, {
+      problem: `Attempt ${attemptId} is not a review attempt of this task`,
+      impact: "No facts were written",
+      remediation:
+        "Start a review first with: tc review start <task-id> --purpose delivery",
+      context: { taskId, attemptId },
+    });
+  }
+
+  return link.reviewedAttemptId;
 }
 
 /** Runs a command action, maps TaskcraftError and stable TC_STORE_* store

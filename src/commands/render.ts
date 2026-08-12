@@ -3,12 +3,19 @@
 // derivation of task state here, so text and JSON always stay in sync.
 
 import type { BreadcrumbV1 } from "../core/breadcrumb.js";
-import type { CommandData, NodeBrief } from "../core/reducer.js";
+import type {
+  CommandData,
+  NodeBrief,
+  ReviewResultData,
+} from "../core/reducer.js";
 import type { NodeProjection, ProjectStatus } from "../core/projector.js";
 import type {
   AttemptOutcome,
   AttemptStatus,
   BlockerWaitingReason,
+  ReviewCapability,
+  ReviewIndependenceStatus,
+  ReviewPurpose,
 } from "../store/query.js";
 
 /** Data shapes shared by the command actions; the renderers only read these. */
@@ -18,6 +25,7 @@ export interface TaskNextData extends CommandData {
 
 export interface AttemptSummary {
   id: string;
+  lifecycleRevision: number;
   nodeId: string;
   attemptNumber: number;
   status: AttemptStatus;
@@ -25,6 +33,14 @@ export interface AttemptSummary {
   resultJson: string | null;
   startedAt: string | null;
   finishedAt: string | null;
+}
+
+export interface FindingSummary {
+  id: string;
+  reviewAttemptId: string;
+  severity: "blocking" | "advisory";
+  disposition: "open" | "resolved" | "accepted";
+  summary: string;
 }
 
 export interface EvidenceSummary {
@@ -50,6 +66,7 @@ export interface TaskShowData {
   next: string | null;
   attempts: AttemptSummary[];
   evidence: EvidenceSummary[];
+  findings: FindingSummary[];
   breadcrumb: BreadcrumbV1;
 }
 
@@ -151,7 +168,7 @@ export function renderTaskShowData(data: TaskShowData): string {
   } else {
     for (const attempt of data.attempts) {
       lines.push(
-        `  ${attempt.id}  ${attempt.nodeId}  ${attempt.status}` +
+        `  ${attempt.id}  rev ${attempt.lifecycleRevision}  ${attempt.nodeId}  ${attempt.status}` +
           (attempt.outcome === null ? "" : `  ${attempt.outcome}`),
       );
     }
@@ -165,6 +182,18 @@ export function renderTaskShowData(data: TaskShowData): string {
     for (const evidence of data.evidence) {
       lines.push(
         `  ${evidence.id}  ${evidence.type}  ${evidence.reference}  ${evidence.summary}`,
+      );
+    }
+  }
+
+  lines.push("Findings:");
+
+  if (data.findings.length === 0) {
+    lines.push("  (none)");
+  } else {
+    for (const finding of data.findings) {
+      lines.push(
+        `  ${finding.id}  ${finding.severity}  ${finding.disposition}  ${finding.summary}`,
       );
     }
   }
@@ -206,6 +235,55 @@ export function renderTaskNextData(data: TaskNextData): string {
     lines.push(
       `  ${node.nodeId}  ${node.status}${node.attemptId === null ? "" : `  ${node.attemptId}`}`,
     );
+  }
+
+  return lines.join("\n");
+}
+
+/** Review command render data: the reducer's review result plus the outcome
+ * constant and the purpose/capability/independence disclosure echoed by the
+ * command boundary. text and JSON consume the same object. */
+export interface ReviewRenderData extends ReviewResultData {
+  outcome?: "passed" | "changes_requested" | "replan_required";
+  purpose?: ReviewPurpose;
+  capability?: ReviewCapability;
+  independenceStatus?: ReviewIndependenceStatus;
+  finding?: string;
+}
+
+export function renderReviewData(data: ReviewRenderData): string {
+  const lines = [renderCommandData(data)];
+  lines.push(`Review attempt: ${data.reviewAttemptId}`);
+  lines.push(`Reviewed attempt: ${data.reviewedAttemptId}`);
+
+  if (data.outcome !== undefined) {
+    lines.push(`Outcome: ${data.outcome}`);
+  }
+
+  if (data.purpose !== undefined) {
+    lines.push(`Purpose: ${data.purpose}`);
+  }
+
+  if (data.capability !== undefined) {
+    lines.push(`Capability: ${data.capability}`);
+  }
+
+  if (data.independenceStatus !== undefined) {
+    lines.push(`Independence: ${data.independenceStatus}`);
+  }
+
+  if (data.findingId !== undefined) {
+    lines.push(
+      `Finding: ${data.findingId}${data.finding === undefined ? "" : `: ${data.finding}`}`,
+    );
+  }
+
+  if (data.successorAttemptId !== undefined) {
+    lines.push(`Successor attempt: ${data.successorAttemptId}`);
+  }
+
+  if (data.newRevision !== undefined) {
+    lines.push(`New revision: ${data.newRevision}`);
   }
 
   return lines.join("\n");
