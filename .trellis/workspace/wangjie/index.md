@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 16
+- **Total Sessions**: 17
 - **Last Active**: 2026-08-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~374 | Active |
+| `journal-1.md` | ~395 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 17 | 2026-08-12 | Task 04 父任务：集成验收与归档 | docs | `main` |
 | 16 | 2026-08-12 | Task 04：host-smoke 子任务 | `1f704c4`, `4cb42bc` | `main` |
 | 15 | 2026-08-12 | Task 04：hook-wiring 子任务 | `fb99d59`, `d43da99` | `main` |
 | 14 | 2026-08-12 | Task 04：adapter-core 子任务 | commit1 | `main` |

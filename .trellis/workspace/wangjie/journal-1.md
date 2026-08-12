@@ -372,3 +372,24 @@ Implemented the Node/TypeScript engineering foundation: single-package ESM toolc
 ### Status
 
 [OK] **Completed**
+
+
+## Session 17: Task 04 父任务：集成验收与归档
+
+**Date**: 2026-08-12
+**Task**: Task 04 父任务：集成验收与归档
+**Branch**: `main`
+
+### Summary
+
+父任务集成验收：AC 逐条满足（零注入/唯一 next/enforced-advisory 披露/diagnostics/全局配置零改动）；写 task-04-handoff.md、roadmap 更新、父任务归档
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `docs` | (see git log) |
+
+### Status
+
+[OK] **Completed**
