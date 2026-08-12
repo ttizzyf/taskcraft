@@ -239,3 +239,26 @@ Implemented the Node/TypeScript engineering foundation: single-package ESM toolc
 ### Status
 
 [OK] **Completed**
+
+
+## Session 11: Task 03：review-reducer 子任务
+
+**Date**: 2026-08-12
+**Task**: Task 03：review-reducer 子任务
+**Branch**: `main`
+
+### Summary
+
+实现并归档 review-reducer：L2 图、review start/pass/changes/replan 四命令、revision 切换与 supersede、projector review next、6 个 fixtures、49 测试；trellis-check 核验 3 个语义决策并修复 run 可 claim review 节点崩溃缺陷
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fae87c5` | (see git log) |
+| `4f27011` | (see git log) |
+| `d44904d` | (see git log) |
+
+### Status
+
+[OK] **Completed**
