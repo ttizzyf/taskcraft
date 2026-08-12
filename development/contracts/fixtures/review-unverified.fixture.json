@@ -1,0 +1,267 @@
+{
+  "schemaVersion": "tc-fixture/v1",
+  "id": "review-unverified",
+  "description": "Delivery review in flight disclosed as unverified with manual-attach capability: frame and execute finished, review attempt created, no finding yet. Projector derives active with next pointing at review pass.",
+  "tasks": [
+    {
+      "id": "T-205",
+      "title": "Add retry policy with review",
+      "level": 2,
+      "objectiveMd": "Add a retry policy shared by the adapters",
+      "activatedAt": "2026-08-11T00:00:00.000Z",
+      "cancelledAt": null,
+      "cancelReason": null,
+      "revision": 5,
+      "currentLifecycleRevision": 1
+    }
+  ],
+  "lifecycles": [
+    {
+      "taskId": "T-205",
+      "nodes": [
+        {
+          "id": "frame-1",
+          "kind": "frame",
+          "title": "Frame",
+          "objective": "Add a retry policy shared by the adapters",
+          "procedureRef": "l2:frame"
+        },
+        {
+          "id": "execute-1",
+          "kind": "execute",
+          "title": "Execute",
+          "objective": "Add a retry policy shared by the adapters",
+          "procedureRef": "l2:execute"
+        },
+        {
+          "id": "review-1",
+          "kind": "review",
+          "title": "Review",
+          "objective": "Add a retry policy shared by the adapters",
+          "procedureRef": "l2:review"
+        },
+        {
+          "id": "record-1",
+          "kind": "record",
+          "title": "Record",
+          "objective": "Add a retry policy shared by the adapters",
+          "procedureRef": "l2:record"
+        }
+      ],
+      "edges": [
+        {
+          "from": "frame-1",
+          "to": "execute-1"
+        },
+        {
+          "from": "execute-1",
+          "to": "review-1"
+        },
+        {
+          "from": "review-1",
+          "to": "record-1"
+        }
+      ],
+      "obligations": [
+        {
+          "nodeId": "frame-1",
+          "id": "frame-completed",
+          "duty": "required",
+          "title": "Frame completed",
+          "evaluator": {
+            "kind": "frame-result"
+          }
+        },
+        {
+          "nodeId": "execute-1",
+          "id": "requested-outcome-produced",
+          "duty": "required",
+          "title": "Requested outcome produced",
+          "evaluator": {
+            "kind": "evidence-exists"
+          }
+        },
+        {
+          "nodeId": "execute-1",
+          "id": "minimum-validation-recorded",
+          "duty": "required",
+          "title": "Minimum validation recorded",
+          "evaluator": {
+            "kind": "evidence-type",
+            "type": "validation"
+          }
+        },
+        {
+          "nodeId": "review-1",
+          "id": "review-completed",
+          "duty": "required",
+          "title": "Review completed",
+          "evaluator": {
+            "kind": "review-passed"
+          }
+        },
+        {
+          "nodeId": "record-1",
+          "id": "result-and-scope-retained",
+          "duty": "required",
+          "title": "Result and scope retained",
+          "evaluator": {
+            "kind": "record-result"
+          }
+        }
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "id": "att-T-205-frame-1-1",
+      "taskId": "T-205",
+      "nodeId": "frame-1",
+      "attemptNumber": 1,
+      "status": "finished",
+      "outcome": "success",
+      "resultJson": {
+        "objective": "Add a retry policy shared by the adapters",
+        "scope": {
+          "modules": [
+            "core"
+          ]
+        },
+        "acceptance": [
+          "Retry policy is configurable per adapter"
+        ]
+      },
+      "startedAt": "2026-08-11T00:00:00.000Z",
+      "finishedAt": "2026-08-11T00:00:01.000Z"
+    },
+    {
+      "id": "att-T-205-execute-1-1",
+      "taskId": "T-205",
+      "nodeId": "execute-1",
+      "attemptNumber": 1,
+      "status": "finished",
+      "outcome": "success",
+      "resultJson": {
+        "summary": "Retry policy implemented",
+        "evidence": [
+          {
+            "type": "validation",
+            "reference": "ref://validation",
+            "summary": "Retry config validated"
+          },
+          {
+            "type": "test",
+            "reference": "ref://test",
+            "summary": "Retry integration tests pass"
+          }
+        ]
+      },
+      "startedAt": "2026-08-11T00:00:01.000Z",
+      "finishedAt": "2026-08-11T00:00:02.000Z"
+    },
+    {
+      "id": "att-T-205-review-1-1",
+      "taskId": "T-205",
+      "nodeId": "review-1",
+      "attemptNumber": 1,
+      "status": "created",
+      "outcome": null,
+      "resultJson": null,
+      "startedAt": null,
+      "finishedAt": null
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-T-205-att-T-205-frame-1-1-1",
+      "taskId": "T-205",
+      "nodeAttemptId": "att-T-205-frame-1-1",
+      "type": "note",
+      "reference": "frame://T-205",
+      "summary": "Add a retry policy shared by the adapters",
+      "digest": null
+    },
+    {
+      "id": "ev-T-205-att-T-205-execute-1-1-1",
+      "taskId": "T-205",
+      "nodeAttemptId": "att-T-205-execute-1-1",
+      "type": "validation",
+      "reference": "ref://validation",
+      "summary": "Retry config validated",
+      "digest": null
+    }
+  ],
+  "reviewLinks": [
+    {
+      "taskId": "T-205",
+      "reviewAttemptId": "att-T-205-review-1-1",
+      "reviewedAttemptId": "att-T-205-execute-1-1",
+      "purpose": "delivery",
+      "capability": "manual-attach",
+      "independenceStatus": "unverified"
+    }
+  ],
+  "reviewFindings": [],
+  "obligationResults": [
+    {
+      "taskId": "T-205",
+      "nodeId": "frame-1",
+      "obligationId": "frame-completed",
+      "status": "satisfied",
+      "satisfiedByEvidenceId": "ev-T-205-att-T-205-frame-1-1-1"
+    },
+    {
+      "taskId": "T-205",
+      "nodeId": "execute-1",
+      "obligationId": "requested-outcome-produced",
+      "status": "satisfied",
+      "satisfiedByEvidenceId": "ev-T-205-att-T-205-execute-1-1-1"
+    },
+    {
+      "taskId": "T-205",
+      "nodeId": "execute-1",
+      "obligationId": "minimum-validation-recorded",
+      "status": "satisfied",
+      "satisfiedByEvidenceId": "ev-T-205-att-T-205-execute-1-1-1"
+    }
+  ],
+  "blockers": [],
+  "agentRuns": [],
+  "events": [
+    {
+      "taskId": "T-205",
+      "eventType": "task.created",
+      "nodeId": null,
+      "attemptId": null,
+      "postTaskRevision": 1
+    },
+    {
+      "taskId": "T-205",
+      "eventType": "task.activated",
+      "nodeId": "frame-1",
+      "attemptId": "att-T-205-frame-1-1",
+      "postTaskRevision": 2
+    },
+    {
+      "taskId": "T-205",
+      "eventType": "attempt.finished",
+      "nodeId": "frame-1",
+      "attemptId": "att-T-205-frame-1-1",
+      "postTaskRevision": 3
+    },
+    {
+      "taskId": "T-205",
+      "eventType": "attempt.finished",
+      "nodeId": "execute-1",
+      "attemptId": "att-T-205-execute-1-1",
+      "postTaskRevision": 4
+    },
+    {
+      "taskId": "T-205",
+      "eventType": "review.started",
+      "nodeId": "review-1",
+      "attemptId": "att-T-205-review-1-1",
+      "postTaskRevision": 5
+    }
+  ]
+}
