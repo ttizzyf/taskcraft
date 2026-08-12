@@ -350,3 +350,25 @@ Implemented the Node/TypeScript engineering foundation: single-package ESM toolc
 ### Status
 
 [OK] **Completed**
+
+
+## Session 16: Task 04：host-smoke 子任务
+
+**Date**: 2026-08-12
+**Task**: Task 04：host-smoke 子任务
+**Branch**: `main`
+
+### Summary
+
+真实宿主 smoke：codex S1 零注入 verified、S2 limited（exec 不加载项目配置）；claude S3 零注入 + S4 注入/Stop/loop-guard verified（enforced）；发现并修复 resolveTcPath 层级错误与 stop_hook_active 防自循环缺失；smoke 记录文档落库
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1f704c4` | (see git log) |
+| `4cb42bc` | (see git log) |
+
+### Status
+
+[OK] **Completed**
