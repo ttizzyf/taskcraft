@@ -18,9 +18,11 @@ import { register as registerEnable } from "./commands/enable.js";
 import { register as registerInit } from "./commands/init.js";
 import { register as registerReview } from "./commands/review.js";
 import { register as registerRun } from "./commands/run.js";
+import { register as registerState } from "./commands/state.js";
 import { register as registerStatus } from "./commands/status.js";
 import { register as registerTaskCancel } from "./commands/task-cancel.js";
 import { register as registerTaskFact } from "./commands/task-fact-add.js";
+import { register as registerTaskList } from "./commands/task-list.js";
 import { register as registerTaskNew } from "./commands/task-new.js";
 import { register as registerTaskNext } from "./commands/task-next.js";
 import { register as registerTaskResume } from "./commands/task-resume.js";
@@ -120,10 +122,12 @@ registerTaskNext(task);
 registerTaskCancel(task);
 registerTaskWait(task);
 registerTaskResume(task);
+registerTaskList(task);
 
 registerRun(program);
 registerReview(program);
 registerStatus(program);
+registerState(program);
 registerWatch(program);
 
 await program.parseAsync();

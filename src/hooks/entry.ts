@@ -1,8 +1,10 @@
 // Silent entry gate (product.md §6 + parent design "Silent Entry Gate").
 // decideEntry is a pure, fully testable judgment; runEntryGate is the thin
-// IO wrapper the hook script executes. Hooks never spawn the tc CLI itself
-// and never write task facts: ask/always + durable-request decisions are
-// returned to the caller, the hook only prints or stays silent.
+// IO wrapper behind the public `tc state --breadcrumb` command, which the
+// installed entry wrapper (entry.sh) delegates to (commandized gate — parent
+// design "state（命令化，hooks 改调它）"). The gate never writes task facts:
+// ask/always + durable-request decisions are returned to the caller, the
+// command only prints or stays silent.
 
 import { existsSync } from "node:fs";
 

@@ -60,12 +60,13 @@ describe("tc init --agent (CLI)", () => {
         join(cwd, ".taskcraft", "hooks", "stop.sh"),
         "utf8",
       );
-      // The wrapper must point at the compiled gate under dist/hooks/ —
-      // "<root>/hooks/entry.js" would mean resolveTcPath lost a level and
-      // the host silently ignores the failing hook.
-      expect(entry).toContain("dist/hooks/entry.js");
+      // The entry wrapper delegates to the public CLI (state --breadcrumb);
+      // the stop wrapper keeps the compiled gate under dist/hooks/ — a lost
+      // level in resolveTcPath would break the entry delegation the same way.
+      expect(entry).toContain("dist/cli.js");
+      expect(entry).toContain("state --breadcrumb");
       expect(stop).toContain("dist/hooks/stop.js");
-      expect(entry).toContain("config.json");
+      expect(stop).toContain("config.json");
 
       const config = readFileSync(join(cwd, ".codex", "config.toml"), "utf8");
       expect(config).toContain("hooks.SessionStart");

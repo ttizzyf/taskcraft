@@ -6,7 +6,7 @@
 import { afterAll, describe, expect, it } from "vitest";
 
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { resolveTcPath } from "../../src/adapters/shared.js";
 import type {
@@ -122,14 +122,13 @@ export function runConformance(
         );
 
         const entryContent = readFileSync(first.hookPaths[0]!, "utf8");
-        // The wrapper invokes the gate entry point next to the tc CLI entry
-        // (one parent hop from the adapter module). The dist build lands on
-        // dist/hooks/entry.js; the built-artifact layout is pinned by the
-        // CLI integration test that spawns dist/cli.js.
-        expect(entryContent).toContain(
-          join(dirname(resolveTcPath()), "hooks", "entry.js"),
-        );
-        expect(entryContent).toContain("config.json");
+        // The entry wrapper delegates to the public CLI next to the adapter
+        // module (resolveTcPath: dist/cli.js from the built layout, src/cli.js
+        // under tests). The built-artifact layout is pinned by the CLI
+        // integration test that spawns dist/cli.js.
+        expect(entryContent).toContain(resolveTcPath());
+        expect(entryContent).toContain("state --breadcrumb");
+        expect(entryContent).toContain('cd "$(dirname "$0")/../.."');
 
         const second = adapter.installEntry({
           projectDir: projectDir.path,

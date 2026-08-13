@@ -213,11 +213,17 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Hook script templates: thin bash wrappers around the compiled gate entry
- * points (dist/hooks/*.js). The config path is derived from the script
- * location, so neither wrapper nor gate depends on cwd. */
+/** Hook script templates: the entry wrapper delegates to the public CLI
+ * (`tc state --breadcrumb`, the commandized silent gate — parent design
+ * "state（命令化，hooks 改调它）"), the stop wrapper keeps the compiled gate
+ * (dist/hooks/stop.js) because its exit-2 block and stop_hook_active loop
+ * guard are not part of the state command. The project root is derived from
+ * the script location, so the wrapper never depends on cwd. */
 export function entryHookTemplate(tcPath: string): string {
-  return hookTemplate(join(dirname(tcPath), "hooks", "entry.js"));
+  return `#!/usr/bin/env bash
+# Taskcraft managed entry hook gate (tc init --agent <host>).
+cd "$(dirname "$0")/../.." && node "${tcPath}" state --breadcrumb
+`;
 }
 
 export function stopHookTemplate(tcPath: string): string {

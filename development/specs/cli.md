@@ -6,7 +6,7 @@
 - 日常命令面聚焦 task、run、review、status 与 evidence。
 - 所有任务事实写命令支持 `--expected-revision`，缺省值来自 `tc status --json` 或 breadcrumb；所有命令支持 `--json`。
 - 失败必须非零退出，并给稳定 code、影响和一条 remediation。
-- `--dry-run` 返回将发生的状态变化，Task Store 保持不变。
+- `--dry-run` 返回将发生的状态变化，Task Store 保持不变。（deferred：脚本化增强，非 MVP 范围）
 - 每条写命令都遵循 command transition contract：明确前置事实、原子写集合、成功后的唯一 next 和稳定错误 remediation。
 - 每条成功的事实写命令返回提交后的状态与唯一 next；Agent 按 [连续执行合同](lifecycle.md#7-agent-连续执行合同) 继续运行。
 
@@ -23,13 +23,16 @@ tc run [...]
 tc review [...]
 tc watch
 tc state
-tc lifecycle [...]
+tc lifecycle [...]        （deferred）
 tc agent [...]
 tc doctor
-tc explain <error-code>
+tc explain <error-code>  （deferred）
 ```
 
-`lifecycle` 与 `explain` 在帮助中归为 advanced；`task next`、`run`、`review` 和 `status` 是 Agent 的默认价值路径。
+`state` 与 `task list` 为已实现命令：`state --breadcrumb` 是 entry hook 的命令化
+路径，`task list` 是任务摘要列表。`lifecycle` 与 `explain` 标记 deferred：帮助
+不注册、示例不引用。`task next`、`run`、`review` 和 `status` 是 Agent 的默认
+价值路径。
 
 ## 3. 初始化与接管
 
@@ -54,21 +57,23 @@ tc task new --title "Fix parser" --level 1|2|3 --reason "<judgment>" [--facts <j
 tc task list [--status active,waiting] [--json]
 tc task next <task-id> [--json]
 tc task show T-104 [--json]
-tc task promote T-104 --to 3 --reason "API migration"
-tc task revise T-104 --level 2 --reason "Risk condition removed"
+tc task promote T-104 --to 3 --reason "API migration"        （deferred）
+tc task revise T-104 --level 2 --reason "Risk condition removed"  （deferred）
 tc task wait T-104 --reason needs_input --message "Need schema decision"
 tc task resume T-104
 tc task cancel T-104 --reason "superseded"
-tc task evidence add T-104 --attempt att_execute_1 --type test --ref report.json
+tc task evidence add T-104 --attempt att_execute_1 --type test --ref report.json  （deferred）
 tc task fact add T-104 --attempt <id> --category probe --subject "API capability" --value <json|@path> --evidence <id>
-tc task export T-104 --format md
+tc task export T-104 --format md  （deferred）
 ```
 
 Agent 提交任务目标、Level 和判定理由；其他 facts 按需提供，缺失就是未提供。
 `task new` 生成当前 revision 的 required obligations，但不激活任务或创建 attempt。
 `promote` 提供升级快捷路径；`revise` 通过新 revision 修改 Level 或合同并留存原因
-与差异。根命令 `tc` 只在恰有一个 active task 时提供无 task id 的快捷 next；
-`task next` 始终使用显式 task id。
+与差异（两者均 deferred，非 MVP 范围）。evidence 不单独提交：随 `run complete`
+result 的 evidence refs 引用落库，`evidence add`/`export` 均 deferred。根命令 `tc`
+只在恰有一个 active task 时提供无 task id 的快捷 next；`task next` 始终使用显式
+task id。
 
 ## 5. Run 与 Review
 
@@ -247,4 +252,7 @@ Node Brief 告诉 Agent 应提交的 JSON 结构和登记命令。Taskcraft 在�
 
 ## 10. Shell 能力
 
-CLI 应发挥终端优势：shell completion、可组合 JSON、稳定 exit code、`--dry-run`、`--no-color`、深链 URL、从 stdin 接收结构化结果、流式 `run status --follow`。Web 负责观察，CLI 负责脚本化与 Agent 调用。
+CLI 应发挥终端优势：可组合 JSON、稳定 exit code、深链 URL、从 stdin 接收结构化
+结果、流式 `run status --follow`。shell completion、`--dry-run` 与 `--no-color`
+标记 deferred（脚本化增强，非 MVP 范围；帮助不注册）。Web 负责观察，CLI 负责
+脚本化与 Agent 调用。

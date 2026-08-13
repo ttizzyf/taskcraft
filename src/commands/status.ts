@@ -46,7 +46,8 @@ export function register(program: Command): void {
     });
 }
 
-function buildStatusData(database: TaskcraftDatabase): StatusData {
+/** Shared by tc status and tc state --json: the full projected state. */
+export function buildStatusData(database: TaskcraftDatabase): StatusData {
   const tasks = listTasks(database);
   const entries: StatusTaskEntry[] = tasks.map((task) => {
     const projection = project(database, task.id);

@@ -107,6 +107,16 @@ export interface StatusData {
   tasks: StatusTaskEntry[];
 }
 
+export interface TaskListEntry {
+  taskId: string;
+  title: string;
+  level: 1 | 2 | 3;
+  status: ProjectStatus;
+  taskRevision: number;
+  waitingReason: BlockerWaitingReason | null;
+  next: string | null;
+}
+
 export function renderCommandData(data: CommandData): string {
   const lines = [
     `Task: ${data.taskId}`,
@@ -332,6 +342,26 @@ export function renderTaskList(entries: StatusTaskEntry[]): string {
 
   for (const entry of entries) {
     lines.push(`  ${entry.taskId}  ${entry.status}  ${entry.next ?? "(none)"}`);
+  }
+
+  return lines.join("\n");
+}
+
+export function renderTaskListEntries(entries: TaskListEntry[]): string {
+  if (entries.length === 0) {
+    return "No tasks. Create one with: tc task new --title <t> --level 1 --reason <r>";
+  }
+
+  const lines = ["Tasks:"];
+
+  for (const entry of entries) {
+    lines.push(
+      `  ${entry.taskId}  ${entry.status}  L${entry.level}  ${entry.title}` +
+        (entry.waitingReason === null
+          ? ""
+          : `  waiting: ${entry.waitingReason}`) +
+        (entry.next === null ? "" : `  next: ${entry.next}`),
+    );
   }
 
   return lines.join("\n");
