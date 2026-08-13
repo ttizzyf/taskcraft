@@ -11,8 +11,8 @@
 | [Task 02](task-02-l1-vertical-slice.md) L1 纵切 | 已完成（2026-08-11） | Store、单 reducer/projector、L1 CLI 闭环 | L1 真实任务完成；事务失败无部分事实；投影可重建 |
 | [Task 03](task-03-l2-review-loop.md) L2 Review | 已完成（2026-08-12） | 独立 Review 节点及三种 outcome 回流 | passed/changes/replan 均有可追溯样本 |
 | [Task 04](task-04-host-adapters.md) Adapter | 已完成（2026-08-12） | Codex/Claude 恢复、Node Brief、能力披露 | 两宿主 conformance 和真实 Hook smoke 通过 |
-| [Task 05](task-05-l3.md) L3 | 未开始 | Plan、Feasibility Review、Execute、Integrate | Plan Review 前 Execute 不可运行；revision 保持可追溯 |
-| [Task 06](task-06-watch.md) Watch | 未开始 | 只读 Board、详情、Runtime、Diagnostics | 页面、CLI JSON、breadcrumb 的 status/next 一致 |
+| [Task 05](task-05-l3.md) L3 | 已完成（2026-08-13） | Plan、Feasibility Review、Execute、Integrate | Plan Review 前 Execute 不可运行；revision 保持可追溯 |
+| [Task 06](task-06-watch.md) Watch | 已完成（2026-08-13） | 只读 Board、详情、Runtime、Diagnostics | 页面、CLI JSON、breadcrumb 的 status/next 一致 |
 
 默认在全部阶段完成后执行 [`../runbooks/trellis-to-taskcraft.md`](../runbooks/trellis-to-taskcraft.md)，由 Taskcraft 接管后续缺陷修复、性能优化和版本迭代。Trellis 与 Taskcraft 不设置双写过渡期。
 
