@@ -233,6 +233,40 @@ function renderTaskSummary(byTask) {
   );
 }
 
+function renderHookTests(hookTests) {
+  const agents = Object.keys(hookTests ?? {}).sort();
+
+  if (agents.length === 0) {
+    return `<p class="empty">No hook field tests recorded</p>`;
+  }
+
+  const rows = agents
+    .map((agent) => {
+      const record = hookTests[agent] ?? {};
+      const outcome = record.ok === true ? (record.enforced === true ? "ok" : "ok (not enforced)") : "failed";
+      const failure = record.failure === undefined ? "" : ` — ${record.failure}`;
+      const version = record.version === null ? "<unknown version>" : record.version;
+
+      return (
+        `<tr data-hook-test-agent="${escapeHtml(agent)}">` +
+        `<td>${escapeHtml(agent)}</td>` +
+        `<td>${escapeHtml(formatTime(record.testedAt))}</td>` +
+        `<td>${escapeHtml(version)}</td>` +
+        `<td>${escapeHtml(outcome)}</td>` +
+        `<td>${escapeHtml(failure || "—")}</td>` +
+        `</tr>`
+      );
+    })
+    .join("");
+
+  return (
+    `<div class="table-wrap"><table data-testid="hook-test-table">` +
+    `<thead><tr><th>Agent</th><th>Tested at</th><th>Version</th><th>Result</th>` +
+    `<th>Failure</th></tr></thead>` +
+    `<tbody>${rows}</tbody></table></div>`
+  );
+}
+
 export function renderRuntime(runtime) {
   const emptyRuns =
     runtime.runs.length === 0
@@ -242,6 +276,7 @@ export function renderRuntime(runtime) {
     runtime.byTask.length === 0
       ? `<p class="empty">No task run summaries</p>`
       : renderTaskSummary(runtime.byTask);
+  const hookTests = renderHookTests(runtime.hookTests);
 
   return (
     `<section class="view-body runtime-view" data-testid="runtime-view">` +
@@ -261,6 +296,11 @@ export function renderRuntime(runtime) {
       runtime.byTask.length
     }</span></div>` +
     `<div class="section-body">${emptySummary}</div></section>` +
+    `<section class="section" data-testid="hook-tests">` +
+    `<div class="section-title">Hook field tests<span class="count">${
+      Object.keys(runtime.hookTests ?? {}).length
+    }</span></div>` +
+    `<div class="section-body">${hookTests}</div></section>` +
     `</section>`
   );
 }

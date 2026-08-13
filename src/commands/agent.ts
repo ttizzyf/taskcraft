@@ -20,8 +20,18 @@ import {
 } from "../adapters/installed-hooks.js";
 import type { AdapterCapabilities, HostAdapter } from "../adapters/types.js";
 import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
-import { readTaskcraftConfig } from "../hooks/shared.js";
-import { execute, isJsonMode, printCommandResult } from "./helpers.js";
+import {
+  CONFIG_FILE_NAME,
+  readHookTests,
+  readTaskcraftConfig,
+} from "../hooks/shared.js";
+import type { HookTestRecord } from "../hooks/shared.js";
+import {
+  execute,
+  isJsonMode,
+  printCommandResult,
+  taskcraftDirectory,
+} from "./helpers.js";
 
 export type AgentId = "codex" | "claude";
 
@@ -70,11 +80,16 @@ export function pickDefaultAdapter(
   });
 }
 
-/** Text renderer for the capabilities of one or more hosts; JSON mode prints
- * the same data through the command-result envelope. */
-export function renderCapabilities(
-  hosts: readonly AdapterCapabilities[],
-): string {
+/** Capabilities plus the persisted hook field-test record of the same host
+ * (read from config.hookTests; absent before the first test-hook run). */
+export type CapabilitiesData = AdapterCapabilities & {
+  hookTest?: HookTestRecord;
+};
+
+/** Text renderer for the capabilities of one or more hosts; each host also
+ * shows its most recent persisted hook test row. JSON mode prints the same
+ * data through the command-result envelope. */
+export function renderCapabilities(hosts: readonly CapabilitiesData[]): string {
   const lines = ["Host capabilities (read-only probe):"];
 
   for (const host of hosts) {
@@ -82,9 +97,36 @@ export function renderCapabilities(
     lines.push(
       ...host.items.map((item) => `  ${item.name}: ${itemLabel(item)}`),
     );
+    lines.push(`  hook test: ${renderHookTestLine(host)}`);
   }
 
   return lines.join("\n");
+}
+
+function renderHookTestLine(host: CapabilitiesData): string {
+  const record = host.hookTest;
+
+  if (record === undefined) {
+    return `never recorded (run: tc agent test-hook --agent ${host.host})`;
+  }
+
+  const parts = [`tested ${record.testedAt}`];
+
+  if (record.version !== null) {
+    parts.push(`version ${record.version}`);
+  }
+
+  parts.push(record.enforced ? "enforced" : "not enforced");
+
+  if (record.ok) {
+    parts.push("ok");
+  } else {
+    parts.push(
+      `failed${record.failure === undefined ? "" : `: ${record.failure}`}`,
+    );
+  }
+
+  return parts.join(", ");
 }
 
 function itemLabel(item: AdapterCapabilities["items"][number]): string {
@@ -218,7 +260,17 @@ export function register(program: Command): void {
       const json = isJsonMode(command);
 
       await execute(() => {
-        const hosts = localAdapters().map((adapter) => adapter.capabilities());
+        const hookTests = readHookTests(
+          join(taskcraftDirectory(), CONFIG_FILE_NAME),
+        );
+        const hosts: CapabilitiesData[] = localAdapters().map((adapter) => {
+          const capabilities = adapter.capabilities();
+          const record = hookTests[capabilities.host];
+
+          return record === undefined
+            ? capabilities
+            : { ...capabilities, hookTest: record };
+        });
 
         if (json) {
           printCommandResult({ hosts });

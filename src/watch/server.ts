@@ -18,6 +18,7 @@ import {
   TASKCRAFT_DIRECTORY_NAME,
   migrationsDirectory,
 } from "../commands/helpers.js";
+import { CONFIG_FILE_NAME } from "../hooks/shared.js";
 import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
 import type { TaskcraftDatabase } from "../store/database.js";
 import { openDatabase } from "../store/database.js";
@@ -122,10 +123,17 @@ async function handleRequest(
     }
 
     if (pathname === "/api/runtime") {
+      const configPath = join(
+        options.projectDir,
+        TASKCRAFT_DIRECTORY_NAME,
+        CONFIG_FILE_NAME,
+      );
       sendJson(
         response,
         200,
-        withDatabase(options.projectDir, (database) => buildRuntime(database)),
+        withDatabase(options.projectDir, (database) =>
+          buildRuntime(database, configPath),
+        ),
         isHead,
       );
       return;

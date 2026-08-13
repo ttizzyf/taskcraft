@@ -17,6 +17,7 @@ import { dirname, join } from "node:path";
 
 import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
 import { readTaskcraftConfig } from "../hooks/shared.js";
+import type { HookTestRecord } from "../hooks/shared.js";
 import { safeProbe } from "./shared.js";
 import type { ProbeFn } from "./types.js";
 
@@ -254,17 +255,6 @@ function isProjectTrusted(userConfigPath: string, projectDir: string): boolean {
       section.lines.some((line) => line.includes('trust_level = "trusted"'))
     );
   });
-}
-
-/** Persisted per-agent hook test outcome (parent design "Hook 结果持久化
- * (C/D 合同)": config.hookTests[agent] = { testedAt, version, ok, enforced,
- * failure? }, written by test-hook, read by Watch diagnostics). */
-export interface HookTestRecord {
-  testedAt: string;
-  version: string | null;
-  ok: boolean;
-  enforced: boolean;
-  failure?: string;
 }
 
 /** Writes the hook test record into .taskcraft/config.json with an atomic

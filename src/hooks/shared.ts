@@ -19,10 +19,50 @@ export const TASKCRAFT_DATABASE_FILE = "taskcraft.db";
 
 export type TakeOverMode = "off" | "ask" | "always";
 
+/** Persisted per-agent hook field-test outcome (parent design "Hook 结果
+ * 持久化 (C/D 合同)"): config.hookTests[agent] = { testedAt, version, ok,
+ * enforced, failure? }, written by test-hook, read by the CLI capabilities
+ * command and the Watch runtime/diagnostics APIs (one shared source). */
+export interface HookTestRecord {
+  testedAt: string;
+  version: string | null;
+  ok: boolean;
+  enforced: boolean;
+  failure?: string;
+}
+
 export interface TaskcraftConfig {
   takeOver?: TakeOverMode;
   agents?: string[];
+  hookTests?: Record<string, HookTestRecord>;
   [key: string]: unknown;
+}
+
+/** Reads the persisted hook field-test records from .taskcraft/config.json.
+ * A missing, malformed or hookTests-less config yields an empty map (the
+ * callers render "not tested"); never throws. */
+export function readHookTests(
+  configPath: string,
+): Record<string, HookTestRecord> {
+  let config: TaskcraftConfig;
+
+  try {
+    config = readTaskcraftConfig(configPath);
+  } catch {
+    return {};
+  }
+
+  const hookTests = config.hookTests;
+
+  if (
+    typeof hookTests !== "object" ||
+    hookTests === null ||
+    Array.isArray(hookTests)
+  ) {
+    return {};
+  }
+
+  return hookTests;
 }
 
 export function isTakeOverMode(value: unknown): value is TakeOverMode {

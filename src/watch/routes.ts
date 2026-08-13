@@ -2,6 +2,8 @@
 // the projector / query model output directly; the watch layer adds no
 // second derivation and never writes to the store.
 
+import { readHookTests } from "../hooks/shared.js";
+import type { HookTestRecord } from "../hooks/shared.js";
 import { project } from "../core/projector.js";
 import type { Projection, ProjectStatus } from "../core/projector.js";
 import type { TaskcraftDatabase } from "../store/database.js";
@@ -313,10 +315,16 @@ export interface WatchRuntimeByTask {
 export interface WatchRuntime {
   runs: AgentRunRow[];
   byTask: WatchRuntimeByTask[];
+  /** Persisted hook field-test records, read from the same config file the
+   * CLI capabilities command reads (one shared source, no second probe). */
+  hookTests: Record<string, HookTestRecord>;
   generatedAt: string;
 }
 
-export function buildRuntime(database: TaskcraftDatabase | null): WatchRuntime {
+export function buildRuntime(
+  database: TaskcraftDatabase | null,
+  configPath: string,
+): WatchRuntime {
   const runs = database === null ? [] : getAgentRuns(database);
   const grouped = new Map<
     string,
@@ -349,7 +357,12 @@ export function buildRuntime(database: TaskcraftDatabase | null): WatchRuntime {
     lastSeenAt: entry.lastSeenAt,
   }));
 
-  return { runs, byTask, generatedAt: new Date().toISOString() };
+  return {
+    runs,
+    byTask,
+    hookTests: readHookTests(configPath),
+    generatedAt: new Date().toISOString(),
+  };
 }
 
 // --- diagnostics ------------------------------------------------------------
