@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 18
-- **Last Active**: 2026-08-12
+- **Total Sessions**: 19
+- **Last Active**: 2026-08-13
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~418 | Active |
+| `journal-1.md` | ~444 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 19 | 2026-08-13 | Task 05/06 父任务：集成验收与归档 | `3fb0214`, `228deb3`, `9b3ac2e`, `b3c304e`, `aeacfd4`, `aa7eed3` | `main` |
 | 18 | 2026-08-12 | Task 05：L3 graph-reducer + cli-sample 子任务 | `522b3e2`, `135866b`, `80fdc52` | `main` |
 | 17 | 2026-08-12 | Task 04 父任务：集成验收与归档 | docs | `main` |
 | 16 | 2026-08-12 | Task 04：host-smoke 子任务 | `1f704c4`, `4cb42bc` | `main` |
