@@ -1,19 +1,25 @@
-# Task 05/06 交接说明（L3 与 Watch 已完成，进入迁移）
+# Task 05/06/07 交接说明（L3、Watch 与 MVP 返工已归档，迁移门 blocked）
 
 > 更新日期：2026-08-13。本文件是给下一个会话 agent 的交接文档：Task 05（L3
-> Feasibility 与 Integrate）与 Task 06（Watch 与 Diagnostics）已完成并归档，
-> roadmap 全部阶段完成。下一步按
-> [`development/runbooks/trellis-to-taskcraft.md`](runbooks/trellis-to-taskcraft.md)
-> 执行 Trellis → Taskcraft 迁移。Task 02/03/04 交接见对应 handoff 文件。
+> Feasibility 与 Integrate）、Task 06（Watch 与 Diagnostics）与 Task 07（MVP
+> 就绪度返工）已完成并归档。Task 07 交付：`tc doctor`、waiting/resume/retry
+> 公开闭环、test-hook 真实链路、run attach/status、`tc state`/`tc task list`、
+> CLI 收敛与 L3 单 execute 收窄。**迁移门复核结论：blocked**（Codex Hook 未
+> 复验可用；L2 Review/done 真实宿主样本缺失），见
+> [`development/dogfood-2026-08-13.md`](dogfood-2026-08-13.md)。下一步：在
+> Codex **交互会话**复验 Hook，补 L2 真实样本后重新执行迁移手册进入条件。
 
 ## 一、当前状态
 
 - **仓库**：Taskcraft，`main` 分支。
-- **Task 00-06 全部完成、已提交、已归档**（`.trellis/tasks/archive/2026-08/`）。
+- **Task 00–06 均已提交并归档**（`.trellis/tasks/archive/2026-08/`）；该状态只描述
+  Trellis 阶段任务，不代表 MVP 迁移门已经通过。
 - **无活动 Trellis 任务**。
-- **上游产物**：contracts/、specs/、plans/ 冻结；研究证据
-  （host-smoke/l3-sample/l2-review-sample）在 development/ 下。
-- `development/plans/roadmap.md` 状态列已全部更新为完成。
+- **当前基线**：contracts/、specs/、plans/ 与研究证据
+  （host-smoke/l3-sample/l2-review-sample）在 development/ 下；Task 07 可在复核
+  证据后同步修正合同与规范。
+- `development/plans/roadmap.md` 已追加 Task 07；Task 00–06 的归档不等于 MVP
+  迁移门已经通过。
 
 ## 二、Task 05/06 已完成的内容
 
@@ -76,15 +82,14 @@ pnpm smoke:watch                       # Playwright（需 chromium）
 node dist/cli.js watch --no-open --port 0   # 起服务手动验证
 ```
 
-## 五、下一步：迁移（trellis-to-taskcraft）
+## 五、下一步：Task 07 返工复核
 
-1. **先读**：`development/runbooks/trellis-to-taskcraft.md` →
-   `development/plans/roadmap.md`（全部完成）。
-2. 按 runbook：Trellis 与 Taskcraft 不设双写过渡期；冻结并卸载 Trellis
-   开发任务系统，在新会话切换唯一活动系统为 Taskcraft 自身。
-3. 迁移完成前：Trellis 仍是开发任务系统（本仓库 AGENTS.md 的 Trellis
-   指令仍生效）；迁移完成后 Taskcraft 接管后续缺陷修复、性能优化与版本
-   迭代。
+1. **先读**：`development/plans/task-07-mvp-readiness-remediation.md`，逐项复现
+   doctor、waiting/resume、Hook、Runtime/Diagnostics、L3 与文档状态问题。
+2. Task 07 完成前不得卸载 Trellis；Trellis 与 Taskcraft 仍不设双写过渡期。
+3. Task 07 验收通过后重新执行 `development/runbooks/trellis-to-taskcraft.md`
+   的进入条件；只有结论为 pass 才在全新会话切换唯一活动系统。
 4. 沟通语言：中文。
-5. **不要**：改 Task 00-06 已冻结的 storage.sql、schemas、既有 fixtures、
-   specs；不要动全局宿主配置。
+5. **不要**：为保住“Task 00–06 已完成”的表述而回避必要的合同修正；不要用
+   fixture、mock marker 或 help 文本替代公开生产路径和真实宿主证据；不要动
+   全局宿主配置。
