@@ -442,3 +442,31 @@ L3 主路径（feasibility gate/on-demand integration/9-9 obligations）与 Watc
 ### Status
 
 [OK] **Completed**
+
+
+## Session 20: Task 07：MVP 就绪度返工（父 + 6 子）
+
+**Date**: 2026-08-13
+**Task**: Task 07：MVP 就绪度返工（父 + 6 子）
+**Branch**: `main`
+
+### Summary
+
+Task 07 全部完成并归档：tc doctor（7 项只读检查）、waiting/resume/retry 公开闭环（双进程 smoke）、test-hook 真实链路（失败语义化）、run attach/status + hookTests 持久化同源、L3 收窄单 execute、state/task list 命令与 CLI 收敛；真实宿主 dogfood（claude 3 次验证：active 注入/waiting 静默/跨会话恢复）；迁移门复核 blocked（codex 未复验 + L2 真实样本缺失）
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8f8a9a3` | (see git log) |
+| `196b195` | (see git log) |
+| `fc25abc` | (see git log) |
+| `e6eed98` | (see git log) |
+| `e87f2cb` | (see git log) |
+| `66fe90d` | (see git log) |
+| `955c872` | (see git log) |
+| `f325f06` | (see git log) |
+
+### Status
+
+[OK] **Completed**
