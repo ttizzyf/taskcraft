@@ -230,11 +230,20 @@ describe("renderRuntime", () => {
         { taskId: "T-308", total: 1, hosts: ["host-1"], lastSeenAt: TIMESTAMP },
         { taskId: "T-502", total: 1, hosts: ["claude"], lastSeenAt: TIMESTAMP },
       ],
+      hookTests: {
+        claude: {
+          testedAt: TIMESTAMP,
+          version: "2.1.220",
+          ok: true,
+          enforced: true,
+        },
+      },
       generatedAt: TIMESTAMP,
     });
 
     expect(html).toContain('data-testid="observations"');
     expect(html).toContain('data-testid="task-facts"');
+    expect(html).toContain('data-testid="hook-tests"');
     expect(html).toContain("panel-observation");
     expect(html).toContain('data-run-id="run-1"');
     expect(html).toContain('data-run-id="run-2"');
@@ -244,17 +253,42 @@ describe("renderRuntime", () => {
     expect(html).toContain("hs-1");
     expect(html).toContain("completed");
     expect(html).toContain('data-task-summary="T-308"');
+    expect(html).toContain('data-hook-test-agent="claude"');
+    expect(html).toContain("2.1.220");
   });
 
   it("shows explicit empty states", () => {
     const html = renderRuntime({
       runs: [],
       byTask: [],
+      hookTests: {},
       generatedAt: TIMESTAMP,
     });
 
     expect(html).toContain("No host observations recorded");
     expect(html).toContain("No task run summaries");
+    expect(html).toContain("No hook field tests recorded");
+  });
+
+  it("shows failed hook tests with their failure reason", () => {
+    const html = renderRuntime({
+      runs: [],
+      byTask: [],
+      hookTests: {
+        codex: {
+          testedAt: TIMESTAMP,
+          version: "1.0.0",
+          ok: false,
+          enforced: false,
+          failure: "entry injection missing",
+        },
+      },
+      generatedAt: TIMESTAMP,
+    });
+
+    expect(html).toContain('data-hook-test-agent="codex"');
+    expect(html).toContain("failed");
+    expect(html).toContain("entry injection missing");
   });
 });
 

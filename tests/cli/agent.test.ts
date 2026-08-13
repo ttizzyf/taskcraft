@@ -4,6 +4,9 @@
 // The runAgentTestHook chain scenarios live in agent-hook-test.test.ts; the
 // CLI here never executes a real host binary.
 
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { createCodexAdapter } from "../../src/adapters/codex.js";
@@ -16,7 +19,7 @@ import {
   resolveAgentAdapter,
 } from "../../src/commands/agent.js";
 import { createFakeHost } from "../helpers/fake-host.js";
-import { runCli, withTemporaryDirectory } from "./helpers.js";
+import { parseJson, runCli, withTemporaryDirectory } from "./helpers.js";
 
 describe("resolveAgentAdapter", () => {
   it("resolves codex and claude", () => {
@@ -93,6 +96,39 @@ describe("renderCapabilities", () => {
     expect(text).toContain("session-start: available");
     expect(text).toContain("stop: unavailable: probe failed");
     expect(text).toContain("structured-output: limited: limited note");
+    expect(text).toContain(
+      "hook test: never recorded (run: tc agent test-hook --agent codex)",
+    );
+  });
+
+  it("renders the persisted hook test row of a host", () => {
+    const text = renderCapabilities([
+      {
+        ...capabilities,
+        hookTest: {
+          testedAt: "2026-08-13T00:00:00.000Z",
+          version: "2.1.220",
+          ok: true,
+          enforced: true,
+        },
+      },
+      {
+        ...capabilities,
+        hookTest: {
+          testedAt: "2026-08-13T00:00:00.000Z",
+          version: null,
+          ok: false,
+          enforced: false,
+          failure: "stop block missing",
+        },
+      },
+    ]);
+
+    expect(text).toContain(
+      "hook test: tested 2026-08-13T00:00:00.000Z, version 2.1.220, enforced, ok",
+    );
+    expect(text).toContain("failed: stop block missing");
+    expect(text).toContain("not enforced");
   });
 });
 
@@ -123,6 +159,55 @@ describe("tc agent (CLI smoke)", () => {
         "codex",
         "claude",
       ]);
+    });
+  });
+
+  it("capabilities reads the latest hook test row from config.hookTests", () => {
+    withTemporaryDirectory((cwd) => {
+      mkdirSync(join(cwd, ".taskcraft"), { recursive: true });
+      writeFileSync(
+        join(cwd, ".taskcraft", "config.json"),
+        `${JSON.stringify(
+          {
+            takeOver: "ask",
+            hookTests: {
+              claude: {
+                testedAt: "2026-08-13T00:00:00.000Z",
+                version: "2.1.220",
+                ok: true,
+                enforced: true,
+              },
+            },
+          },
+          null,
+          2,
+        )}\n`,
+        "utf8",
+      );
+
+      const text = runCli(["agent", "capabilities"], cwd);
+      expect(text.status).toBe(0);
+      expect(text.stdout).toContain(
+        "hook test: tested 2026-08-13T00:00:00.000Z, version 2.1.220, enforced, ok",
+      );
+
+      const json = parseJson<{
+        ok: boolean;
+        data: {
+          hosts: Array<{
+            host: string;
+            hookTest?: { testedAt: string; ok: boolean };
+          }>;
+        };
+      }>(runCli(["agent", "capabilities", "--json"], cwd));
+      const claude = json.data.hosts.find((host) => host.host === "claude");
+      const codex = json.data.hosts.find((host) => host.host === "codex");
+
+      expect(claude?.hookTest).toMatchObject({
+        testedAt: "2026-08-13T00:00:00.000Z",
+        ok: true,
+      });
+      expect(codex?.hookTest).toBeUndefined();
     });
   });
 

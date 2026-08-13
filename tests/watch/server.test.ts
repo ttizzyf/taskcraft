@@ -1,85 +1,24 @@
-import { mkdirSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { openDatabase } from "../../src/store/database.js";
-import { applyMigrations } from "../../src/store/migrations.js";
 import { createWatchServer } from "../../src/watch/server.js";
-import type { WatchServerOptions } from "../../src/watch/server.js";
 import type {
   WatchBoard,
   WatchDiagnostics,
   WatchRuntime,
   WatchTaskDetail,
 } from "../../src/watch/routes.js";
-import { loadFixtureFile } from "../helpers/load-fixture.js";
-import { createTemporaryDirectory } from "../helpers/temp-directory.js";
-
-const STATIC_DIRECTORY = fileURLToPath(new URL("../../watch", import.meta.url));
+import {
+  STATIC_DIRECTORY,
+  getJson,
+  withProject,
+  withServer,
+} from "./helpers.js";
 
 interface ErrorBody {
   error: { code: string; problem: string };
-}
-
-/** Creates a temp project, optionally loading a fixture into
- * .taskcraft/taskcraft.db, runs the callback and cleans up. */
-async function withProject(
-  fixture: string | null,
-  callback: (projectDir: string) => Promise<void>,
-): Promise<void> {
-  const temporary = createTemporaryDirectory();
-
-  try {
-    const projectDir = temporary.path;
-
-    if (fixture !== null) {
-      mkdirSync(join(projectDir, ".taskcraft"), { recursive: true });
-      const database = openDatabase(
-        join(projectDir, ".taskcraft", "taskcraft.db"),
-      );
-
-      try {
-        applyMigrations(database, resolve("migrations"));
-        loadFixtureFile(database, fixture);
-      } finally {
-        database.close();
-      }
-    }
-
-    await callback(projectDir);
-  } finally {
-    temporary.cleanup();
-  }
-}
-
-async function withServer(
-  projectDir: string,
-  extra: Partial<WatchServerOptions>,
-  callback: (baseUrl: string) => Promise<void>,
-): Promise<void> {
-  const { server, port } = await createWatchServer({
-    projectDir,
-    staticDir: STATIC_DIRECTORY,
-    ...extra,
-  });
-  const baseUrl = `http://127.0.0.1:${port}`;
-
-  try {
-    await callback(baseUrl);
-  } finally {
-    server.closeAllConnections();
-    await new Promise<void>((done) => server.close(() => done()));
-  }
-}
-
-async function getJson(
-  baseUrl: string,
-  path: string,
-): Promise<{ status: number; body: unknown }> {
-  const response = await fetch(`${baseUrl}${path}`);
-  return { status: response.status, body: (await response.json()) as unknown };
 }
 
 describe("watch server", () => {
