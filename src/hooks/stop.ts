@@ -8,7 +8,10 @@
 // MUST honour it and allow the stop, or the agent loops forever re-blocking
 // its own turn.
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { createInterface } from "node:readline";
+
+const STOP_INPUT_TIMEOUT_MS = 1_000;
 
 import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
 import type { Projection } from "../core/projector.js";
@@ -131,22 +134,44 @@ function readConfig(configPath: string): { takeOver: TakeOverMode } {
 // the stable three-part diagnostics on stderr and exit 1 (host shows the
 // error and still allows the stop).
 if (isMainModule(import.meta.url)) {
-  runAsHookScript();
+  void runAsHookScript();
 }
 
-/** Reads the host Stop hook input (JSON on stdin) and returns
+/** Reads the host Stop hook input (JSON on stdin) and resolves
  * `stop_hook_active`. Both codex and claude feed the current Stop input back
  * on re-entry; a malformed or absent payload simply means "first stop" and
- * defaults to false. */
-function readStopHookActive(): boolean {
+ * defaults to false.
+ *
+ * The read must never block forever: codex feeds the hook input as a stream
+ * that is not closed when the hook exits, so a synchronous readFileSync(0)
+ * would hang the hook until the host times it out (observed as "Stop hook
+ * never fires"). We read the first line with a short timeout instead. */
+function readStopHookActive(timeoutMs: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const lines = createInterface({ input: process.stdin });
+    let settled = false;
+    const finish = (value: boolean): void => {
+      if (!settled) {
+        settled = true;
+        lines.close();
+        resolve(value);
+      }
+    };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    lines.once("line", (line) => {
+      clearTimeout(timer);
+      finish(parseStopHookActive(line));
+    });
+    lines.once("close", () => {
+      clearTimeout(timer);
+      finish(false);
+    });
+  });
+}
+
+function parseStopHookActive(payload: string): boolean {
   try {
-    const payload = readFileSync(0, "utf8").trim();
-
-    if (payload.length === 0) {
-      return false;
-    }
-
-    const parsed = JSON.parse(payload) as unknown;
+    const parsed = JSON.parse(payload.trim()) as unknown;
 
     if (
       typeof parsed !== "object" ||
@@ -163,7 +188,7 @@ function readStopHookActive(): boolean {
   }
 }
 
-function runAsHookScript(): void {
+async function runAsHookScript(): Promise<void> {
   const configPath = process.argv[2];
 
   if (configPath === undefined) {
@@ -179,7 +204,8 @@ function runAsHookScript(): void {
   }
 
   try {
-    const { decision, output } = runStopGate(configPath, readStopHookActive());
+    const stopHookActive = await readStopHookActive(STOP_INPUT_TIMEOUT_MS);
+    const { decision, output } = runStopGate(configPath, stopHookActive);
 
     if (decision !== "allow") {
       if (output !== null) {

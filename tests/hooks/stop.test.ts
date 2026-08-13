@@ -3,6 +3,8 @@
 // are allowed to stop; an active task with runnable or running nodes blocks
 // and prints the breadcrumb. off mode always allows with zero output.
 
+import { spawnSync } from "node:child_process";
+
 import { describe, expect, it } from "vitest";
 
 import { ERROR_CODES } from "../../src/core/errors.js";
@@ -166,6 +168,56 @@ describe("runStopGate IO wrapper", () => {
       } finally {
         project.cleanup();
       }
+    }
+  });
+});
+
+describe("stop.js hook script stdin handling", () => {
+  // The compiled gate entry point is spawned directly (pretest builds dist).
+  // Codex feeds hook input as an unclosed stream, so the script must never
+  // block on stdin: it reads the first line with a short timeout instead.
+  const SCRIPT = new URL("../../dist/hooks/stop.js", import.meta.url).pathname;
+
+  it("releases the loop guard when stop_hook_active=true arrives on stdin", () => {
+    const project = createHookProject({ takeOver: "always" }, true);
+    const database = createStoreAt(project.databasePath);
+    insertTask(database, { id: "T-1", activatedAt: FIXED_TIMESTAMP });
+    insertNode(database, "T-1", "execute-1", "execute");
+    database.close();
+
+    try {
+      const result = spawnSync(process.execPath, [SCRIPT, project.configPath], {
+        encoding: "utf8",
+        input: '{"stop_hook_active":true}\n',
+        timeout: 10_000,
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe("");
+    } finally {
+      project.cleanup();
+    }
+  });
+
+  it("never hangs on an unclosed stdin stream and still blocks active work", () => {
+    const project = createHookProject({ takeOver: "always" }, true);
+    const database = createStoreAt(project.databasePath);
+    insertTask(database, { id: "T-1", activatedAt: FIXED_TIMESTAMP });
+    insertNode(database, "T-1", "execute-1", "execute");
+    database.close();
+
+    try {
+      // Keep stdin open past the 1s read timeout (simulating a stream that
+      // is not closed); the script must still finish and block.
+      const result = spawnSync(process.execPath, [SCRIPT, project.configPath], {
+        encoding: "utf8",
+        timeout: 10_000,
+      });
+
+      expect(result.status).toBe(2);
+      expect(result.stdout).toContain("tc-breadcrumb/v1");
+    } finally {
+      project.cleanup();
     }
   });
 });
