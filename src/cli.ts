@@ -13,6 +13,7 @@ import {
   printCommandResult,
 } from "./commands/helpers.js";
 import { register as registerAgent } from "./commands/agent.js";
+import { register as registerDoctor } from "./commands/doctor.js";
 import { register as registerEnable } from "./commands/enable.js";
 import { register as registerInit } from "./commands/init.js";
 import { register as registerReview } from "./commands/review.js";
@@ -107,6 +108,7 @@ const program = new Command()
 registerInit(program);
 registerEnable(program);
 registerAgent(program);
+registerDoctor(program);
 
 const task = program.command("task").description("task management");
 registerTaskNew(task);

@@ -44,7 +44,7 @@ interface MigrationFile {
   checksum: string;
 }
 
-interface AppliedMigration {
+export interface AppliedMigration {
   version: number;
   name: string;
   checksum: string;
@@ -73,7 +73,9 @@ export function applyMigrations(
   }
 }
 
-function discoverMigrations(directory: string): MigrationFile[] {
+// Read-only validation reused by `tc doctor` so the migration ledger check
+// compares the same files and rules as applyMigrations.
+export function discoverMigrations(directory: string): MigrationFile[] {
   const migrationFiles = readdirSync(directory, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".sql"))
     .map((entry) => loadMigration(directory, entry.name));
@@ -118,7 +120,7 @@ function loadMigration(directory: string, filename: string): MigrationFile {
   };
 }
 
-function validateAppliedHistory(
+export function validateAppliedHistory(
   applied: AppliedMigration[],
   migrations: MigrationFile[],
 ): void {
