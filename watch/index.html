@@ -7,21 +7,17 @@
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <header>
-      <h1>Taskcraft Watch</h1>
-      <nav>
-        <a href="#/board">Board</a>
-        <a href="#/runtime">Runtime</a>
-        <a href="#/diag">Diagnostics</a>
-      </nav>
-    </header>
-    <main id="app">
-      <p>
-        The watch frontend lands in a later task. The read-only JSON API is
-        available at <code>/api/board</code>, <code>/api/task/&lt;id&gt;</code>,
-        <code>/api/runtime</code> and <code>/api/diagnostics</code>.
-      </p>
-    </main>
+    <div class="shell">
+      <header class="topbar">
+        <a class="brand" href="#/board">Taskcraft Watch</a>
+        <nav class="tabs" aria-label="Views">
+          <a href="#/board" data-nav="board">Board</a>
+          <a href="#/runtime" data-nav="runtime">Runtime</a>
+          <a href="#/diag" data-nav="diag">Diagnostics</a>
+        </nav>
+      </header>
+      <main id="app" class="view"></main>
+    </div>
     <script type="module" src="/app.js"></script>
   </body>
 </html>

@@ -21,6 +21,7 @@ import {
 import type {
   AgentRunRow,
   AttemptRow,
+  BlockerKind,
   BlockerRow,
   BlockerWaitingReason,
   EvidenceRow,
@@ -36,6 +37,12 @@ import type { DiagnosticItem } from "./diagnostics.js";
 
 // --- board ---------------------------------------------------------------
 
+export interface TaskCardBlocker {
+  kind: BlockerKind;
+  reason: string;
+  remediationCommand: string | null;
+}
+
 export interface TaskCard {
   id: string;
   title: string;
@@ -49,6 +56,8 @@ export interface TaskCard {
   host: string | null;
   lastActivity: string;
   next: string | null;
+  /** Open blocker that puts the task in waiting (null when not waiting). */
+  blocker: TaskCardBlocker | null;
 }
 
 export interface WatchBoard {
@@ -93,6 +102,7 @@ function buildCard(
   const nodeKind =
     projection.nodeStatuses.find((state) => state.nodeId === node)?.kind ??
     null;
+  const blocker = getOpenBlockers(database, taskId)[0] ?? null;
   const lastActivity =
     [snapshot.updatedAt, latest?.startedAt, latest?.finishedAt]
       .filter((value): value is string => value !== null && value !== undefined)
@@ -112,6 +122,14 @@ function buildCard(
     host: latest?.host ?? null,
     lastActivity,
     next: projection.next,
+    blocker:
+      blocker === null
+        ? null
+        : {
+            kind: blocker.kind,
+            reason: blocker.reason,
+            remediationCommand: blocker.remediationCommand,
+          },
   };
 }
 

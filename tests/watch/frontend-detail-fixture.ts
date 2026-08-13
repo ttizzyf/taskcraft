@@ -1,0 +1,227 @@
+// Synthetic /api/task/:id payload for the frontend render tests, shaped
+// exactly like src/watch/routes.ts WatchTaskDetail. Kept in its own file so
+// the test file and this fixture each stay under the 400-line budget.
+
+import type { WatchTaskDetail } from "../../src/watch/routes.js";
+
+const TIMESTAMP = "2026-08-11T00:00:00.000Z";
+
+const NODE = {
+  taskId: "T-1",
+  lifecycleRevision: 2,
+  objective: "",
+  procedureRef: "",
+  scopeJson: "{}",
+  entryGateJson: "{}",
+  exitGateJson: "{}",
+  retryPolicyJson: "{}",
+  inputSchemaJson: "{}",
+  outputSchemaJson: "{}",
+};
+
+const DETAIL: WatchTaskDetail = {
+  task: {
+    id: "T-1",
+    title: "Demo <script>alert(1)</script>",
+    level: 2,
+    status: "active",
+    waitingReason: null,
+    next: "tc run complete T-1",
+    taskRevision: 3,
+    lifecycleRevision: 2,
+    objective: "Ship the demo",
+    scope: { modules: ["core"] },
+    acceptance: ["Acceptance A"],
+    nonGoals: ["No cloud sync"],
+    classificationFacts: {},
+    classificationReasons: ["Needs cross-module tracking"],
+    parentTaskId: null,
+    activatedAt: TIMESTAMP,
+    cancelledAt: null,
+    cancelReason: null,
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
+  },
+  projection: {
+    nodeStatuses: [
+      {
+        nodeId: "frame-1",
+        kind: "frame",
+        status: "satisfied",
+        attemptId: null,
+      },
+      {
+        nodeId: "execute-1",
+        kind: "execute",
+        status: "running",
+        attemptId: "att-exec-1",
+      },
+      {
+        nodeId: "review-1",
+        kind: "review",
+        status: "runnable",
+        attemptId: null,
+      },
+      {
+        nodeId: "record-1",
+        kind: "record",
+        status: "blocked",
+        attemptId: null,
+      },
+    ],
+    runnableNodes: ["review-1"],
+    runningNode: "execute-1",
+    doneObligations: 1,
+    totalObligations: 3,
+    breadcrumb: {
+      schemaVersion: "tc-breadcrumb/v1",
+      takeover: "active",
+      task: null,
+      blocked: [],
+      next: { command: "tc run complete T-1" },
+      detailCommand: "tc task show T-1 --json",
+    },
+  },
+  graph: {
+    nodes: [
+      { ...NODE, id: "frame-1", kind: "frame", title: "Scope" },
+      { ...NODE, id: "execute-1", kind: "execute", title: "Implement" },
+      { ...NODE, id: "review-1", kind: "review", title: "Review" },
+      { ...NODE, id: "record-1", kind: "record", title: "Record" },
+    ],
+    edges: [],
+    obligations: [
+      {
+        taskId: "T-1",
+        lifecycleRevision: 2,
+        nodeId: "execute-1",
+        id: "outcome",
+        duty: "required",
+        title: "Outcome produced",
+        evaluatorJson: "{}",
+      },
+      {
+        taskId: "T-1",
+        lifecycleRevision: 2,
+        nodeId: "execute-1",
+        id: "validation",
+        duty: "recommended",
+        title: "Validation recorded",
+        evaluatorJson: "{}",
+      },
+      {
+        taskId: "T-1",
+        lifecycleRevision: 2,
+        nodeId: "record-1",
+        id: "retain",
+        duty: "required",
+        title: "Result retained",
+        evaluatorJson: "{}",
+      },
+    ],
+  },
+  attempts: [],
+  evidence: [
+    {
+      id: "ev-1",
+      taskId: "T-1",
+      nodeAttemptId: "att-exec-1",
+      type: "validation",
+      reference: "ref://v",
+      summary: "Validated",
+      digest: null,
+      createdBy: "actor-1",
+      createdAt: TIMESTAMP,
+    },
+  ],
+  obligationResults: [
+    {
+      taskId: "T-1",
+      lifecycleRevision: 2,
+      nodeId: "execute-1",
+      obligationId: "outcome",
+      status: "satisfied",
+      satisfiedByEvidenceId: "ev-1",
+      skipReason: null,
+      updatedAt: TIMESTAMP,
+    },
+  ],
+  findings: [
+    {
+      id: "find-1",
+      taskId: "T-1",
+      reviewAttemptId: "att-review-1",
+      severity: "advisory",
+      disposition: "open",
+      summary: "Consider a fallback",
+      evidenceRefsJson: "[]",
+      resolvedByAttemptId: null,
+      createdAt: TIMESTAMP,
+      resolvedAt: null,
+    },
+  ],
+  taskFacts: [
+    {
+      id: "fact-1",
+      category: "probe",
+      subject: "api-availability",
+      value: { ok: true },
+      sourceAttemptId: "att-plan-1",
+      evidenceId: null,
+      supersedesFactId: null,
+      createdBy: "actor-1",
+      createdAt: TIMESTAMP,
+    },
+  ],
+  reviewLinks: [
+    {
+      taskId: "T-1",
+      reviewAttemptId: "att-review-1",
+      reviewedAttemptId: "att-exec-1",
+      reviewPurpose: "delivery",
+      capability: "context-only",
+      independenceStatus: "same-actor",
+      reviewerPrincipalId: "actor-1",
+      observedHostSessionId: null,
+      createdAt: TIMESTAMP,
+    },
+  ],
+  blockers: [],
+  events: [
+    {
+      eventId: "evt-1",
+      taskId: "T-1",
+      taskSeq: 1,
+      lifecycleRevision: 2,
+      nodeId: null,
+      attemptId: null,
+      actorInstanceId: "actor-1",
+      host: "host-1",
+      eventType: "task.created",
+      payload: {},
+      postTaskRevision: 1,
+      occurredAt: TIMESTAMP,
+    },
+    {
+      eventId: "evt-2",
+      taskId: "T-1",
+      taskSeq: 2,
+      lifecycleRevision: 2,
+      nodeId: "execute-1",
+      attemptId: "att-exec-1",
+      actorInstanceId: "actor-1",
+      host: "host-1",
+      eventType: "attempt.started",
+      payload: {},
+      postTaskRevision: 2,
+      occurredAt: TIMESTAMP,
+    },
+  ],
+  next: "tc run complete T-1",
+};
+
+export function buildDetail(
+  overrides: Partial<WatchTaskDetail> = {},
+): WatchTaskDetail {
+  return { ...DETAIL, ...overrides };
+}

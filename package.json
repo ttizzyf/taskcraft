@@ -24,6 +24,7 @@
     "pretest": "pnpm build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "smoke:watch": "playwright test",
     "check": "pnpm test && pnpm typecheck && pnpm lint && pnpm format:check && pnpm build"
   },
   "dependencies": {
@@ -36,6 +37,7 @@
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "^24.0.0",
     "eslint": "10.8.1",
+    "playwright": "^1.62.1",
     "prettier": "3.9.6",
     "typescript": "6.0.3",
     "typescript-eslint": "8.66.0",

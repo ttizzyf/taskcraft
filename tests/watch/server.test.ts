@@ -136,6 +136,12 @@ describe("watch server", () => {
         });
         expect(typeof body.groups.active[0]?.lastActivity).toBe("string");
         expect(body.groups.waiting[0]?.waitingReason).toBe("needs_input");
+        expect(body.groups.waiting[0]?.blocker).toMatchObject({
+          kind: "needs_input",
+          reason: "Schema decision needed",
+          remediationCommand: null,
+        });
+        expect(body.groups.active[0]?.blocker).toBeNull();
         expect(body.groups.done[0]).toMatchObject({
           status: "done",
           doneObligations: 3,
