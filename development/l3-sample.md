@@ -31,7 +31,7 @@ node dist/cli.js run T-1 --node plan-1
 #   Attempt: att-T-1-plan-1-1 / Next: tc run complete T-1 --node plan-1
 
 node dist/cli.js run complete T-1 --node plan-1 \
-  --result '{"objectiveCoverage":["Objective covered by children A and B"],"children":[{"id":"A","title":"Child A"},{"id":"B","title":"Child B"}],"dependencies":[{"name":"api-availability"}],"validationOwners":[{"childId":"A","owner":"reviewer"}],"integrationPath":"integrate://deliverables"}'
+  --result '{"objectiveCoverage":["Objective covered by the single child"],"children":[{"id":"A","title":"Child A"}],"dependencies":[{"name":"api-availability"}],"validationOwners":[{"childId":"A","owner":"reviewer"}],"integrationPath":"integrate://deliverables"}'
 #   Revision: 5 / Next: tc review start T-1 --node review-plan-1 --purpose feasibility --reviewed-attempt att-T-1-plan-1-1
 
 # Feasibility gate 生效：plan 完成但 review 未过时，execute 不可提前 run
@@ -63,7 +63,7 @@ node dist/cli.js run T-1 --node execute-1
 #   Attempt: att-T-1-execute-1-1 / Next: tc run complete T-1
 
 node dist/cli.js run complete T-1 \
-  --result '{"summary":"Both children delivered","evidence":[{"type":"validation","reference":"ref://validation","summary":"Validated"},{"type":"test","reference":"ref://test","summary":"Tests pass"}]}'
+  --result '{"summary":"Child A delivered","evidence":[{"type":"validation","reference":"ref://validation","summary":"Validated"},{"type":"test","reference":"ref://test","summary":"Tests pass"}]}'
 #   Revision: 10 / Next: tc review start T-1 --node review-execute-1 --purpose delivery --reviewed-attempt att-T-1-execute-1-1
 
 node dist/cli.js review start T-1 --node review-execute-1 --purpose delivery \
@@ -80,7 +80,7 @@ node dist/cli.js run T-1 --node integrate-1
 
 # modifiedDeliverables: true → on-demand integration review 投影 runnable
 node dist/cli.js run complete T-1 --node integrate-1 \
-  --result '{"childrenResults":[{"childId":"A","status":"passed"},{"childId":"B","status":"passed"}],"integrationEvidence":[{"type":"test","reference":"ref://integration","summary":"Integration passes"}],"modifiedDeliverables":true}'
+  --result '{"childrenResults":[{"childId":"A","status":"passed"}],"integrationEvidence":[{"type":"test","reference":"ref://integration","summary":"Integration passes"}],"modifiedDeliverables":true}'
 #   Revision: 14 / Next: tc review start T-1 --node review-integrate-1 --purpose integration --reviewed-attempt att-T-1-integrate-1-1
 
 node dist/cli.js review start T-1 --node review-integrate-1 --purpose integration \
@@ -126,7 +126,7 @@ node dist/cli.js review changes T-1 --attempt att-T-1-review-plan-1-1 \
 node dist/cli.js run T-1 --node execute-1
 
 node dist/cli.js run complete T-1 --node plan-1 \
-  --result '{"objectiveCoverage":["Objective covered by children A and B","Boundary coverage added"],"children":[{"id":"A","title":"Child A"}],"dependencies":[],"validationOwners":[{"childId":"A","owner":"reviewer"}],"integrationPath":"integrate://deliverables"}'
+  --result '{"objectiveCoverage":["Objective covered by the single child","Boundary coverage added"],"children":[{"id":"A","title":"Child A"}],"dependencies":[],"validationOwners":[{"childId":"A","owner":"reviewer"}],"integrationPath":"integrate://deliverables"}'
 #   Revision: 8 / Next: tc review start T-1 --node review-plan-1 --purpose feasibility --reviewed-attempt att-T-1-plan-1-2
 
 node dist/cli.js review start T-1 --node review-plan-1 --purpose feasibility \

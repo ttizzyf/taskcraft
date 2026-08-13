@@ -18,18 +18,15 @@ export const L3_FRAME_RESULT = {
 };
 
 export const L3_PLAN_RESULT = {
-  objectiveCoverage: ["Objective covered by children A and B"],
-  children: [
-    { id: "A", title: "Child A" },
-    { id: "B", title: "Child B" },
-  ],
+  objectiveCoverage: ["Objective covered by the single child"],
+  children: [{ id: "A", title: "Child A" }],
   dependencies: [{ name: "api-availability" }],
   validationOwners: [{ childId: "A", owner: "reviewer" }],
   integrationPath: "integrate://deliverables",
 };
 
 export const L3_EXECUTE_RESULT = {
-  summary: "Both children delivered",
+  summary: "Child A delivered",
   evidence: [
     { type: "validation", reference: "ref://validation", summary: "Validated" },
     { type: "test", reference: "ref://test", summary: "Tests pass" },
@@ -37,10 +34,7 @@ export const L3_EXECUTE_RESULT = {
 };
 
 export const L3_INTEGRATE_RESULT = {
-  childrenResults: [
-    { childId: "A", status: "passed" },
-    { childId: "B", status: "passed" },
-  ],
+  childrenResults: [{ childId: "A", status: "passed" }],
   integrationEvidence: [
     {
       type: "test",
@@ -52,10 +46,7 @@ export const L3_INTEGRATE_RESULT = {
 };
 
 export const L3_INTEGRATE_RESULT_PLAIN = {
-  childrenResults: [
-    { childId: "A", status: "passed" },
-    { childId: "B", status: "passed" },
-  ],
+  childrenResults: [{ childId: "A", status: "passed" }],
   integrationEvidence: [],
 };
 

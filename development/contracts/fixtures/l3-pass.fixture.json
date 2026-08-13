@@ -223,16 +223,12 @@
       "outcome": "success",
       "resultJson": {
         "objectiveCoverage": [
-          "Objective covered by children A and B"
+          "Objective covered by the single child"
         ],
         "children": [
           {
             "id": "A",
             "title": "Child A"
-          },
-          {
-            "id": "B",
-            "title": "Child B"
           }
         ],
         "dependencies": [
@@ -243,10 +239,6 @@
         "validationOwners": [
           {
             "childId": "A",
-            "owner": "reviewer"
-          },
-          {
-            "childId": "B",
             "owner": "reviewer"
           }
         ],
@@ -279,7 +271,7 @@
       "status": "finished",
       "outcome": "success",
       "resultJson": {
-        "summary": "Both children delivered",
+        "summary": "Child A delivered",
         "evidence": [
           {
             "type": "validation",
@@ -323,10 +315,6 @@
         "childrenResults": [
           {
             "childId": "A",
-            "status": "passed"
-          },
-          {
-            "childId": "B",
             "status": "passed"
           }
         ],

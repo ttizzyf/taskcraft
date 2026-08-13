@@ -15,18 +15,15 @@ export const L3_FRAME_RESULT = JSON.stringify({
 });
 
 export const L3_PLAN_RESULT = JSON.stringify({
-  objectiveCoverage: ["Objective covered by children A and B"],
-  children: [
-    { id: "A", title: "Child A" },
-    { id: "B", title: "Child B" },
-  ],
+  objectiveCoverage: ["Objective covered by the single child"],
+  children: [{ id: "A", title: "Child A" }],
   dependencies: [{ name: "api-availability" }],
   validationOwners: [{ childId: "A", owner: "reviewer" }],
   integrationPath: "integrate://deliverables",
 });
 
 export const L3_EXECUTE_RESULT = JSON.stringify({
-  summary: "Both children delivered",
+  summary: "Child A delivered",
   evidence: [
     { type: "validation", reference: "ref://validation", summary: "Validated" },
     { type: "test", reference: "ref://test", summary: "Tests pass" },
@@ -36,10 +33,7 @@ export const L3_EXECUTE_RESULT = JSON.stringify({
 /** Integrate result that modified deliverables: the on-demand integration
  * review node must be projected runnable after this result. */
 export const L3_INTEGRATE_RESULT = JSON.stringify({
-  childrenResults: [
-    { childId: "A", status: "passed" },
-    { childId: "B", status: "passed" },
-  ],
+  childrenResults: [{ childId: "A", status: "passed" }],
   integrationEvidence: [
     {
       type: "test",

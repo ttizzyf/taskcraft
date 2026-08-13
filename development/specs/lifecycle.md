@@ -110,14 +110,21 @@ feasibility review [required, separate attempt, reviews plan attempt]
   - user intent coverage retained
   - blocking feasibility assumptions probed
   - decomposition and integration path accepted
-execute [required per child]
-delivery review [required per execute, separate attempt]
+execute [required; first version: single execute]
+  - per-child execute/review materialization deferred; plan children is an
+    informational declaration capped at one child
+delivery review [required, separate attempt]
   - reviewed_attempt_id retained
   - review capability state retained
-integrate [required when graph has multiple delivery branches]
+integrate [required]
+  - first version materializes a single integrate gate; per-branch
+    aggregation is deferred alongside per-child execute
 record [required]
 research/security/migration/release checks [recommended or required by policy]
 ```
+
+> 首版 L3 只物化单 execute：plan 的 `children` 是信息性声明（最多一个
+> child），不产生 per-child execute/review 分支；per-child 物化延后。
 
 ## 6. 图编译
 

@@ -111,7 +111,7 @@ describe("projector L3 fixtures", () => {
         taskId: "T-302",
         attemptId: review.reviewAttemptId,
         reviewedAttemptId: "att-T-302-plan-1-1",
-        finding: "Child B is not covered by the plan",
+        finding: "The single child is not covered by the plan",
       });
 
       let projection = project(db, "T-302");
@@ -196,11 +196,11 @@ describe("projector L3 fixtures", () => {
     }
   });
 
-  it("keeps integrate blocked until both delivery branches are reviewed", () => {
+  it("keeps integrate blocked until the single child's delivery review passes", () => {
     const db = createMigratedDatabase();
 
     try {
-      loadFixtureFile(db, "l3-two-children");
+      loadFixtureFile(db, "l3-single-child");
 
       let projection = project(db, "T-306");
       expect(projection.nodeStatuses).toContainEqual(
@@ -213,19 +213,19 @@ describe("projector L3 fixtures", () => {
         }),
       );
       expect(projection.next).toBe(
-        "tc review start T-306 --node review-execute-1 --purpose delivery --reviewed-attempt att-T-306-execute-1-2",
+        "tc review start T-306 --node review-execute-1 --purpose delivery --reviewed-attempt att-T-306-execute-1-1",
       );
 
-      // Branch B's delivery review passes: the integrate gate opens.
+      // The single child's delivery review passes: the integrate gate opens.
       const review = reviewStart(db, "T-306", {
         taskId: "T-306",
         nodeId: "review-execute-1",
         purpose: "delivery",
-        reviewedAttemptId: "att-T-306-execute-1-2",
+        reviewedAttemptId: "att-T-306-execute-1-1",
         capability: "context-only",
         independenceStatus: "same-actor",
       });
-      passReview(db, "T-306", review.reviewAttemptId, "att-T-306-execute-1-2");
+      passReview(db, "T-306", review.reviewAttemptId, "att-T-306-execute-1-1");
 
       projection = project(db, "T-306");
       expect(projection.nodeStatuses).toContainEqual(

@@ -8,6 +8,11 @@
 // result shape across levels. The graph is materialized at task creation
 // (revision 1) and at every replan revision; definitions are append-only
 // afterwards.
+//
+// First version narrows the contract to a single execute node: the plan
+// children array is capped at one child (maxItems 1) and stays an
+// informational declaration — per-child execute/review materialization is
+// deferred beyond the MVP (see lifecycle spec section 5).
 
 import {
   L1_EXECUTE_RESULT_SCHEMA,
@@ -59,8 +64,12 @@ export const L3_PLAN_RESULT_SCHEMA = {
       type: "array",
       items: { type: "string", minLength: 1 },
     },
+    // Informational declaration in the first version: the graph materializes
+    // a single execute node, so the plan can declare at most one child.
+    // Per-child execute/review materialization is deferred.
     children: {
       type: "array",
+      maxItems: 1,
       items: {
         type: "object",
         additionalProperties: false,
@@ -83,8 +92,11 @@ export const L3_PLAN_RESULT_SCHEMA = {
         },
       },
     },
+    // One validation owner entry per child; capped at one alongside
+    // the single-child plan declaration.
     validationOwners: {
       type: "array",
+      maxItems: 1,
       items: {
         type: "object",
         additionalProperties: false,
@@ -106,8 +118,11 @@ export const L3_INTEGRATE_RESULT_SCHEMA = {
   additionalProperties: false,
   required: ["childrenResults", "integrationEvidence"],
   properties: {
+    // Per-child outcome of the plan children; capped at one because the
+    // first version materializes a single execute child.
     childrenResults: {
       type: "array",
+      maxItems: 1,
       items: {
         type: "object",
         additionalProperties: false,
