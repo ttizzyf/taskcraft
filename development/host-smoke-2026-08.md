@@ -23,11 +23,11 @@
 | S2 | active（Entry 注入 + Stop） | codex | limited | 见下：`codex exec --ephemeral` 不加载项目 `.codex/config.toml`；`-c` 传 hook 也未见执行（与 Task 00 探针 CX-02 记录矛盾，待交互会话复验） |
 | S3 | ordinary（无任务零注入） | claude | verified | `claude -p` 返回 TC_THIRD；session 日志无 hook_success（零注入零写入） |
 | S4 | active（Entry 注入 + Stop） | claude | verified | session 日志 1×SessionStart hook_success（完整 breadcrumb 注入）+ 1×Stop exit 2（block）；修复 loop guard 后模型正常结束 |
-| S5 | off（`enable off` 后零输出） | 本地 | verified | `enable off` 后 entry/stop 脚本零输出 exit 0（hooks 测试 + 手动 smoke） |
-| S6 | waiting（open blocker） | 本地 | verified | decideStop 矩阵覆盖 waiting → allow（hooks 测试） |
-| S7 | done（完成后 allow） | 本地 | verified | decideStop 矩阵覆盖 done → allow（hooks 测试） |
-| S8 | timeout / malformed hook | 本地 | verified | runHookTest fake-host 超时/malformed/非零退出路径（adapters 测试） |
-| S9 | 中断后恢复 | 本地 | verified | breadcrumb 从 Task Store 重建（Task 02/03 测试与 smoke） |
+| S5 | off（`enable off` 后零输出） | 本地 | local（测试覆盖） | `enable off` 后 entry/stop 脚本零输出 exit 0（hooks 测试 + 手动 smoke） |
+| S6 | waiting（open blocker） | 本地 | local（测试覆盖） | decideStop 矩阵覆盖 waiting → allow；dogfood D2 补充真实宿主 waiting 静默验证 |
+| S7 | done（完成后 allow） | 本地 | local（测试覆盖） | decideStop 矩阵覆盖 done → allow（hooks 测试） |
+| S8 | timeout / malformed hook | 本地 | local（测试覆盖） | runHookTest fake-host 超时/malformed/非零退出路径（adapters 测试） |
+| S9 | 中断后恢复 | 本地 | verified（dogfood D3 补充真实宿主） | breadcrumb 从 Task Store 重建（Task 02/03 测试）；dogfood D3 真实宿主同目录二次会话注入成功 |
 
 ## 详细记录
 
