@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { project } from "../../src/core/projector.js";
-import { recordAttemptFailure, run, taskNew } from "../../src/core/reducer.js";
+import { run, runFail, taskNew } from "../../src/core/reducer.js";
 import { getAttempts } from "../../src/store/query.js";
 import { loadFixtureFile } from "../helpers/load-fixture.js";
 import { createMigratedDatabase } from "../store/helpers.js";
@@ -19,7 +19,7 @@ describe("reducer failure semantics", () => {
 
       for (let index = 1; index <= 3; index += 1) {
         const runResult = run(database, taskId);
-        recordAttemptFailure(database, taskId, {
+        runFail(database, taskId, {
           attemptId: runResult.nodeBrief!.attemptId,
           reason: `attempt ${index} failed`,
         });
@@ -28,7 +28,7 @@ describe("reducer failure semantics", () => {
       const projection = project(database, taskId);
       expect(projection.status).toBe("waiting");
       expect(projection.waitingReason).toBe("failed_retries_exhausted");
-      expect(projection.next).toBe(`tc run ${taskId} --node execute-1`);
+      expect(projection.next).toBe(`tc task resume ${taskId} --resolve`);
 
       const blockers = database
         .prepare(
@@ -69,7 +69,7 @@ describe("reducer failure semantics", () => {
 
       for (let index = 1; index <= 2; index += 1) {
         const runResult = run(database, taskId);
-        recordAttemptFailure(database, taskId, {
+        runFail(database, taskId, {
           attemptId: runResult.nodeBrief!.attemptId,
           reason: `attempt ${index} failed`,
         });
