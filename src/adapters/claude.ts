@@ -3,22 +3,16 @@
 // shared logic lives in shared.ts; capabilities never assume what the local
 // probe did not evidence.
 
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { renderNodeBrief } from "../core/node-brief.js";
 import type { NodeBriefInput, RenderedNodeBrief } from "../core/node-brief.js";
+import { attachObservation, observeRun } from "./observe.js";
 import {
-  attachObservation,
   defaultProbe,
   defaultSpawn,
-  ENTRY_MARKER,
   installEntryFiles,
-  observeRun,
   probeCapabilities,
   resolveTcPath,
   runHookTest,
-  STOP_BLOCK_MARKER,
 } from "./shared.js";
 import type {
   AdapterCapabilities,
@@ -38,7 +32,15 @@ export const CLAUDE_ID = "claude";
 
 const VERSION_ARGS = ["--version"];
 const DOCUMENT_ARG_SETS = [["--help"]];
-const TEST_HOOK_ARGS = ["-p"];
+// The field test must load the project-level settings (where the installed
+// hooks are registered) and surface hook events so the breadcrumb injection
+// is observable in the output stream (host-smoke S3/S4 flags).
+const TEST_HOOK_ARGS = [
+  "-p",
+  "--include-hook-events",
+  "--setting-sources",
+  "user,project",
+];
 
 /** Research-backed notes: SessionStart ran pre-auth but UserPromptSubmit is
  * still documented-only, so session-start stays limited (host-feasibility
@@ -119,14 +121,7 @@ export function createClaudeAdapter(deps: AdapterDeps = {}): HostAdapter {
           serializeClaudeSettings(buildClaudeProjectConfig({}, commands)),
       }),
     testHook: (input: HookTestInput): HookTestResult =>
-      runHookTest(
-        spawn,
-        now,
-        CLAUDE_ID,
-        TEST_HOOK_ARGS,
-        writeClaudeSession,
-        input,
-      ),
+      runHookTest(spawn, now, CLAUDE_ID, TEST_HOOK_ARGS, input),
     renderNodeBrief: (input: NodeBriefInput): RenderedNodeBrief =>
       renderNodeBrief(input),
     attachObservation: (input: AttachInput): HostRun => {
@@ -138,33 +133,4 @@ export function createClaudeAdapter(deps: AdapterDeps = {}): HostAdapter {
     },
     observe: (run: HostRun): RuntimeObservation => observeRun(run, now),
   };
-}
-
-/** Minimal temporary session settings: registers the entry and stop hooks to
- * echo the markers the field test parses. Real-host validation belongs to
- * host-smoke; this only pins the session shape. */
-function writeClaudeSession(dir: string): void {
-  const configDir = join(dir, ".claude");
-  mkdirSync(configDir, { recursive: true });
-  writeFileSync(
-    join(configDir, "settings.json"),
-    `${JSON.stringify(
-      {
-        hooks: {
-          SessionStart: [
-            { hooks: [{ type: "command", command: `echo ${ENTRY_MARKER}` }] },
-          ],
-          Stop: [
-            {
-              hooks: [
-                { type: "command", command: `echo ${STOP_BLOCK_MARKER}` },
-              ],
-            },
-          ],
-        },
-      },
-      null,
-      2,
-    )}\n`,
-  );
 }

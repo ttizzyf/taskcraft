@@ -35,8 +35,7 @@ import {
   buildClaudeProjectConfig,
   serializeClaudeSettings,
 } from "../../src/adapters/claude.js";
-import { ENTRY_MARKER, STOP_BLOCK_MARKER } from "../../src/adapters/shared.js";
-import { createFakeHost } from "../helpers/fake-host.js";
+import { createFakeHost, BREADCRUMB_LINE } from "../helpers/fake-host.js";
 import { createTemporaryDirectory } from "../helpers/temp-directory.js";
 import { runConformance } from "./conformance.js";
 
@@ -90,21 +89,47 @@ describe("claude adapter", () => {
     });
   });
 
-  it("testHook spawns claude -p with the minimal prompt", () => {
+  it("testHook spawns claude -p with the minimal prompt and the installed scripts", () => {
     fake.reset();
-    fake.setSpawnScript("claude", {
-      stdout: `${ENTRY_MARKER}\n${STOP_BLOCK_MARKER}\n`,
-    });
     const projectDir = createTemporaryDirectory();
+    const entryScript = join(
+      projectDir.path,
+      ".taskcraft",
+      "hooks",
+      "entry.sh",
+    );
+    const stopScript = join(projectDir.path, ".taskcraft", "hooks", "stop.sh");
+    fake.setSpawnScript("claude", {
+      stdout: `${BREADCRUMB_LINE}\nagent: TC_FIRST\n`,
+    });
+    fake.setSpawnScript(
+      "bash",
+      { stdout: `${BREADCRUMB_LINE}\n`, exitCode: 2 },
+      { args: [stopScript] },
+    );
+    fake.setSpawnScript(
+      "bash",
+      { stdout: "", exitCode: 0 },
+      { args: [stopScript], input: '{"stop_hook_active":true}' },
+    );
 
     try {
       const adapter = createClaudeAdapter(fake.deps());
-      const result = adapter.testHook({ projectDir: projectDir.path });
+      const result = adapter.testHook({
+        projectDir: projectDir.path,
+        entryScript,
+        stopScript,
+      });
 
       expect(result.ok).toBe(true);
-      const call = fake.calls.find((entry) => entry.kind === "spawn");
+      expect(result.enforced).toBe(true);
+      const call = fake.calls.find(
+        (entry) => entry.kind === "spawn" && entry.command === "claude",
+      );
       expect(call?.command).toBe("claude");
       expect(call?.args[0]).toBe("-p");
+      expect(call?.args).toContain("--include-hook-events");
+      expect(call?.args).toContain("--setting-sources");
       expect(call?.args.at(-1)).toBe("Reply exactly TC_FIRST.");
     } finally {
       projectDir.cleanup();

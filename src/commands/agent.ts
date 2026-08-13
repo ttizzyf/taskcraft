@@ -1,19 +1,26 @@
 // tc agent: host adapter inspection and hook field tests. capabilities()
 // never crashes a command (probe failures become explicit unavailable items);
-// test-hook installs into a temporary directory only, so project and global
-// host config are never touched. The judgment functions take an injectable
-// adapter so tests substitute a fake host without spawning a real binary.
+// test-hook exercises the INSTALLED .taskcraft/hooks scripts against the real
+// Task Store and project config (never a temporary reinstall) and fails
+// explicitly on missing scripts, missing registration or an unsatisfied
+// codex feature/trust gate — an advisory success never replaces a failure.
+// The judgment functions take an injectable adapter so tests substitute a
+// fake host without spawning a real binary.
 
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { Command } from "commander";
 
 import { createClaudeAdapter } from "../adapters/claude.js";
 import { createCodexAdapter } from "../adapters/codex.js";
+import {
+  checkInstalledScripts,
+  checkProjectRegistration,
+  persistHookTest,
+} from "../adapters/installed-hooks.js";
 import type { AdapterCapabilities, HostAdapter } from "../adapters/types.js";
 import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
+import { readTaskcraftConfig } from "../hooks/shared.js";
 import { execute, isJsonMode, printCommandResult } from "./helpers.js";
 
 export type AgentId = "codex" | "claude";
@@ -92,65 +99,113 @@ function itemLabel(item: AdapterCapabilities["items"][number]): string {
 
 export interface HookTestSummary {
   host: string;
+  version: string | null;
   ok: boolean;
   entryInjected: boolean;
-  stopEnforced: boolean;
-  /** enforced = stop hook blocked; advisory = entry injected but the stop
-   * hook did not enforce (host protocol limits or no work left). */
-  mode: "enforced" | "advisory";
+  stopBlocked: boolean;
+  loopGuardOk: boolean;
+  /** enforced = entry injection + stop block + loop guard all passed; the
+   * command exits non-zero unless enforced (no advisory success). */
+  enforced: boolean;
   testedAt: string;
   failure?: string;
   sample?: string;
 }
 
-/** Field test against one adapter: installs entry hooks into a temporary
- * directory and spawns the host with the minimal prompt (60s hard timeout in
- * the shared runner). Failures become TC_ADAPTER_* diagnostics, never a fake
- * success. */
-export function runAgentTestHook(adapter: HostAdapter): HookTestSummary {
-  const directory = mkdtempSync(join(tmpdir(), "taskcraft-test-hook-"));
+/** Field test against one adapter with the installed hooks: reads the
+ * project config (takeover must not be off), verifies the installed scripts
+ * and their registration, runs the real chain against the real Task Store
+ * (60s host timeout in the shared runner) and persists the outcome into
+ * config.hookTests[host]. Every failure is an explicit TC_ADAPTER_* error,
+ * never an advisory success. */
+export function runAgentTestHook(
+  adapter: HostAdapter,
+  projectDir: string,
+): HookTestSummary {
+  const configPath = join(projectDir, ".taskcraft", "config.json");
+  const version = adapter.capabilities().version;
+  const takeOver = readTakeOver(configPath, adapter.id);
 
-  try {
-    const install = adapter.installEntry({
-      projectDir: directory,
-      takeOver: "ask",
+  if (takeOver === "off") {
+    throw new TaskcraftError(ERROR_CODES.TC_ADAPTER_HOOK_TEST_FAILED, {
+      problem: "takeover is off",
+      impact:
+        "Hooks produce zero output while takeover is off, so injection and blocking cannot be tested",
+      remediation: "Enable takeover first: tc enable ask|always",
+      context: { host: adapter.id, configPath },
     });
-
-    if (!install.ok) {
-      throw new TaskcraftError(ERROR_CODES.TC_ADAPTER_HOOK_INSTALL_FAILED, {
-        problem: `Could not install entry hooks: ${install.limitation ?? "unknown error"}`,
-        impact: "The hook field test cannot start",
-        remediation:
-          "Check the temporary directory permissions, then re-run: tc agent test-hook",
-        context: { host: adapter.id },
-      });
-    }
-
-    const result = adapter.testHook({ projectDir: directory });
-
-    if (!result.ok) {
-      throw new TaskcraftError(ERROR_CODES.TC_ADAPTER_HOOK_TEST_FAILED, {
-        problem: `Hook field test failed: ${result.failure ?? "unknown error"}`,
-        impact: "Entry injection or stop enforcement could not be verified",
-        remediation:
-          "Check the host installation and login, then re-run: tc agent test-hook",
-        context: { host: adapter.id, testedAt: result.testedAt },
-        cause: result.failure,
-      });
-    }
-
-    return {
-      host: adapter.id,
-      ok: true,
-      entryInjected: result.entryInjected,
-      stopEnforced: result.stopEnforced,
-      mode: result.stopEnforced ? "enforced" : "advisory",
-      testedAt: result.testedAt,
-      ...(result.sample === undefined ? {} : { sample: result.sample }),
-    };
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
   }
+
+  const scripts = checkInstalledScripts(projectDir);
+  checkProjectRegistration(adapter.id, projectDir);
+
+  const result = adapter.testHook({
+    projectDir,
+    entryScript: scripts.entryScript,
+    stopScript: scripts.stopScript,
+  });
+  const summary: HookTestSummary = {
+    host: adapter.id,
+    version,
+    ok: result.ok,
+    entryInjected: result.entryInjected,
+    stopBlocked: result.stopBlocked,
+    loopGuardOk: result.loopGuardOk,
+    enforced: result.enforced,
+    testedAt: result.testedAt,
+    ...(result.failure === undefined ? {} : { failure: result.failure }),
+    ...(result.sample === undefined ? {} : { sample: result.sample }),
+  };
+
+  persistHookTest(configPath, adapter.id, {
+    testedAt: result.testedAt,
+    version,
+    ok: result.ok,
+    enforced: result.enforced,
+    ...(result.failure === undefined ? {} : { failure: result.failure }),
+  });
+
+  if (!result.ok) {
+    throw new TaskcraftError(ERROR_CODES.TC_ADAPTER_HOOK_TEST_FAILED, {
+      problem: `Hook field test failed: ${result.failure ?? "unknown error"}`,
+      impact:
+        "Entry injection, stop blocking or the loop guard could not be verified",
+      remediation:
+        "Fix the failing checks above, then re-run: tc agent test-hook",
+      context: {
+        host: adapter.id,
+        testedAt: result.testedAt,
+        entryInjected: result.entryInjected,
+        stopBlocked: result.stopBlocked,
+        loopGuardOk: result.loopGuardOk,
+      },
+      cause: result.failure,
+    });
+  }
+
+  return summary;
+}
+
+function readTakeOver(
+  configPath: string,
+  host: string,
+): "off" | "ask" | "always" {
+  try {
+    return readTaskcraftConfig(configPath).takeOver ?? "off";
+  } catch (cause) {
+    throw new TaskcraftError(ERROR_CODES.TC_ADAPTER_HOOK_TEST_FAILED, {
+      problem: `Cannot read the taskcraft config: ${describeCause(cause)}`,
+      impact: "The takeover mode could not be checked",
+      remediation:
+        "Initialize and enable takeover first: tc init --agent codex|claude, then tc enable ask|always",
+      context: { host, configPath },
+      cause,
+    });
+  }
+}
+
+function describeCause(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
 }
 
 export function register(program: Command): void {
@@ -177,7 +232,7 @@ export function register(program: Command): void {
   agent
     .command("test-hook")
     .description(
-      "field-test entry and stop hooks against a local host (60s timeout)",
+      "field-test the installed entry/stop hooks against a local host (60s timeout)",
     )
     .option(
       "--agent <id>",
@@ -191,7 +246,7 @@ export function register(program: Command): void {
           options.agent === undefined
             ? pickDefaultAdapter(localAdapters())
             : resolveAgentAdapter(options.agent);
-        const summary = runAgentTestHook(adapter);
+        const summary = runAgentTestHook(adapter, process.cwd());
 
         if (json) {
           printCommandResult(summary);
@@ -200,9 +255,11 @@ export function register(program: Command): void {
 
         console.log("Hook field test: ok");
         console.log(`host: ${summary.host}`);
-        console.log(`mode: ${summary.mode}`);
+        console.log(`version: ${summary.version ?? "<unknown>"}`);
         console.log(`entryInjected: ${summary.entryInjected}`);
-        console.log(`stopEnforced: ${summary.stopEnforced}`);
+        console.log(`stopBlocked: ${summary.stopBlocked}`);
+        console.log(`loopGuardOk: ${summary.loopGuardOk}`);
+        console.log(`enforced: ${summary.enforced}`);
         console.log(`testedAt: ${summary.testedAt}`);
       }, json);
     });

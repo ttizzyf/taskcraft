@@ -3,23 +3,21 @@
 // lives in shared.ts; capabilities never assume what the local probe did not
 // evidence.
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { renderNodeBrief } from "../core/node-brief.js";
 import type { NodeBriefInput, RenderedNodeBrief } from "../core/node-brief.js";
+import { codexHookGate } from "./installed-hooks.js";
+import { attachObservation, observeRun } from "./observe.js";
 import {
   appendCommand,
-  attachObservation,
   defaultProbe,
   defaultSpawn,
-  ENTRY_MARKER,
   installEntryFiles,
-  observeRun,
   probeCapabilities,
   resolveTcPath,
   runHookTest,
-  STOP_BLOCK_MARKER,
 } from "./shared.js";
 import type {
   AdapterDeps,
@@ -117,6 +115,8 @@ export function createCodexAdapter(deps: AdapterDeps = {}): HostAdapter {
   const spawn = deps.spawn ?? defaultSpawn;
   const now = deps.now ?? (() => new Date().toISOString());
   const database = deps.database;
+  const userConfigPath =
+    deps.userConfigPath ?? join(homedir(), ".codex", "config.toml");
 
   return {
     id: CODEX_ID,
@@ -135,14 +135,10 @@ export function createCodexAdapter(deps: AdapterDeps = {}): HostAdapter {
           serializeCodexProjectConfig(buildCodexProjectConfig({}, commands)),
       }),
     testHook: (input: HookTestInput): HookTestResult =>
-      runHookTest(
-        spawn,
-        now,
-        CODEX_ID,
-        TEST_HOOK_ARGS,
-        writeCodexSession,
-        input,
-      ),
+      runHookTest(spawn, now, CODEX_ID, TEST_HOOK_ARGS, {
+        ...input,
+        gate: () => codexHookGate(probe, input.projectDir, userConfigPath),
+      }),
     renderNodeBrief: (input: NodeBriefInput): RenderedNodeBrief =>
       renderNodeBrief(input),
     attachObservation: (input: AttachInput): HostRun => {
@@ -154,18 +150,4 @@ export function createCodexAdapter(deps: AdapterDeps = {}): HostAdapter {
     },
     observe: (run: HostRun): RuntimeObservation => observeRun(run, now),
   };
-}
-
-/** Minimal temporary session config: registers the entry and stop hooks to
- * echo the markers the field test parses. Real-host validation belongs to
- * host-smoke; this only pins the session shape. */
-function writeCodexSession(dir: string): void {
-  const configDir = join(dir, ".codex");
-  mkdirSync(configDir, { recursive: true });
-  writeFileSync(
-    join(configDir, "config.toml"),
-    `# Taskcraft hook test (temporary session config)\n` +
-      `hooks.SessionStart = [{ command = "echo ${ENTRY_MARKER}" }]\n` +
-      `hooks.Stop = [{ command = "echo ${STOP_BLOCK_MARKER}" }]\n`,
-  );
 }

@@ -42,11 +42,14 @@ export function installAgentHooks(
   const result = adapter.installEntry({ projectDir, takeOver: "ask" });
 
   if (!result.ok) {
+    const configExists = result.limitation?.includes("config exists") === true;
+
     throw new TaskcraftError(ERROR_CODES.TC_ADAPTER_HOOK_INSTALL_FAILED, {
       problem: `Hook installation failed: ${result.limitation ?? "unknown error"}`,
       impact: "Entry hooks were not installed or registered",
-      remediation:
-        "Check the .taskcraft/ directory permissions, then re-run: tc init --agent <agent>",
+      remediation: configExists
+        ? "Merge the hook commands into the existing host config manually, or move it away and re-run: tc init --agent <agent>"
+        : "Check the .taskcraft/ directory permissions, then re-run: tc init --agent <agent>",
       context: { agent: adapter.id },
     });
   }

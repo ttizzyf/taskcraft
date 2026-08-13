@@ -1,6 +1,8 @@
 // Programmable fake host for adapter tests: the probe seam answers per
-// command+args, the spawn seam per command, and every call is recorded.
-// Nothing here executes a real host binary.
+// command+args, the spawn seam per command (optionally per args+input, so the
+// stop-block and loop-guard bash spawns of the same wrapper can be scripted
+// separately), and every call is recorded. Nothing here executes a real host
+// binary.
 
 import type {
   AdapterDeps,
@@ -19,12 +21,21 @@ export interface FakeScript {
   timedOut?: boolean;
 }
 
+/** Narrower script matching for spawns: an exact args/input match wins over
+ * the command-only default, so one wrapper can answer differently for the
+ * plain call and the `stop_hook_active=true` re-entry call. */
+export interface SpawnScriptMatch {
+  args?: string[];
+  input?: string;
+}
+
 export interface FakeCall {
   kind: "probe" | "spawn";
   command: string;
   args: string[];
   cwd?: string;
   timeoutMs?: number;
+  input?: string;
 }
 
 export interface FakeHost {
@@ -32,7 +43,11 @@ export interface FakeHost {
    * multiple adapters can share one fake. */
   deps(): AdapterDeps;
   setProbeScript(command: string, args: string[], script: FakeScript): void;
-  setSpawnScript(command: string, script: FakeScript): void;
+  setSpawnScript(
+    command: string,
+    script: FakeScript,
+    match?: SpawnScriptMatch,
+  ): void;
   calls: FakeCall[];
   reset(): void;
 }
@@ -68,7 +83,7 @@ export function createFakeHost(): FakeHost {
   const spawn = (
     command: string,
     args: string[],
-    options: { cwd: string; timeoutMs: number },
+    options: { cwd: string; timeoutMs: number; input?: string },
   ): SpawnOutcome => {
     calls.push({
       kind: "spawn",
@@ -76,8 +91,12 @@ export function createFakeHost(): FakeHost {
       args,
       cwd: options.cwd,
       timeoutMs: options.timeoutMs,
+      ...(options.input === undefined ? {} : { input: options.input }),
     });
-    const script = spawnScripts.get(command) ?? DEFAULT_SPAWN;
+    const script =
+      spawnScripts.get(spawnKey(command, args, options.input)) ??
+      spawnScripts.get(`${command}||`) ??
+      DEFAULT_SPAWN;
     const stdout = script.stdout ?? "";
     const stderr = script.stderr ?? "";
 
@@ -102,8 +121,11 @@ export function createFakeHost(): FakeHost {
     setProbeScript: (command, args, script) => {
       probeScripts.set(probeKey(command, args), script);
     },
-    setSpawnScript: (command, script) => {
-      spawnScripts.set(command, script);
+    setSpawnScript: (command, script, match) => {
+      spawnScripts.set(
+        spawnKey(command, match?.args ?? [], match?.input),
+        script,
+      );
     },
     calls,
     reset: () => {
@@ -114,6 +136,14 @@ export function createFakeHost(): FakeHost {
   };
 }
 
+function spawnKey(
+  command: string,
+  args: readonly string[],
+  input: string | undefined,
+): string {
+  return `${command}|${args.join(" ")}|${input ?? ""}`;
+}
+
 /** Shared capability-document text: contains every keyword both adapters
  * probe for, so the same probe output proves the shared contract. */
 export const CAPABILITY_DOCUMENT_TEXT = [
@@ -121,3 +151,8 @@ export const CAPABILITY_DOCUMENT_TEXT = [
   "JSON Schema available, output schema supported, resume works,",
   "thread correlation observed.",
 ].join("\n");
+
+/** Minimal tc-breadcrumb/v1 JSON line a fake host echoes once the installed
+ * SessionStart hook injected the breadcrumb (entry judgment). */
+export const BREADCRUMB_LINE =
+  '{"schemaVersion":"tc-breadcrumb/v1","takeover":"active","task":{"id":"T-1","status":"active"},"next":{"command":"tc run complete T-1"}}';

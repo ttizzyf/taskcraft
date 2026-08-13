@@ -89,7 +89,7 @@ describe("tc init --agent (CLI)", () => {
     });
   });
 
-  it("is idempotent and never overwrites existing host config content", () => {
+  it("fails explicitly when the host config already exists instead of a partial success", () => {
     withTemporaryDirectory((cwd) => {
       const configFile = join(cwd, ".codex", "config.toml");
       mkdirSync(join(cwd, ".codex"), { recursive: true });
@@ -101,8 +101,15 @@ describe("tc init --agent (CLI)", () => {
 
       const result = runCli(["init", "--agent", "codex"], cwd);
 
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain("config exists; hooks not registered");
+      // The hooks scripts still land, but the missing registration is an
+      // explicit failure (never ok=true + limitation).
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("TC_ADAPTER_HOOK_INSTALL_FAILED");
+      expect(result.stderr).toContain("config exists; hooks not registered");
+      expect(result.stderr).toContain("Merge the hook commands");
+      expect(existsSync(join(cwd, ".taskcraft", "hooks", "entry.sh"))).toBe(
+        true,
+      );
       expect(readFileSync(configFile, "utf8")).toContain(
         "user content must survive",
       );

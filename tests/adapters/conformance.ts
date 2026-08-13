@@ -5,15 +5,10 @@
 
 import { afterAll, describe, expect, it } from "vitest";
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import {
-  ENTRY_MARKER,
-  resolveTcPath,
-  STOP_ALLOW_MARKER,
-  STOP_BLOCK_MARKER,
-} from "../../src/adapters/shared.js";
+import { resolveTcPath } from "../../src/adapters/shared.js";
 import type {
   AdapterDeps,
   CapabilityName,
@@ -25,7 +20,11 @@ import type { NodeBriefInput } from "../../src/core/node-brief.js";
 import { project } from "../../src/core/projector.js";
 import { getAgentRuns } from "../../src/store/query.js";
 import type { FakeHost } from "../helpers/fake-host.js";
-import { CAPABILITY_DOCUMENT_TEXT, FIXED_NOW } from "../helpers/fake-host.js";
+import {
+  BREADCRUMB_LINE,
+  CAPABILITY_DOCUMENT_TEXT,
+  FIXED_NOW,
+} from "../helpers/fake-host.js";
 import { createTemporaryDirectory } from "../helpers/temp-directory.js";
 import { createMigratedDatabase, insertL1Fixture } from "../store/helpers.js";
 
@@ -137,10 +136,11 @@ export function runConformance(
           takeOver: "ask",
         });
 
-        expect(second.ok).toBe(true);
+        // Existing project config is left untouched and the second install
+        // FAILS explicitly (ok=false): an unregistered project must never be
+        // reported as a partial success.
+        expect(second.ok).toBe(false);
         expect(second.hookPaths).toEqual(first.hookPaths);
-        // Existing project config is left untouched; the partial success is
-        // reported explicitly instead of silently claiming registration.
         expect(second.limitation).toContain("config exists");
         expect(readFileSync(first.hookPaths[0]!, "utf8")).toBe(entryContent);
       } finally {
@@ -174,58 +174,127 @@ export function runConformance(
 
   describe(`conformance: ${id} testHook`, () => {
     const projectDir = createTemporaryDirectory();
+    const entryScript = join(
+      projectDir.path,
+      ".taskcraft",
+      "hooks",
+      "entry.sh",
+    );
+    const stopScript = join(projectDir.path, ".taskcraft", "hooks", "stop.sh");
+    const input = { projectDir: projectDir.path, entryScript, stopScript };
+    // The codex trust gate must not depend on the developer's real
+    // ~/.codex/config.toml: wire a user config that trusts the project.
+    const userConfigPath = join(projectDir.path, "codex-user-config.toml");
+    writeFileSync(
+      userConfigPath,
+      `[projects."${projectDir.path}"]\ntrust_level = "trusted"\n`,
+      "utf8",
+    );
+    const testHookAdapter = createAdapter({ ...fake.deps(), userConfigPath });
 
     afterAll(() => {
       projectDir.cleanup();
     });
 
-    it("observes entry injection and stop enforcement with default 60s timeout", () => {
-      fake.reset();
+    /** Scripts the fake environment for a fully passing chain: the codex
+     * features gate probe (codex only) plus the host and stop-wrapper spawn
+     * outcomes. Later setSpawnScript calls override the same command keys. */
+    function scriptPassingChain(): void {
+      if (id === "codex") {
+        fake.setProbeScript("codex", ["features", "list"], {
+          stdout: "hooks stable true\n",
+        });
+      }
       fake.setSpawnScript(id, {
-        stdout: `${ENTRY_MARKER}\nagent: TC_FIRST\n${STOP_BLOCK_MARKER}\n`,
+        stdout: `${BREADCRUMB_LINE}\nagent: TC_FIRST\n`,
       });
+      fake.setSpawnScript(
+        "bash",
+        { stdout: `${BREADCRUMB_LINE}\n`, exitCode: 2 },
+        { args: [stopScript] },
+      );
+      fake.setSpawnScript(
+        "bash",
+        { stdout: "", exitCode: 0 },
+        { args: [stopScript], input: '{"stop_hook_active":true}' },
+      );
+    }
 
-      const result = adapter.testHook({ projectDir: projectDir.path });
+    it("observes entry injection, stop blocking and the loop guard with the default 60s timeout", () => {
+      fake.reset();
+      scriptPassingChain();
+
+      const result = testHookAdapter.testHook(input);
 
       expect(result.ok).toBe(true);
       expect(result.entryInjected).toBe(true);
-      expect(result.stopEnforced).toBe(true);
+      expect(result.stopBlocked).toBe(true);
+      expect(result.loopGuardOk).toBe(true);
+      expect(result.enforced).toBe(true);
       expect(result.testedAt).toBe(FIXED_NOW);
-      const spawnCall = fake.calls.find((call) => call.kind === "spawn");
-      expect(spawnCall?.timeoutMs).toBe(60_000);
-      expect(spawnCall?.cwd).toContain(".taskcraft");
-      expect(spawnCall?.args.at(-1)).toBe("Reply exactly TC_FIRST.");
+      const hostCall = fake.calls.find(
+        (call) => call.kind === "spawn" && call.command === id,
+      );
+      expect(hostCall?.timeoutMs).toBe(60_000);
+      expect(hostCall?.cwd).toBe(projectDir.path);
+      expect(hostCall?.args.at(-1)).toBe("Reply exactly TC_FIRST.");
+      const loopCall = fake.calls.find(
+        (call) => call.kind === "spawn" && call.input !== undefined,
+      );
+      expect(loopCall?.input).toBe('{"stop_hook_active":true}');
     });
 
-    it("accepts an allow decision without stop enforcement", () => {
+    it("fails explicitly when the host output lacks the breadcrumb", () => {
       fake.reset();
-      fake.setSpawnScript(id, {
-        stdout: `${ENTRY_MARKER}\n${STOP_ALLOW_MARKER}\n`,
-      });
-
-      const result = adapter.testHook({ projectDir: projectDir.path });
-
-      expect(result.ok).toBe(true);
-      expect(result.entryInjected).toBe(true);
-      expect(result.stopEnforced).toBe(false);
-    });
-
-    it("fails explicitly on malformed output without the entry marker", () => {
-      fake.reset();
+      scriptPassingChain();
       fake.setSpawnScript(id, { stdout: "agent: TC_FIRST\n" });
 
-      const result = adapter.testHook({ projectDir: projectDir.path });
+      const result = testHookAdapter.testHook(input);
 
       expect(result.ok).toBe(false);
       expect(result.entryInjected).toBe(false);
-      expect(result.failure).toContain(ENTRY_MARKER);
+      expect(result.enforced).toBe(false);
+      expect(result.failure).toContain("tc-breadcrumb/v1");
+    });
+
+    it("fails explicitly when the stop hook does not block", () => {
+      fake.reset();
+      scriptPassingChain();
+      fake.setSpawnScript(
+        "bash",
+        { stdout: "", exitCode: 0 },
+        { args: [stopScript] },
+      );
+
+      const result = testHookAdapter.testHook(input);
+
+      expect(result.ok).toBe(false);
+      expect(result.stopBlocked).toBe(false);
+      expect(result.failure).toContain("did not block");
+    });
+
+    it("fails explicitly when the loop guard does not allow the re-entry", () => {
+      fake.reset();
+      scriptPassingChain();
+      fake.setSpawnScript(
+        "bash",
+        { stdout: "", exitCode: 2 },
+        { args: [stopScript], input: '{"stop_hook_active":true}' },
+      );
+
+      const result = testHookAdapter.testHook(input);
+
+      expect(result.ok).toBe(false);
+      expect(result.loopGuardOk).toBe(false);
+      expect(result.failure).toContain("loop guard");
     });
 
     it("fails explicitly on the hard timeout", () => {
       fake.reset();
+      scriptPassingChain();
       fake.setSpawnScript(id, { timedOut: true });
 
-      const result = adapter.testHook({ projectDir: projectDir.path });
+      const result = testHookAdapter.testHook(input);
 
       expect(result.ok).toBe(false);
       expect(result.failure).toContain("timed out");
@@ -233,28 +302,50 @@ export function runConformance(
 
     it("fails explicitly on a non-zero host exit", () => {
       fake.reset();
+      scriptPassingChain();
       fake.setSpawnScript(id, { exitCode: 1, stderr: "boom" });
 
-      const result = adapter.testHook({ projectDir: projectDir.path });
+      const result = testHookAdapter.testHook(input);
 
       expect(result.ok).toBe(false);
       expect(result.failure).toContain("exit");
       expect(result.failure).toContain("boom");
     });
 
-    it("respects a custom timeout", () => {
+    it("fails explicitly when the host-specific gate is not satisfied", () => {
       fake.reset();
-      fake.setSpawnScript(id, { timedOut: true });
 
-      const result = adapter.testHook({
-        projectDir: projectDir.path,
-        timeoutMs: 5_000,
+      if (id === "codex") {
+        // The codex adapter wraps its own gate; a features list without hooks
+        // makes it fail before any spawn.
+        fake.setProbeScript("codex", ["features", "list"], {
+          stdout: "no capabilities mentioned\n",
+        });
+      }
+
+      const result = testHookAdapter.testHook({
+        ...input,
+        gate: () => "codex hooks feature gate: not enabled",
       });
 
       expect(result.ok).toBe(false);
+      expect(result.enforced).toBe(false);
+      expect(result.failure).toContain("feature gate");
+    });
+
+    it("respects a custom timeout", () => {
+      fake.reset();
+      scriptPassingChain();
+      fake.setSpawnScript(id, { timedOut: true });
+
+      const result = testHookAdapter.testHook({ ...input, timeoutMs: 5_000 });
+
+      expect(result.ok).toBe(false);
       expect(result.failure).toContain("5000ms");
-      const spawnCall = fake.calls.find((call) => call.kind === "spawn");
-      expect(spawnCall?.timeoutMs).toBe(5_000);
+      const hostCall = fake.calls.find(
+        (call) => call.kind === "spawn" && call.command === id,
+      );
+      expect(hostCall?.timeoutMs).toBe(5_000);
     });
   });
 

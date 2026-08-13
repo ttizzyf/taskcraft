@@ -41,6 +41,9 @@ export interface ProbeOutcome {
 export interface SpawnOptions {
   cwd: string;
   timeoutMs: number;
+  /** stdin payload for the spawned process (e.g. the stop hook re-entry
+   * payload the hosts feed back as `stop_hook_active=true`). */
+  input?: string;
 }
 
 export interface SpawnOutcome {
@@ -75,6 +78,9 @@ export interface AdapterDeps {
   spawn?: SpawnFn;
   now?: () => string;
   database?: TaskcraftDatabase;
+  /** Codex user config path read by the test-hook trust gate; tests inject a
+   * temporary file instead of touching ~/.codex/config.toml (read-only). */
+  userConfigPath?: string;
 }
 
 export interface InstallInput {
@@ -90,14 +96,25 @@ export interface InstallResult {
 
 export interface HookTestInput {
   projectDir: string;
+  /** Installed entry wrapper (.taskcraft/hooks/entry.sh). test-hook never
+   * reinstalls a temporary copy: the installed scripts are exercised. */
+  entryScript: string;
+  /** Installed stop wrapper (.taskcraft/hooks/stop.sh). */
+  stopScript: string;
   timeoutMs?: number;
   prompt?: string;
+  /** Host-specific pre-flight gate (codex feature/trust); null when
+   * satisfied, otherwise the failure reason. */
+  gate?: () => string | null;
 }
 
 export interface HookTestResult {
   ok: boolean;
   entryInjected: boolean;
-  stopEnforced: boolean;
+  stopBlocked: boolean;
+  loopGuardOk: boolean;
+  /** enforced = entry injection + stop block + loop guard all passed. */
+  enforced: boolean;
   testedAt: string;
   failure?: string;
   sample?: string;

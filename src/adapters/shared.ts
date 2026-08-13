@@ -4,43 +4,27 @@
 // files and session formats; everything host-neutral lives here.
 
 import { execFileSync, spawnSync } from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { withTransaction } from "../store/transaction.js";
-import type { TaskcraftDatabase } from "../store/database.js";
+import { BREADCRUMB_SCHEMA_VERSION } from "../core/breadcrumb.js";
 import type {
   AdapterCapabilities,
   AdapterCapabilityItem,
-  AttachInput,
   CapabilityProbe,
   HookTestInput,
   HookTestResult,
-  HostRun,
   InstallInput,
   InstallResult,
   ProbeFn,
   ProbeOutcome,
-  RuntimeObservation,
   SpawnFn,
   SpawnOutcome,
 } from "./types.js";
 
 export const DEFAULT_PROBE_TIMEOUT_MS = 2_000;
 export const DEFAULT_HOOK_TEST_TIMEOUT_MS = 60_000;
-
-/** Entry hook marker echoed by the temporary test session when the entry
- * hook fires; Stop markers carry the block/allow decision. */
-export const ENTRY_MARKER = "TC_ENTRY_INJECTED";
-export const STOP_BLOCK_MARKER = "TC_STOP_BLOCK";
-export const STOP_ALLOW_MARKER = "TC_STOP_ALLOW";
 
 /** Resolves the tc CLI entry from the module location so hook templates and
  * registrations never depend on cwd. dist/adapters -> dist/cli.js (one
@@ -70,7 +54,7 @@ export function defaultProbe(command: string, args: string[]): ProbeOutcome {
 export function defaultSpawn(
   command: string,
   args: string[],
-  options: { cwd: string; timeoutMs: number },
+  options: { cwd: string; timeoutMs: number; input?: string },
 ): SpawnOutcome {
   try {
     const result = spawnSync(command, args, {
@@ -78,7 +62,11 @@ export function defaultSpawn(
       encoding: "utf8",
       timeout: options.timeoutMs,
       killSignal: "SIGKILL",
-      stdio: ["ignore", "pipe", "pipe"],
+      input: options.input ?? undefined,
+      stdio:
+        options.input === undefined
+          ? ["ignore", "pipe", "pipe"]
+          : ["pipe", "pipe", "pipe"],
     });
     const stdout = typeof result.stdout === "string" ? result.stdout : "";
     const stderr = typeof result.stderr === "string" ? result.stderr : "";
@@ -277,11 +265,13 @@ export function installEntryFiles(
       stop: `bash "${stopPath}"`,
     };
 
-    // Existing project config is left untouched (write-if-absent); surface
-    // the partial success so users know the hooks are not registered yet.
+    // Existing project config is left untouched (write-if-absent), so the
+    // hooks are NOT registered: an explicit failure, never a partial success.
+    // The caller surfaces the remediation (merge manually / move the config
+    // away and re-run init).
     if (existsSync(configFile)) {
       return {
-        ok: true,
+        ok: false,
         hookPaths: [entryPath, stopPath],
         limitation: "config exists; hooks not registered",
       };
@@ -320,171 +310,144 @@ export function appendCommand(
     : [...current, { command }];
 }
 
-export interface HookTestParse {
-  entryInjected: boolean;
-  stopEnforced: boolean;
-}
-
-export function parseHookTestOutput(stdout: string): HookTestParse {
-  return {
-    entryInjected: stdout.includes(ENTRY_MARKER),
-    stopEnforced: stdout.includes(STOP_BLOCK_MARKER),
-  };
-}
-
 export function sampleOf(stdout: string): string {
   const trimmed = stdout.trim();
 
   return trimmed.length > 500 ? `${trimmed.slice(0, 500)}…` : trimmed;
 }
 
-/** Writes the minimal hook-test session into the temp directory and spawns
- * the host with the minimal prompt. A 60s hard timeout (spawnSync) plus
- * explicit failure results; the spawn seam is injectable for fake hosts. */
+/** Installed-hooks field test: spawns the host with the minimal prompt (60s
+ * hard timeout) and exercises the installed stop wrapper for the block and
+ * loop-guard judgments. Nothing is installed or copied: the test runs the
+ * real .taskcraft/hooks/ scripts against the real Task Store and project
+ * config, and the breadcrumb is judged by the tc-breadcrumb/v1 JSON presence
+ * in the host output. The spawn seam is injectable for fake hosts. */
 export function runHookTest(
   spawn: SpawnFn,
   now: () => string,
   hostCommand: string,
   hostArgs: string[],
-  writeSession: (dir: string) => void,
   input: HookTestInput,
 ): HookTestResult {
   const timeoutMs = input.timeoutMs ?? DEFAULT_HOOK_TEST_TIMEOUT_MS;
-  const taskcraftDir = join(input.projectDir, ".taskcraft");
-  mkdirSync(taskcraftDir, { recursive: true });
-  const sessionDir = mkdtempSync(join(taskcraftDir, "test-hook-"));
+  const testedAt = now();
+  const gateFailure = input.gate?.() ?? null;
 
-  try {
-    writeSession(sessionDir);
-    const prompt = input.prompt ?? "Reply exactly TC_FIRST.";
-    const outcome = spawn(hostCommand, [...hostArgs, prompt], {
-      cwd: sessionDir,
-      timeoutMs,
-    });
-    const sample = sampleOf(outcome.stdout);
-
-    if (outcome.timedOut) {
-      return {
-        ok: false,
-        entryInjected: false,
-        stopEnforced: false,
-        testedAt: now(),
-        failure: `hook test timed out after ${timeoutMs}ms`,
-        sample,
-      };
-    }
-
-    if (!outcome.ok) {
-      const reason =
-        outcome.error === undefined
-          ? `host exited with code ${String(outcome.exitCode)}`
-          : `host failed: ${outcome.error}`;
-      const detail = outcome.stderr.trim();
-      const failureMessage =
-        detail.length > 0 ? `${reason}: ${detail}` : reason;
-
-      return {
-        ok: false,
-        entryInjected: false,
-        stopEnforced: false,
-        testedAt: now(),
-        failure: failureMessage,
-        sample,
-      };
-    }
-
-    const parsed = parseHookTestOutput(outcome.stdout);
-
-    if (!parsed.entryInjected) {
-      return {
-        ok: false,
-        entryInjected: false,
-        stopEnforced: parsed.stopEnforced,
-        testedAt: now(),
-        failure: `entry hook marker ${ENTRY_MARKER} was not observed in host output`,
-        sample,
-      };
-    }
-
+  if (gateFailure !== null) {
     return {
-      ok: true,
-      entryInjected: true,
-      stopEnforced: parsed.stopEnforced,
-      testedAt: now(),
-      sample,
+      ok: false,
+      entryInjected: false,
+      stopBlocked: false,
+      loopGuardOk: false,
+      enforced: false,
+      testedAt,
+      failure: gateFailure,
     };
-  } finally {
-    rmSync(sessionDir, { recursive: true, force: true });
   }
-}
 
-/** Writes one agent_runs row in a transaction. Missing optional fields stay
- * empty (null / "pending" / "{}"); observations never drive task status. */
-export function attachObservation(
-  database: TaskcraftDatabase,
-  input: AttachInput,
-  now: () => string,
-): HostRun {
-  return withTransaction(database, () => {
-    const run: HostRun = {
-      id: nextAgentRunId(database),
-      taskId: input.taskId,
-      nodeAttemptId: input.nodeAttemptId,
-      host: input.host,
-      hostRunId: input.hostRunId ?? null,
-      hostSessionId: input.hostSessionId ?? null,
-      observationStatus: input.observationStatus ?? "pending",
-      lastSeenAt: input.lastSeenAt ?? now(),
-      finishReason: input.finishReason ?? null,
-      observationJson: JSON.stringify(input.observation ?? {}),
-    };
-
-    database
-      .prepare(
-        `INSERT INTO agent_runs (
-           id, task_id, node_attempt_id, host, host_run_id, host_session_id,
-           observation_status, last_seen_at, finish_reason, observation_json
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        run.id,
-        run.taskId,
-        run.nodeAttemptId,
-        run.host,
-        run.hostRunId,
-        run.hostSessionId,
-        run.observationStatus,
-        run.lastSeenAt,
-        run.finishReason,
-        run.observationJson,
-      );
-
-    return run;
+  const prompt = input.prompt ?? "Reply exactly TC_FIRST.";
+  const host = spawn(hostCommand, [...hostArgs, prompt], {
+    cwd: input.projectDir,
+    timeoutMs,
   });
-}
+  const stop = spawn("bash", [input.stopScript], {
+    cwd: input.projectDir,
+    timeoutMs,
+  });
+  const loop = spawn("bash", [input.stopScript], {
+    cwd: input.projectDir,
+    timeoutMs,
+    input: '{"stop_hook_active":true}',
+  });
 
-function nextAgentRunId(database: TaskcraftDatabase): string {
-  const row = database
-    .prepare("SELECT COUNT(*) AS n FROM agent_runs")
-    .get() as { n: number };
+  const entryInjected =
+    host.ok && host.stdout.includes(BREADCRUMB_SCHEMA_VERSION);
+  const stopBlocked =
+    stop.exitCode === 2 && stop.stdout.includes(BREADCRUMB_SCHEMA_VERSION);
+  const loopGuardOk = loop.exitCode === 0;
+  const failures = testFailures(
+    host,
+    stop,
+    loop,
+    entryInjected,
+    stopBlocked,
+    loopGuardOk,
+    timeoutMs,
+  );
 
-  return `ar-${row.n + 1}`;
-}
-
-/** Pure observation mapping: stamps a fresh last-seen on the run and keeps
- * the observed status; never maps to task completion. */
-export function observeRun(
-  run: HostRun,
-  now: () => string,
-): RuntimeObservation {
-  const observation: RuntimeObservation = {
-    status: run.observationStatus,
-    lastSeenAt: run.lastSeenAt ?? now(),
+  const result: HookTestResult = {
+    ok: failures.length === 0,
+    entryInjected,
+    stopBlocked,
+    loopGuardOk,
+    enforced: entryInjected && stopBlocked && loopGuardOk,
+    testedAt,
+    sample: sampleOf(host.stdout),
   };
 
-  if (run.finishReason !== null) {
-    observation.finishReason = run.finishReason;
+  if (failures.length > 0) {
+    result.failure = `hook test failed: ${failures.join("; ")}`;
   }
 
-  return observation;
+  return result;
+}
+
+/** Collects the explicit reason for every failed judgment, so a partial
+ * failure reports exactly which check failed instead of a vague "not ok". */
+function testFailures(
+  host: SpawnOutcome,
+  stop: SpawnOutcome,
+  loop: SpawnOutcome,
+  entryInjected: boolean,
+  stopBlocked: boolean,
+  loopGuardOk: boolean,
+  timeoutMs: number,
+): string[] {
+  const failures: string[] = [];
+
+  if (host.timedOut) {
+    failures.push(`entry injection timed out after ${timeoutMs}ms`);
+  } else if (host.error !== undefined) {
+    failures.push(`host spawn failed: ${host.error}`);
+  } else if (!host.ok) {
+    failures.push(
+      `host exited with code ${exitDetail(host.exitCode)}${stderrDetail(host.stderr)}`,
+    );
+  } else if (!entryInjected) {
+    failures.push(
+      `entry injection: ${BREADCRUMB_SCHEMA_VERSION} missing from host output`,
+    );
+  }
+
+  if (stop.error !== undefined) {
+    failures.push(`stop hook spawn failed: ${stop.error}`);
+  } else if (stop.exitCode !== 2) {
+    failures.push(
+      `stop hook did not block: expected exit 2, got ${exitDetail(stop.exitCode)}${stderrDetail(stop.stderr)}`,
+    );
+  } else if (!stopBlocked) {
+    failures.push(
+      `stop hook blocked without the ${BREADCRUMB_SCHEMA_VERSION} breadcrumb`,
+    );
+  }
+
+  if (loop.error !== undefined) {
+    failures.push(`loop guard spawn failed: ${loop.error}`);
+  } else if (loop.exitCode !== 0) {
+    failures.push(
+      `loop guard did not allow the re-entry: expected exit 0, got ${exitDetail(loop.exitCode)}${stderrDetail(loop.stderr)}`,
+    );
+  }
+
+  return failures;
+}
+
+function exitDetail(exitCode: number | null): string {
+  return exitCode === null ? "no exit code" : String(exitCode);
+}
+
+function stderrDetail(stderr: string): string {
+  const detail = stderr.trim();
+
+  return detail.length > 0 ? `: ${detail}` : "";
 }
