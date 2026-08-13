@@ -1,0 +1,29 @@
+{
+  "id": "watch-diagnostics",
+  "name": "watch-diagnostics",
+  "title": "Build the Taskcraft Watch and diagnostics views",
+  "description": "Watch server, JSON API, Board/Detail/Runtime/Diagnostics pages, state matrix, smoke",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "wangjie",
+  "assignee": "wangjie",
+  "createdAt": "2026-08-12",
+  "completedAt": "2026-08-13",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-12-watch-server",
+    "08-12-watch-frontend"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
