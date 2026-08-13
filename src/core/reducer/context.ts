@@ -78,6 +78,36 @@ export interface AttemptFailureInput {
   actorInstanceId?: string;
 }
 
+export interface RunRetryInput {
+  attemptId: string;
+  reason: string;
+  expectedRevision?: number;
+  actorInstanceId?: string;
+}
+
+/** Typed waiting reasons a task can block on (lifecycle spec 8). */
+export type WaitingReasonCode =
+  "needs_input" | "needs_decision" | "blocked_dependency";
+
+export interface TaskWaitInput {
+  expectedRevision?: number;
+  reasonCode: WaitingReasonCode;
+  /** What the task is waiting for; stored as the blocker reason. */
+  message: string;
+  /** Node the blocker attaches to (default: the running node or the first
+   * runnable node of the current projection). */
+  nodeId?: string;
+  actorInstanceId?: string;
+}
+
+export interface TaskResumeInput {
+  expectedRevision?: number;
+  /** Resolves the open blocker without requiring a satisfying constraint
+   * fact (human override; also the escape hatch for a spent retry budget). */
+  resolve?: boolean;
+  actorInstanceId?: string;
+}
+
 export interface ReviewStartInput {
   taskId: string;
   expectedRevision?: number;

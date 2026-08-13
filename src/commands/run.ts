@@ -17,6 +17,8 @@ import {
 } from "./helpers.js";
 import { renderRunData } from "./render.js";
 import { registerRunComplete } from "./run-complete.js";
+import { register as registerRunFail } from "./run-fail.js";
+import { register as registerRunRetry } from "./run-retry.js";
 
 export function register(program: Command): void {
   const runCommand = program
@@ -59,4 +61,6 @@ export function register(program: Command): void {
     });
 
   registerRunComplete(runCommand);
+  registerRunFail(runCommand);
+  registerRunRetry(runCommand);
 }

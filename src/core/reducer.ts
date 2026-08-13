@@ -12,7 +12,9 @@ export type {
 export { run } from "./reducer/run.js";
 export { runComplete } from "./reducer/run-complete.js";
 export { cancel } from "./reducer/cancel.js";
-export { recordAttemptFailure } from "./reducer/failure.js";
+export { taskWait, taskResume } from "./reducer/blocker.js";
+export { runFail, runRetry } from "./reducer/failure.js";
+export type { RetryResult } from "./reducer/failure.js";
 export { reviewStart } from "./reducer/review-start.js";
 export { reviewPass } from "./reducer/review-pass.js";
 export { reviewChanges } from "./reducer/review-changes.js";
@@ -29,5 +31,9 @@ export type {
   ReviewStartInput,
   RunCompleteInput,
   RunInput,
+  RunRetryInput,
   TaskNewInput,
+  TaskResumeInput,
+  TaskWaitInput,
+  WaitingReasonCode,
 } from "./reducer/context.js";

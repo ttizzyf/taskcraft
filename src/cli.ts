@@ -23,7 +23,9 @@ import { register as registerTaskCancel } from "./commands/task-cancel.js";
 import { register as registerTaskFact } from "./commands/task-fact-add.js";
 import { register as registerTaskNew } from "./commands/task-new.js";
 import { register as registerTaskNext } from "./commands/task-next.js";
+import { register as registerTaskResume } from "./commands/task-resume.js";
 import { register as registerTaskShow } from "./commands/task-show.js";
+import { register as registerTaskWait } from "./commands/task-wait.js";
 import { register as registerWatch } from "./commands/watch.js";
 import type { StatusTaskEntry } from "./commands/render.js";
 import { renderCommandData, renderTaskList } from "./commands/render.js";
@@ -116,6 +118,8 @@ registerTaskFact(task);
 registerTaskShow(task);
 registerTaskNext(task);
 registerTaskCancel(task);
+registerTaskWait(task);
+registerTaskResume(task);
 
 registerRun(program);
 registerReview(program);
