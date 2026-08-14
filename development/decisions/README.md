@@ -16,6 +16,7 @@
 | [0006：Migration 与合同验证](0006-migrations-and-contract-validation.md) | 顺序 SQL migration、checksum、事务回滚和结构化合同检查 |
 | [0007：结果校验与 Agent 探测边界](0007-evaluator-and-probe-safety-boundary.md) | Taskcraft 校验结果；Agent 使用宿主工具检查环境 |
 | [0008：文档权威与初始模块边界](0008-document-authority-and-module-boundaries.md) | 单 package 起步，只创建 Task 01 实际使用的模块 |
+| [0009：Agent 自主推进与 Entry-only Hook](0009-agent-driven-continuation.md) | 移除 Stop Hook；任务连续性由持久事实、next、typed waiting 与 Entry 恢复承担 |
 
 ## 使用规则
 

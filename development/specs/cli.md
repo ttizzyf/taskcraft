@@ -42,16 +42,16 @@ tc init --agent claude
 tc enable ask
 tc status --json
 tc agent capabilities
-tc task new --title "Hook field test" --level 1 --reason "verify installed hooks"
+tc task new --title "Entry Hook field test" --level 1 --reason "verify installed Entry Hook"
 tc run <task-id>
-tc agent test-hook --agent codex
-tc agent test-hook --agent claude
+tc agent test-entry-hook --agent codex
+tc agent test-entry-hook --agent claude
 ```
 
 `init` 已存在时只做幂等检查，不覆盖用户 entry 内容。`enable off` 必须让 hook
 零输出。`agent capabilities` 输出当前宿主名、版本和各项能力是否可用；
-`agent test-hook` 要求恰好一个 active task，现场测试已安装并已注册的真实
-Entry/Stop Hook，返回测试时间和失败原因，并把结果写入 `config.hookTests`。
+`agent test-entry-hook` 要求恰好一个 active task，现场测试已安装并已注册的真实
+Entry Hook，返回测试时间和失败原因，并把结果写入 `config.entryHookTests`。
 无 active task、多 active task、takeover off、注册/路径/trust/feature gate
 无效时均非零失败。研究报告中的 `verified|documented|limited|pending|deferred`
 不进入生产数据模型。

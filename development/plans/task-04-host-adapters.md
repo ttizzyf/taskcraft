@@ -1,5 +1,9 @@
 # 任务 04：Codex/Claude Adapter 与连续执行
 
+> 后续合同更新（2026-08-14）：ADR 0009 已移除 Stop Hook，当前 Adapter 只安装
+> Entry Hook，现场命令为 `tc agent test-entry-hook`。下文 Stop 验收要求保留为
+> Task 04 的历史阶段输入。
+
 ## 目标
 
 让 Codex 与 Claude Code 能从同一 Task Store 恢复任务、领取 Node Brief、连续执行 next，并准确披露宿主能力和限制。

@@ -35,7 +35,7 @@ flowchart TB
     DB --> P
     P --> B[Breadcrumb projector]
     P --> M[Generated Markdown/JSON]
-    X[Codex / Claude entry and stop adapters] --> A
+    X[Codex / Claude Entry adapters] --> A
     X --> O[Runtime observations]
     O --> S
 ```
@@ -44,8 +44,9 @@ Codex 与 Claude Code 是首版用户沟通和任务执行主体，负责使用�
 并自行决定是否使用 subagent 和并行能力。Taskcraft 只提供任务事实、Node Brief、
 可选派发说明、结果校验和记录，不启动或调度 subagent。Command service 负责
 canonical facts 与 observations 的写入；Read projector 负责状态、runnable
-nodes、下一步和用户视图；Adapter 负责入口安装、节点执行卡渲染、正常结束时的
-Stop Hook 与运行观察的纯映射，不直接写 SQLite。
+nodes、下一步和用户视图；Adapter 负责 Entry Hook 安装、节点执行卡渲染、现场
+测试与运行观察的纯映射，不直接写 SQLite。Agent 是否继续当前轮次由 Agent 自主
+判断，Taskcraft 不通过宿主 Hook 阻止结束。
 
 静态 entry gate 负责一次廉价接管探测：接管关闭或没有 durable execution 时保持静默；检测到可执行任务时注入 task anchor 和下一步命令。该 gate 读取同一个 projector 结果。
 
@@ -177,7 +178,7 @@ Breadcrumb 负责跨轮定位；节点执行卡负责当前节点指导；comman
 interface HostAdapter {
   capabilities(): AdapterCapabilities;
   installEntry(input: InstallInput): InstallResult;
-  testHook(input: HookTestInput): HookTestResult;
+  testEntryHook(input: HookTestInput): HookTestResult;
   renderNodeBrief(input: NodeBriefInput): NodeBrief;
   observe?(run: HostRun): RuntimeObservation;
 }
@@ -186,7 +187,7 @@ interface HostAdapter {
 数据库中的 host/adapter id 是开放字符串；首版只实现 `codex` 和 `claude` 两个
 Adapter，其他值由 Adapter 边界明确返回 unsupported，不建立 Adapter 注册表。
 `renderNodeBrief` 生成目标、节点、范围、required obligations、验收、可选派发说明、
-本地结果 Schema 和登记命令。Entry/Stop Hook 行为遵循
+本地结果 Schema 和登记命令。Entry Hook 与 Agent 自主推进行为遵循
 [Agent 连续执行合同](lifecycle.md#7-agent-连续执行合同)。`context-only` 表示只有
 上下文记录，`manual-attach` 表示 Agent 或用户绑定已有 host run，
 `host-observed` 表示 Adapter 从宿主事件保存 session/turn/agent correlation。
@@ -194,7 +195,7 @@ Review UI 始终展示 capability 和 independence status；`host-observed` 只�
 关联，不提供 review 内容签名。
 
 模型只能使用宿主实际暴露给当前会话的工具和上下文。Hook 安装、权限和现场测试
-结果由 Adapter 检查并持久化到 `config.hookTests`，由 capabilities 与 Watch
+结果由 Adapter 检查并持久化到 `config.entryHookTests`，由 capabilities 与 Watch
 Diagnostics 同源展示；Taskcraft 不要求模型猜测宿主的隐藏配置。现场测试要求
 恰好一个 active task，使真实 Entry gate 必须产出 breadcrumb；无 active task、
 多 active task、未注册、未批准、路径损坏或版本漂移都不能伪装成成功。

@@ -1,8 +1,8 @@
 # 从 Trellis 迁移到 Taskcraft 狗粮化
 
-> 状态：切换条件未满足（2026-08-14 复核，迁移门 `blocked`）。Task 00–06 已归档，
-> Task 07 代码返工已完成，但修复后的公共 Claude `test-hook` 尚待真实复核，
-> Codex Stop Hook 由用户主动延期。当前不得执行卸载。
+> 状态：切换条件未满足（2026-08-14 复核，迁移门 `blocked`）。Task 00–07 的
+> 实现缺口已经收口，Stop Hook 已按 ADR 0009 移除；新的公共
+> `tc agent test-entry-hook` 尚待 Codex/Claude 真实宿主复核。当前不得执行卸载。
 
 目标是在一个明确切换窗口内停止 Trellis 的任务状态、Hook 和上下文注入，让 tc 成为后续开发的唯一活动任务系统。退出保留可审计历史，但不把 Trellis 状态机械翻译成 Taskcraft 五状态，也不设置双写期。
 
@@ -13,7 +13,7 @@
 - Task 00–06 的验收已完成，MVP 发布门通过。
 - Store migration、事务、CAS、单 reducer/projector 和 `tc doctor` 通过。
 - L1 与 L2 在至少一个真实宿主完成创建、恢复、waiting/resume、Review 和 done 样本。
-- Codex 与 Claude Adapter 的 Hook 安装、任务恢复和现场检测均已通过；Hook 不可用时不满足首版狗粮化条件，`tc task next` 只作为人工诊断命令。
+- Codex 与 Claude Adapter 的 Entry Hook 安装、任务恢复和现场检测均已通过；Entry 不可用时不满足首版狗粮化条件，`tc task next` 只作为人工诊断命令。
 - Node Brief、Command Result、evidence 和 breadcrumb 合同已冻结。
 - Watch 是否可用不影响 CLI 恢复，但默认路线要求 Task 06 已完成后再切换。
 
@@ -69,8 +69,9 @@ trellis uninstall
 
 ## 5. 启动 Taskcraft
 
-以下是迁移门通过后的目标顺序，不是当前可执行步骤。公共 `test-hook` 的实现已
-修复，但真实现场结果和 Codex Stop 进入条件关闭前，不得通过跳过命令提前切换。
+以下是迁移门通过后的目标顺序，不是当前可执行步骤。公共
+`test-entry-hook` 已实现，但两个宿主的真实现场结果保存前，不得通过跳过命令
+提前切换。
 
 卸载提交完成后，打开全新 Codex/Claude 会话：
 
@@ -80,13 +81,13 @@ tc init --agent claude
 tc enable ask
 tc doctor
 tc agent capabilities
-tc task new --title "Hook cutover field test" --level 1 --reason "verify installed hooks"
+tc task new --title "Entry Hook cutover field test" --level 1 --reason "verify installed Entry Hook"
 tc run <task-id>
-tc agent test-hook --agent claude
-tc agent test-hook --agent codex
+tc agent test-entry-hook --agent claude
+tc agent test-entry-hook --agent codex
 ```
 
-`test-hook` 必须通过真实 Entry gate，因此运行前要恰好有一个 active task；无任务时
+`test-entry-hook` 必须通过真实 Entry gate，因此运行前要恰好有一个 active task；无任务时
 它正确保持静默，不能形成注入证据。上面的低风险 L1 同时作为第一张 dogfood 任务，
 两个宿主现场测试通过后完成或取消它，不能留下验证用 zombie task。按实际 CLI
 实现调整参数，但必须先通过 Store、migration、breadcrumb 和 Hook 检查。然后：

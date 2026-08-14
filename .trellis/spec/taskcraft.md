@@ -28,6 +28,7 @@
 
 ## 当前代码规范状态
 
-仓库尚无 Taskcraft 生产实现，因此没有可由真实源码和测试证明的 backend
-或 frontend 代码规范。只有在工程代码形成稳定、重复的模式后，才新增对应
-层的 Trellis 指南，并引用实际源码或测试作为依据。
+Taskcraft 的生产 TypeScript 实现位于 `src/`，原生 Watch 前端位于 `watch/`，
+自动测试位于 `tests/`。`.trellis/spec/backend/` 与 `frontend/` 只记录已经由这些
+源码、测试和 `development/specs/` 共同证明的实现合同；产品行为仍以
+`development/` 为唯一权威来源。

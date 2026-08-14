@@ -5,9 +5,10 @@
 > Task 05（L3 子任务与 Integrate）。Task 02/03 交接见 `task-02-handoff.md` /
 > `task-03-handoff.md`（工程基础与 Review 决策仍适用）。
 >
-> 后续状态更新（2026-08-14）：本文件保留 Task 04 归档时的历史上下文；Codex
-> SessionStart/Entry 已由 `dogfood-2026-08-13.md` D6 复验为 verified，S2 的
-> “Entry 不可用”结论已失效。Codex Stop Hook 仍为 limited，并由用户主动延期。
+> 后续状态更新（2026-08-14）：本文件保留 Task 04 归档时的历史上下文；ADR
+> 0009 已移除 Codex/Claude Stop Hook，`testHook`、`stop.ts`、`stop.sh` 和
+> `enforced` 等下文接口不再属于当前产品。当前接口是 Entry-only 的
+> `testEntryHook` / `tc agent test-entry-hook`；不要按本历史交接恢复 Stop。
 
 ## 一、当前状态
 

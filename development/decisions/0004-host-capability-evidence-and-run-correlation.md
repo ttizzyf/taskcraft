@@ -1,5 +1,9 @@
 # ADR 0004：宿主能力与 Run 关联
 
+> 2026-08-14：Stop Hook 和强制连续执行部分已由
+> [ADR 0009](0009-agent-driven-continuation.md) 取代。本 ADR 的宿主能力证据、
+> 本地结果校验和 run correlation 决定继续有效；以下探针结论保留为历史证据。
+
 - 状态：已接受
 - 日期：2026-08-10
 - 范围：Task 00

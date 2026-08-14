@@ -149,7 +149,7 @@ revision 切换事务将旧 revision 中 `created` 或 `running` 的 attempt 标
 
 ## 7. Agent 连续执行合同
 
-本节是节点执行卡、连续推进、Entry Hook 与 Stop Hook 协作方式的唯一规则源。
+本节是节点执行卡、Agent 自主连续推进与 Entry Hook 恢复方式的唯一规则源。
 
 ### 7.1 节点执行卡
 
@@ -186,7 +186,12 @@ flowchart TD
     V -- done/cancelled --> T[Agent stops]
 ```
 
-每个成功的事实写命令必须返回提交后的 task status、waiting reason、完成节点和唯一 next。正常执行时，Task 为 `active` 且存在 runnable/running node，Agent 继续完成“领取节点执行卡、执行、提交结果”的循环。Taskcraft 只提供 next 和 Node Brief，不替 Agent 执行节点。
+每个成功的事实写命令必须返回提交后的 task status、waiting reason、完成节点和
+唯一 next。正常执行时，Task 为 `active` 且存在 runnable/running node，Agent
+在方向清楚、安全且具备所需能力时继续完成“领取节点执行卡、执行、提交结果”
+的循环。Taskcraft 只提供 next 和 Node Brief，不替 Agent 执行节点，也不强迫
+Agent 留在当前轮次。`active` 是任务事实，不是“当前 Agent 必须继续说话”的
+宿主控制信号。
 
 Agent 在以下投影条件下结束当前连续运行：
 
@@ -194,22 +199,22 @@ Agent 在以下投影条件下结束当前连续运行：
 - `cancelled`：任务存在显式取消事实。
 - `waiting`：用户输入、用户决定、外部依赖或失败重试决策尚未满足。
 - 宿主返回明确的资源或能力限制；Agent 将限制登记为 observation 或 typed blocker。
+- 需求、方向或可行性存在实质不确定性；Agent 必须停止猜测，把所需输入、决定
+  或依赖登记为 typed `waiting`，不能为了形式上的完成削弱测试、增加隐藏
+  fallback 或漂移范围。
 
-用户可以随时中断当前运行。中断不等于任务失败或取消，已有事实保持不变；下次
+Agent 可以在不改变 Task 状态的情况下正常结束当前轮次。结束一轮不等于任务
+完成、失败、取消或 waiting；已有事实保持不变。用户中断或 Agent 结束后，下次
 会话从 Task Store 投影出的 next 恢复。
 
-### 7.3 Hook 协作
+### 7.3 Entry Hook 恢复
 
 Entry Hook 在任务首次进入、会话恢复或上下文重建时注入 breadcrumb。节点之间的正常推进由 CLI command result 中的 next 完成。
 
-Stop Hook 只在 Agent 自己准备正常结束当前运行时读取最新 breadcrumb：
-
-- `active` 且存在 runnable/running node：返回当前节点和 next，阻止这次正常结束并恢复连续循环。
-- `waiting`、`done` 或 `cancelled`：允许当前运行结束。
-
-用户主动中断始终放行，不受 Stop Hook 限制。首版只支持已验证具备 Entry/Stop
-Hook 的 Codex 和 Claude；Hook 缺失或失效时明确报错并进入 diagnostics，不在
-首版内提供无 Hook 降级流程。
+Taskcraft 不注册结束轮次的 Hook，也不阻止 Agent 正常结束。任务是否继续、等待
+或完成只由 Agent 提交的显式事实和 reducer/projector 合同决定。首版为 Codex 和
+Claude 安装 Entry Hook；Entry 缺失、未注册、现场测试失败或版本漂移时明确报错
+并进入 diagnostics。
 
 ## 8. 状态与闭环
 

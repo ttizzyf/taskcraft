@@ -1,6 +1,6 @@
 # Taskcraft 开发文档
 
-本目录是 Taskcraft 产品设计、实现合同、架构决策、阶段计划和开发操作手册的唯一入口。项目已使用 Trellis `0.6.14` 完成 Codex/Claude 初始化；Task 00–06 的阶段任务已经归档，Task 07 于 2026-08-14 完成代码返工，但真实宿主最终验收尚未通过。修复后的公共 Claude `test-hook` 尚待重跑，Codex Stop Hook 由用户主动延期。达到 Taskcraft 狗粮化门槛后，Trellis 才会被完整退出，两个系统不并行维护活动任务。
+本目录是 Taskcraft 产品设计、实现合同、架构决策、阶段计划和开发操作手册的唯一入口。项目已使用 Trellis `0.6.14` 完成 Codex/Claude 初始化；Task 00–06 的阶段任务已经归档，Task 07 于 2026-08-14 完成代码返工。当前产品已按 ADR 0009 移除 Stop Hook，连续推进改为 Agent 自主判断、typed waiting 和 Entry Hook 恢复。新的公共 `test-entry-hook` 尚待真实宿主复核，因此狗粮化迁移门仍未通过。达到 Taskcraft 狗粮化门槛后，Trellis 才会被完整退出，两个系统不并行维护活动任务。
 
 ## 文档权威层级
 
@@ -60,5 +60,5 @@ Task 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 返工复核 → Trelli
 1. Trellis `0.6.14` 初始化与 Bootstrap 已完成；Bootstrap 只建立规范索引，不复制 Taskcraft 合同。
 2. Trellis 项目文件、Hook、skill 和 managed block 必须作为独立初始化基线审阅和提交，不得与 Task 00 合同变更混合。
 3. Task 00–06 的实现和归档历史保留，但不得据此跳过 [Task 07](plans/task-07-mvp-readiness-remediation.md) 的问题复现和验收。
-4. Task 07 的代码返工已完成：doctor、waiting/resume/retry、Runtime、L3 收窄、公共 test-hook、Hook Diagnostics 和 `agent_runs` 单写入口均有自动验证；下一步只做修复后公共 Claude test-hook 的真实复核，Codex Stop 保持用户延期。
+4. Task 07 的代码返工已完成：doctor、waiting/resume/retry、Runtime、L3 收窄、Hook Diagnostics 和 `agent_runs` 单写入口均有自动验证；Stop Hook 已在后续 ADR 0009 中移除。下一步用公共 `tc agent test-entry-hook` 对 Codex/Claude 的 Entry 恢复链路做真实复核。
 5. Task 07 完成并重新满足 [迁移手册](runbooks/trellis-to-taskcraft.md)全部进入条件后，才在全新会话中退出 Trellis 并开始狗粮化。

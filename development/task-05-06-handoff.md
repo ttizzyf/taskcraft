@@ -3,11 +3,11 @@
 > 更新日期：2026-08-14。本文件是给下一个会话 agent 的交接文档：Task 05（L3
 > Feasibility 与 Integrate）和 Task 06（Watch）阶段已归档；Task 07 的代码返工
 > 已完成，但最终宿主验收尚未通过。Task 07 已交付：`tc doctor`、waiting/resume/retry
-> 公开闭环、test-hook 实现与真实宿主记录、run attach/status、`tc state`/`tc task list`、
+> 公开闭环、Entry Hook 现场测试实现与真实宿主记录、run attach/status、`tc state`/`tc task list`、
 > CLI 收敛与 L3 单 execute 收窄。L2 Review/done 与 Codex SessionStart 已补真实
-> 样本；公共 test-hook、Hook Diagnostics 与 `agent_runs` 单写入口也已修复并
-> 自动验证。**迁移门结论仍为 blocked**：修复后的公共 Claude test-hook 待真实
-> 重跑，Codex Stop Hook 由用户主动延期。见
+> 样本；Entry Hook Diagnostics 与 `agent_runs` 单写入口也已修复并自动验证。
+> ADR 0009 已移除 Stop Hook。**迁移门结论仍为 blocked**：公共 Codex/Claude
+> `test-entry-hook` 待真实复核。见
 > [`development/dogfood-2026-08-13.md`](dogfood-2026-08-13.md)与 Task 07
 > 2026-08-14 复核快照。
 
@@ -89,8 +89,8 @@ node dist/cli.js watch --no-open --port 0   # 起服务手动验证
 1. **先读**：`development/plans/task-07-mvp-readiness-remediation.md` 的
    2026-08-14 复核快照；doctor、waiting/resume、Runtime、L3 和 L1/L2 样本
    已复验，不要重复判为缺失。
-2. 用公开 `tc agent test-hook --agent claude` 复核修复后的现场路径；Codex Stop
-   Hook 是用户主动延期项，不得擅自恢复执行。不要把自动测试写成真实宿主证据。
+2. 用公开 `tc agent test-entry-hook --agent claude|codex` 复核 Entry 恢复路径；
+   不得恢复已删除的 Stop Hook。不要把自动测试写成真实宿主证据。
 3. Task 07 验收通过前不得卸载 Trellis；Trellis 与 Taskcraft 仍不设双写过渡期。
 4. Task 07 验收通过后重新执行 `development/runbooks/trellis-to-taskcraft.md`
    的进入条件；只有结论为 pass 才在全新会话切换唯一活动系统。

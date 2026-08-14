@@ -98,7 +98,7 @@ node dist/cli.js --help
    `development/specs/lifecycle.md` §7（连续执行合同与 Hook 协作）。
 2. **创建 Trellis 任务**（复杂任务，需完整 prd/design/implement，可拆子任务树）：
    目标预期：Codex/Claude 两个 HostAdapter（capabilities/installEntry/
-   testHook/renderNodeBrief）、Node Brief 渲染、Entry/Stop Hook 安装与现场
+   testEntryHook/renderNodeBrief）、Node Brief 渲染、Entry Hook 安装与现场
    测试、`tc init --agent` / `tc agent` / `tc enable` 命令、run 观察
    （agent_runs）。复用现有 reducer/projector/query 与 `run` 输出路径。
 3. **开发流程**：`trellis-implement` → `trellis-check` → `trellis-update-spec`

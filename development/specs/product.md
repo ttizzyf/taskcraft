@@ -44,7 +44,7 @@ Agent 需要：
 
 ```bash
 tc init --agent codex
-tc agent test-hook
+tc agent test-entry-hook
 tc enable ask
 ```
 
@@ -107,7 +107,7 @@ Taskcraft 不派发 subagent，只记录已有运行关系。
 
 ### Runtime
 
-显示 host、run id、node、attempt、last seen、finish reason，以及 Entry/Stop Hook
+显示 host、run id、node、attempt、last seen、finish reason，以及 Entry Hook
 最近一次现场测试结果和失败原因。Runtime observation 与任务事实使用独立视觉层级。
 
 ### Diagnostics
@@ -145,7 +145,7 @@ flowchart TD
 - Reviewer 修改内容后的 diff/evidence、同 kind successor 与新 lifecycle revision。
 - L3 Feasibility Review 的探测中、待修改、通过与等待决策。
 - Agent running、stale、attempt failed、finished but result not collected，以及 `waiting_reason`。
-- Entry/Stop Hook 的可用与失败诊断状态。
+- Entry Hook 的可用与失败诊断状态。
 - revision conflict、DB migration failure、hook timeout、host unsupported。
 
 ## 8. 首版边界
