@@ -200,10 +200,17 @@ export function codexHookGate(
   userConfigPath: string,
 ): string | null {
   const features = safeProbe(probe, "codex", ["features", "list"]);
+  const hooksLine = features.stdout
+    .split("\n")
+    .find((line) => /^hooks\s/i.test(line.trim()));
+  const hooksEnabled =
+    hooksLine?.trim().split(/\s+/).at(-1)?.toLowerCase() === "true";
 
-  if (!features.ok || !features.stdout.toLowerCase().includes("hooks")) {
+  if (!features.ok || !hooksEnabled) {
     const detail = features.ok
-      ? "the features list does not mention hooks"
+      ? hooksLine === undefined
+        ? "the features list does not mention hooks"
+        : `the hooks feature is not enabled (${hooksLine.trim()})`
       : probeDetail(features);
 
     return `codex hooks feature gate: ${detail}; enable with: codex features enable hooks`;

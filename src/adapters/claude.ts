@@ -5,7 +5,7 @@
 
 import { renderNodeBrief } from "../core/node-brief.js";
 import type { NodeBriefInput, RenderedNodeBrief } from "../core/node-brief.js";
-import { attachObservation, observeRun } from "./observe.js";
+import { observeRun } from "./observe.js";
 import {
   defaultProbe,
   defaultSpawn,
@@ -17,7 +17,6 @@ import {
 import type {
   AdapterCapabilities,
   AdapterDeps,
-  AttachInput,
   CapabilityProbe,
   HostAdapter,
   HostRun,
@@ -102,7 +101,6 @@ export function createClaudeAdapter(deps: AdapterDeps = {}): HostAdapter {
   const probe = deps.probe ?? defaultProbe;
   const spawn = deps.spawn ?? defaultSpawn;
   const now = deps.now ?? (() => new Date().toISOString());
-  const database = deps.database;
 
   return {
     id: CLAUDE_ID,
@@ -124,13 +122,6 @@ export function createClaudeAdapter(deps: AdapterDeps = {}): HostAdapter {
       runHookTest(spawn, now, CLAUDE_ID, TEST_HOOK_ARGS, input),
     renderNodeBrief: (input: NodeBriefInput): RenderedNodeBrief =>
       renderNodeBrief(input),
-    attachObservation: (input: AttachInput): HostRun => {
-      if (database === undefined) {
-        throw new Error("attachObservation requires a database");
-      }
-
-      return attachObservation(database, input, now);
-    },
     observe: (run: HostRun): RuntimeObservation => observeRun(run, now),
   };
 }

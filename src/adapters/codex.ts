@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { renderNodeBrief } from "../core/node-brief.js";
 import type { NodeBriefInput, RenderedNodeBrief } from "../core/node-brief.js";
 import { codexHookGate } from "./installed-hooks.js";
-import { attachObservation, observeRun } from "./observe.js";
+import { observeRun } from "./observe.js";
 import {
   appendCommand,
   defaultProbe,
@@ -21,7 +21,6 @@ import {
 } from "./shared.js";
 import type {
   AdapterDeps,
-  AttachInput,
   CapabilityProbe,
   HostAdapter,
   HostRun,
@@ -41,13 +40,14 @@ const DOCUMENT_ARG_SETS = [
 ];
 const TEST_HOOK_ARGS = [
   "exec",
-  "--dangerously-bypass-hook-trust",
   "--ephemeral",
   "--skip-git-repo-check",
   "--sandbox",
   "read-only",
   "--json",
 ];
+const TEST_HOOK_PROMPT =
+  "If your injected context contains tc-breadcrumb/v1, reply exactly tc-breadcrumb/v1. Otherwise reply exactly NO_BREADCRUMB.";
 
 /** Research-backed notes: codex native structured output is limited by the
  * current upstream /responses path (host-feasibility 2026-08-10), never a
@@ -114,7 +114,6 @@ export function createCodexAdapter(deps: AdapterDeps = {}): HostAdapter {
   const probe = deps.probe ?? defaultProbe;
   const spawn = deps.spawn ?? defaultSpawn;
   const now = deps.now ?? (() => new Date().toISOString());
-  const database = deps.database;
   const userConfigPath =
     deps.userConfigPath ?? join(homedir(), ".codex", "config.toml");
 
@@ -138,17 +137,11 @@ export function createCodexAdapter(deps: AdapterDeps = {}): HostAdapter {
     testHook: (input: HookTestInput): HookTestResult =>
       runHookTest(spawn, now, CODEX_ID, TEST_HOOK_ARGS, {
         ...input,
+        prompt: input.prompt ?? TEST_HOOK_PROMPT,
         gate: () => codexHookGate(probe, input.projectDir, userConfigPath),
       }),
     renderNodeBrief: (input: NodeBriefInput): RenderedNodeBrief =>
       renderNodeBrief(input),
-    attachObservation: (input: AttachInput): HostRun => {
-      if (database === undefined) {
-        throw new Error("attachObservation requires a database");
-      }
-
-      return attachObservation(database, input, now);
-    },
     observe: (run: HostRun): RuntimeObservation => observeRun(run, now),
   };
 }

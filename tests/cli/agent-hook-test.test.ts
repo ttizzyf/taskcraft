@@ -6,7 +6,7 @@
 // contract. No real host binary is ever spawned.
 
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -14,7 +14,10 @@ import { createCodexAdapter } from "../../src/adapters/codex.js";
 import { createClaudeAdapter } from "../../src/adapters/claude.js";
 import type { HostAdapter } from "../../src/adapters/types.js";
 import { ERROR_CODES, TaskcraftError } from "../../src/core/errors.js";
+import { run, taskNew } from "../../src/core/reducer.js";
 import { runAgentTestHook } from "../../src/commands/agent.js";
+import { openDatabase } from "../../src/store/database.js";
+import { applyMigrations } from "../../src/store/migrations.js";
 import {
   BREADCRUMB_LINE,
   createFakeHost,
@@ -59,6 +62,16 @@ function setupProject(agent: "codex" | "claude"): ProjectSetup {
     `${JSON.stringify({ takeOver: "ask" }, null, 2)}\n`,
     "utf8",
   );
+
+  const database = openDatabase(join(projectDir, ".taskcraft", "taskcraft.db"));
+  applyMigrations(database, resolve("migrations"));
+  const { taskId } = taskNew(database, {
+    title: "Hook field test",
+    level: 1,
+    reason: "test fixture",
+  });
+  run(database, taskId);
+  database.close();
 
   if (agent === "codex") {
     mkdirSync(join(projectDir, ".codex"), { recursive: true });
@@ -242,6 +255,25 @@ describe("runAgentTestHook pre-flight", () => {
       }),
       setup,
       "hooks feature gate",
+    );
+  });
+
+  it("fails explicitly when the codex hooks feature exists but is disabled", () => {
+    const fake = createFakeHost();
+    const setup = setupProject("codex");
+    fake.setProbeScript("codex", ["--version"], { stdout: "0.147.0\n" });
+    fake.setProbeScript("codex", ["features", "list"], {
+      stdout: "hooks stable false\n",
+    });
+    fake.setProbeScript("codex", ["exec", "--help"], { stdout: "help\n" });
+
+    expectHookTestFailure(
+      createCodexAdapter({
+        ...fake.deps(),
+        userConfigPath: setup.userConfigPath,
+      }),
+      setup,
+      "not enabled",
     );
   });
 

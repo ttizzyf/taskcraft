@@ -2,7 +2,6 @@
 // Contract"). Capabilities/installEntry/testHook never crash a command:
 // failures are reported through explicit result fields, not exceptions.
 
-import type { TaskcraftDatabase } from "../store/database.js";
 import type { NodeBriefInput, RenderedNodeBrief } from "../core/node-brief.js";
 
 export type {
@@ -71,13 +70,11 @@ export type SpawnFn = (
   options: SpawnOptions,
 ) => SpawnOutcome;
 
-/** Injectable seams: tests substitute probe/spawn with fakes; the database
- * seam lets attachObservation reuse the store write path. */
+/** Injectable seams: tests substitute probe/spawn with fakes. */
 export interface AdapterDeps {
   probe?: ProbeFn;
   spawn?: SpawnFn;
   now?: () => string;
-  database?: TaskcraftDatabase;
   /** Codex user config path read by the test-hook trust gate; tests inject a
    * temporary file instead of touching ~/.codex/config.toml (read-only). */
   userConfigPath?: string;
@@ -123,18 +120,6 @@ export interface HookTestResult {
 export type ObservationStatus =
   "pending" | "running" | "stale" | "finished" | "failed" | "unsupported";
 
-export interface AttachInput {
-  taskId: string;
-  nodeAttemptId: string;
-  host: string;
-  hostRunId?: string;
-  hostSessionId?: string;
-  observationStatus?: ObservationStatus;
-  lastSeenAt?: string;
-  finishReason?: string;
-  observation?: unknown;
-}
-
 export interface HostRun {
   id: string;
   taskId: string;
@@ -160,6 +145,5 @@ export interface HostAdapter {
   installEntry(input: InstallInput): InstallResult;
   testHook(input: HookTestInput): HookTestResult;
   renderNodeBrief(input: NodeBriefInput): RenderedNodeBrief;
-  attachObservation?(input: AttachInput): HostRun;
   observe?(run: HostRun): RuntimeObservation;
 }

@@ -19,7 +19,9 @@ import {
   persistHookTest,
 } from "../adapters/installed-hooks.js";
 import type { AdapterCapabilities, HostAdapter } from "../adapters/types.js";
+import { BREADCRUMB_SCHEMA_VERSION } from "../core/breadcrumb.js";
 import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
+import { runEntryGate } from "../hooks/entry.js";
 import {
   CONFIG_FILE_NAME,
   readHookTests,
@@ -168,19 +170,51 @@ export function runAgentTestHook(
   const version = adapter.capabilities().version;
   const takeOver = readTakeOver(configPath, adapter.id);
 
-  if (takeOver === "off") {
-    throw new TaskcraftError(ERROR_CODES.TC_ADAPTER_HOOK_TEST_FAILED, {
-      problem: "takeover is off",
-      impact:
-        "Hooks produce zero output while takeover is off, so injection and blocking cannot be tested",
-      remediation: "Enable takeover first: tc enable ask|always",
-      context: { host: adapter.id, configPath },
+  try {
+    if (takeOver === "off") {
+      throw new TaskcraftError(ERROR_CODES.TC_ADAPTER_HOOK_TEST_FAILED, {
+        problem: "takeover is off",
+        impact:
+          "Hooks produce zero output while takeover is off, so injection and blocking cannot be tested",
+        remediation: "Enable takeover first: tc enable ask|always",
+        context: { host: adapter.id, configPath },
+      });
+    }
+
+    const scripts = checkInstalledScripts(projectDir);
+    checkProjectRegistration(adapter.id, projectDir);
+    assertActiveBreadcrumb(configPath, adapter.id);
+
+    return runPersistedHookTest(
+      adapter,
+      projectDir,
+      configPath,
+      version,
+      scripts,
+    );
+  } catch (cause) {
+    if (cause instanceof PersistedHookTestError) {
+      throw cause.cause;
+    }
+
+    persistHookTest(configPath, adapter.id, {
+      testedAt: new Date().toISOString(),
+      version,
+      ok: false,
+      enforced: false,
+      failure: describeCause(cause),
     });
+    throw cause;
   }
+}
 
-  const scripts = checkInstalledScripts(projectDir);
-  checkProjectRegistration(adapter.id, projectDir);
-
+function runPersistedHookTest(
+  adapter: HostAdapter,
+  projectDir: string,
+  configPath: string,
+  version: string | null,
+  scripts: { entryScript: string; stopScript: string },
+): HookTestSummary {
   const result = adapter.testHook({
     projectDir,
     entryScript: scripts.entryScript,
@@ -208,7 +242,7 @@ export function runAgentTestHook(
   });
 
   if (!result.ok) {
-    throw new TaskcraftError(ERROR_CODES.TC_ADAPTER_HOOK_TEST_FAILED, {
+    const error = new TaskcraftError(ERROR_CODES.TC_ADAPTER_HOOK_TEST_FAILED, {
       problem: `Hook field test failed: ${result.failure ?? "unknown error"}`,
       impact:
         "Entry injection, stop blocking or the loop guard could not be verified",
@@ -223,9 +257,38 @@ export function runAgentTestHook(
       },
       cause: result.failure,
     });
+
+    throw new PersistedHookTestError(error);
   }
 
   return summary;
+}
+
+/** The installed Entry chain can only prove injection when exactly one task
+ * is active. Checking the production gate before the paid host call gives a
+ * stable precondition error instead of a misleading "breadcrumb missing". */
+function assertActiveBreadcrumb(configPath: string, host: string): void {
+  const output = runEntryGate(configPath).output;
+
+  if (output?.includes(BREADCRUMB_SCHEMA_VERSION) === true) {
+    return;
+  }
+
+  throw new TaskcraftError(ERROR_CODES.TC_ADAPTER_HOOK_TEST_FAILED, {
+    problem: "Hook field test requires exactly one active Taskcraft task",
+    impact:
+      "Entry correctly stays silent without a unique active task, so injection cannot be verified",
+    remediation:
+      "Create and activate a disposable task first: tc task new --title <title> --level 1 --reason <reason>, then tc run <task-id>",
+    context: { host, configPath },
+  });
+}
+
+/** Marker used only to avoid persisting the same adapter-result failure twice. */
+class PersistedHookTestError extends Error {
+  constructor(readonly cause: TaskcraftError) {
+    super(cause.message);
+  }
 }
 
 function readTakeOver(

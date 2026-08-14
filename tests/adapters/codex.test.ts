@@ -145,7 +145,10 @@ describe("codex adapter", () => {
       expect(call?.command).toBe("codex");
       expect(call?.args[0]).toBe("exec");
       expect(call?.args).toContain("--json");
-      expect(call?.args.at(-1)).toBe("Reply exactly TC_FIRST.");
+      expect(call?.args.at(-1)).toBe(
+        "If your injected context contains tc-breadcrumb/v1, reply exactly tc-breadcrumb/v1. Otherwise reply exactly NO_BREADCRUMB.",
+      );
+      expect(call?.args).not.toContain("--dangerously-bypass-hook-trust");
     } finally {
       projectDir.cleanup();
     }

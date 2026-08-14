@@ -1,6 +1,6 @@
 // Shared adapter machinery: sync probe/spawn seams, capability probing,
-// idempotent hook installation, hook field test, and agent_runs observation
-// writes. Codex and Claude adapters differ only in probe commands, config
+// idempotent hook installation and hook field tests. Codex and Claude
+// adapters differ only in probe commands, config
 // files and session formats; everything host-neutral lives here.
 
 import { execFileSync, spawnSync } from "node:child_process";

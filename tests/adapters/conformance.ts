@@ -17,8 +17,6 @@ import type {
 } from "../../src/adapters/types.js";
 import { renderNodeBrief } from "../../src/core/node-brief.js";
 import type { NodeBriefInput } from "../../src/core/node-brief.js";
-import { project } from "../../src/core/projector.js";
-import { getAgentRuns } from "../../src/store/query.js";
 import type { FakeHost } from "../helpers/fake-host.js";
 import {
   BREADCRUMB_LINE,
@@ -26,7 +24,6 @@ import {
   FIXED_NOW,
 } from "../helpers/fake-host.js";
 import { createTemporaryDirectory } from "../helpers/temp-directory.js";
-import { createMigratedDatabase, insertL1Fixture } from "../store/helpers.js";
 
 export const CAPABILITY_NAMES: readonly CapabilityName[] = [
   "session-start",
@@ -236,7 +233,14 @@ export function runConformance(
       );
       expect(hostCall?.timeoutMs).toBe(60_000);
       expect(hostCall?.cwd).toBe(projectDir.path);
-      expect(hostCall?.args.at(-1)).toBe("Reply exactly TC_FIRST.");
+      expect(hostCall?.args.at(-1)).toBe(
+        id === "codex"
+          ? "If your injected context contains tc-breadcrumb/v1, reply exactly tc-breadcrumb/v1. Otherwise reply exactly NO_BREADCRUMB."
+          : "Reply exactly TC_FIRST.",
+      );
+      if (id === "codex") {
+        expect(hostCall?.args).not.toContain("--dangerously-bypass-hook-trust");
+      }
       const loopCall = fake.calls.find(
         (call) => call.kind === "spawn" && call.input !== undefined,
       );
@@ -386,54 +390,25 @@ export function runConformance(
     });
   });
 
-  describe(`conformance: ${id} attachObservation`, () => {
-    it("writes agent_runs without driving task status", () => {
-      const database = createMigratedDatabase();
+  describe(`conformance: ${id} observe`, () => {
+    it("maps a stored run without writing the Task Store", () => {
+      const run: HostRun = {
+        id: "ar-1",
+        taskId: "T-1",
+        nodeAttemptId: "att-T-1-execute-1-1",
+        host: id,
+        hostRunId: "run-1",
+        hostSessionId: "sess-1",
+        observationStatus: "running",
+        lastSeenAt: null,
+        finishReason: null,
+        observationJson: '{"tokens":12}',
+      };
 
-      try {
-        insertL1Fixture(database);
-        const statusBefore = project(database, "task-l1").status;
-        const wired = createAdapter({ ...fake.deps(), database });
-
-        const run: HostRun = wired.attachObservation!({
-          taskId: "task-l1",
-          nodeAttemptId: "attempt-1",
-          host: id,
-          hostRunId: "run-1",
-          hostSessionId: "sess-1",
-          observationStatus: "running",
-          observation: { tokens: 12 },
-        });
-
-        expect(run.id).toBe("ar-1");
-        expect(run.host).toBe(id);
-        expect(run.hostRunId).toBe("run-1");
-        expect(run.finishReason).toBeNull();
-
-        const rows = getAgentRuns(database, "task-l1");
-        expect(rows).toHaveLength(1);
-        expect(rows[0]!.hostSessionId).toBe("sess-1");
-        expect(rows[0]!.observationStatus).toBe("running");
-        expect(JSON.parse(rows[0]!.observationJson)).toEqual({ tokens: 12 });
-
-        const observation = wired.observe!(run);
-        expect(observation.status).toBe("running");
-        expect(observation.lastSeenAt).toBe(FIXED_NOW);
-
-        expect(project(database, "task-l1").status).toBe(statusBefore);
-      } finally {
-        database.close();
-      }
-    });
-
-    it("fails explicitly when no database is wired", () => {
-      expect(() =>
-        adapter.attachObservation?.({
-          taskId: "task-l1",
-          nodeAttemptId: "attempt-1",
-          host: id,
-        }),
-      ).toThrow(/database/);
+      expect(adapter.observe!(run)).toEqual({
+        status: "running",
+        lastSeenAt: FIXED_NOW,
+      });
     });
   });
 }
