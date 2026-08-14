@@ -131,6 +131,7 @@ export function createCodexAdapter(deps: AdapterDeps = {}): HostAdapter {
     installEntry: (input: InstallInput): InstallResult =>
       installEntryFiles(input, resolveTcPath(), {
         configPath: ".codex/config.toml",
+        stopProtocol: "codex",
         freshConfig: (commands) =>
           serializeCodexProjectConfig(buildCodexProjectConfig({}, commands)),
       }),

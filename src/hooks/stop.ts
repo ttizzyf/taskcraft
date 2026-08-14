@@ -189,7 +189,9 @@ function parseStopHookActive(payload: string): boolean {
 }
 
 async function runAsHookScript(): Promise<void> {
-  const configPath = process.argv[2];
+  const args = process.argv.slice(2);
+  const codexProtocol = args.includes("--codex");
+  const configPath = args.find((argument) => !argument.startsWith("--"));
 
   if (configPath === undefined) {
     writeHookDiagnostic(
@@ -208,11 +210,25 @@ async function runAsHookScript(): Promise<void> {
     const { decision, output } = runStopGate(configPath, stopHookActive);
 
     if (decision !== "allow") {
-      if (output !== null) {
+      // Codex parses the Stop stdout strictly and only honours
+      // {"decision":"block"}; claude drives the block by exit code 2 and
+      // injects the breadcrumb payload.
+      if (codexProtocol) {
+        const reason =
+          decision.action === "block"
+            ? `Task has runnable or running work; next: ${decision.next}`
+            : "stop requested";
+        process.stdout.write(
+          `${JSON.stringify({ decision: "block", reason })}\n`,
+        );
+      } else if (output !== null) {
         process.stdout.write(`${output}\n`);
       }
 
       process.exitCode = 2;
+    } else if (codexProtocol) {
+      // Default (no intervention) per the codex Stop contract.
+      process.stdout.write("{}\n");
     }
   } catch (error) {
     writeHookDiagnostic(error);

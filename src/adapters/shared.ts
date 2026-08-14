@@ -226,14 +226,19 @@ cd "$(dirname "$0")/../.." && node "${tcPath}" state --breadcrumb
 `;
 }
 
-export function stopHookTemplate(tcPath: string): string {
-  return hookTemplate(join(dirname(tcPath), "hooks", "stop.js"));
-}
-
-function hookTemplate(scriptPath: string): string {
+export function stopHookTemplate(
+  tcPath: string,
+  protocol?: "claude" | "codex",
+): string {
+  const scriptPath = join(dirname(tcPath), "hooks", "stop.js");
+  // Hosts disagree on the Stop response contract: claude drives the block by
+  // exit code 2 and injects the stdout breadcrumb; codex parses the stdout
+  // JSON strictly and only honours {"decision":"block"} (unknown fields are
+  // rejected, so the breadcrumb payload would be ignored). The stop gate
+  // switches its stdout shape on the protocol flag.
   return `#!/usr/bin/env bash
 # Taskcraft managed hook gate (tc init --agent <host>).
-node "${scriptPath}" "$(dirname "$0")/../config.json"
+node "${scriptPath}"${protocol === "codex" ? " --codex" : ""} "$(dirname "$0")/../config.json"
 `;
 }
 
@@ -248,6 +253,10 @@ export interface InstallFilesOptions {
   configPath: string;
   /** Serialized fresh project config for a first install. */
   freshConfig: (commands: HookCommands) => string;
+  /** Stop response contract: codex parses stdout JSON strictly
+   * ({"decision":"block"}), claude drives by exit code and injects the
+   * breadcrumb. Defaults to claude. */
+  stopProtocol?: "claude" | "codex";
 }
 
 /** Writes the hook scripts and the project config, both write-if-absent:
@@ -263,7 +272,7 @@ export function installEntryFiles(
     const entryPath = join(hooksDir, "entry.sh");
     const stopPath = join(hooksDir, "stop.sh");
     writeIfAbsent(entryPath, entryHookTemplate(tcPath));
-    writeIfAbsent(stopPath, stopHookTemplate(tcPath));
+    writeIfAbsent(stopPath, stopHookTemplate(tcPath, options.stopProtocol));
 
     const configFile = join(input.projectDir, options.configPath);
     const commands: HookCommands = {
