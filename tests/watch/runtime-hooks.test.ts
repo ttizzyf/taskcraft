@@ -1,5 +1,5 @@
 // Watch runtime/diagnostics same-source contract: rows written by the run
-// attach reducer (never a fixture) surface in /api/runtime, hookTests read
+// attach reducer (never a fixture) surface in /api/runtime, entryHookTests read
 // from .taskcraft/config.json surface in /api/runtime and drive the
 // diagnostics hook anomalies (failed test, version drift, missing test).
 
@@ -16,7 +16,7 @@ import { collectDiagnostics } from "../../src/watch/diagnostics.js";
 import { getJson, withProject, withServer } from "./helpers.js";
 
 describe("watch runtime same-source", () => {
-  it("serves rows written by the run attach reducer and the persisted hookTests", async () => {
+  it("serves reducer rows and persisted Entry Hook tests", async () => {
     await withProject(null, async (projectDir) => {
       mkdirSync(join(projectDir, ".taskcraft"), { recursive: true });
       const database = openDatabase(
@@ -47,12 +47,11 @@ describe("watch runtime same-source", () => {
           {
             takeOver: "ask",
             agents: ["claude"],
-            hookTests: {
+            entryHookTests: {
               claude: {
                 testedAt: "2026-08-13T00:00:00.000Z",
                 version: "2.1.220",
                 ok: true,
-                enforced: true,
               },
             },
           },
@@ -83,11 +82,10 @@ describe("watch runtime same-source", () => {
             lastSeenAt: body.runs[0]?.lastSeenAt,
           },
         ]);
-        expect(body.hookTests.claude).toMatchObject({
+        expect(body.entryHookTests.claude).toMatchObject({
           testedAt: "2026-08-13T00:00:00.000Z",
           version: "2.1.220",
           ok: true,
-          enforced: true,
         });
       });
     });
@@ -95,7 +93,7 @@ describe("watch runtime same-source", () => {
 });
 
 describe("watch diagnostics hook anomalies", () => {
-  it("reports failed hook tests and version drift from config.hookTests", async () => {
+  it("reports failed Entry Hook tests and version drift", async () => {
     await withProject("five-status", async (projectDir) => {
       const hooksDir = join(projectDir, ".taskcraft", "hooks");
       mkdirSync(hooksDir, { recursive: true });
@@ -105,28 +103,21 @@ describe("watch diagnostics hook anomalies", () => {
         "utf8",
       );
       writeFileSync(
-        join(hooksDir, "stop.sh"),
-        `node "${resolve("dist/hooks/stop.js")}" "$(dirname "$0")/../config.json"\n`,
-        "utf8",
-      );
-      writeFileSync(
         join(projectDir, ".taskcraft", "config.json"),
         `${JSON.stringify(
           {
             takeOver: "ask",
-            hookTests: {
+            entryHookTests: {
               codex: {
                 testedAt: "2020-01-01T00:00:00.000Z",
                 version: "1.0.0",
                 ok: true,
-                enforced: true,
               },
               claude: {
                 testedAt: "2026-08-13T00:00:00.000Z",
                 version: "2.1.220",
                 ok: false,
-                enforced: false,
-                failure: "stop block missing",
+                failure: "breadcrumb missing",
               },
             },
           },
@@ -142,16 +133,16 @@ describe("watch diagnostics hook anomalies", () => {
         const codes = body.items.map((item) => item.code);
 
         expect(codes).toContain("TC_ADAPTER_HOOK_TEST_FAILED");
-        expect(codes).toContain("TC_HOOK_REGISTRATION_INVALID");
-        expect(codes).toContain("TC_HOOK_VERSION_DRIFT");
+        expect(codes).toContain("TC_ENTRY_HOOK_REGISTRATION_INVALID");
+        expect(codes).toContain("TC_ENTRY_HOOK_VERSION_DRIFT");
 
         const failed = body.items.find(
           (item) => item.code === "TC_ADAPTER_HOOK_TEST_FAILED",
         );
-        expect(failed?.problem).toContain("stop block missing");
+        expect(failed?.problem).toContain("breadcrumb missing");
 
         const drift = body.items.find(
-          (item) => item.code === "TC_HOOK_VERSION_DRIFT",
+          (item) => item.code === "TC_ENTRY_HOOK_VERSION_DRIFT",
         );
         expect(drift?.problem).toContain("codex");
       });
@@ -178,7 +169,7 @@ describe("watch diagnostics hook anomalies", () => {
           (item) => item.code,
         );
 
-        expect(codes).toContain("TC_HOOK_TEST_MISSING");
+        expect(codes).toContain("TC_ENTRY_HOOK_TEST_MISSING");
       });
     });
   });
@@ -190,11 +181,6 @@ describe("watch diagnostics hook anomalies", () => {
       writeFileSync(
         join(hooksDir, "entry.sh"),
         'node "/missing/entry.js"\n',
-        "utf8",
-      );
-      writeFileSync(
-        join(hooksDir, "stop.sh"),
-        `node "${resolve("dist/hooks/stop.js")}"\n`,
         "utf8",
       );
       writeFileSync(
@@ -214,7 +200,7 @@ describe("watch diagnostics hook anomalies", () => {
       expect(problems).toContain("missing gate artifact");
       expect(problems).toContain("not registered");
       expect(codes).toContain("TC_ADAPTER_HOOK_INSTALL_FAILED");
-      expect(codes).toContain("TC_HOOK_REGISTRATION_INVALID");
+      expect(codes).toContain("TC_ENTRY_HOOK_REGISTRATION_INVALID");
     });
   });
 
@@ -229,18 +215,12 @@ describe("watch diagnostics hook anomalies", () => {
         "utf8",
       );
       writeFileSync(
-        join(hooksDir, "stop.sh"),
-        `node "${resolve("dist/hooks/stop.js")}"\n`,
-        "utf8",
-      );
-      writeFileSync(
         join(projectDir, ".claude", "settings.json"),
         JSON.stringify({
           hooks: {
             SessionStart: [
               { hooks: [{ command: "bash .taskcraft/hooks/entry.sh" }] },
             ],
-            Stop: [{ hooks: [{ command: "bash .taskcraft/hooks/stop.sh" }] }],
           },
         }),
         "utf8",
@@ -249,12 +229,11 @@ describe("watch diagnostics hook anomalies", () => {
         join(projectDir, ".taskcraft", "config.json"),
         `${JSON.stringify({
           takeOver: "ask",
-          hookTests: {
+          entryHookTests: {
             claude: {
               testedAt: new Date(Date.now() + 60_000).toISOString(),
               version: "2.1.220",
               ok: true,
-              enforced: true,
             },
           },
         })}\n`,
@@ -270,7 +249,7 @@ describe("watch diagnostics hook anomalies", () => {
       expect(
         items.some(
           (item) =>
-            item.code === "TC_HOOK_VERSION_DRIFT" &&
+            item.code === "TC_ENTRY_HOOK_VERSION_DRIFT" &&
             item.problem.includes("2.2.0") &&
             item.problem.includes("2.1.220"),
         ),

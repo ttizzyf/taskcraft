@@ -213,12 +213,9 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Hook script templates: the entry wrapper delegates to the public CLI
- * (`tc state --breadcrumb`, the commandized silent gate — parent design
- * "state（命令化，hooks 改调它）"), the stop wrapper keeps the compiled gate
- * (dist/hooks/stop.js) because its exit-2 block and stop_hook_active loop
- * guard are not part of the state command. The project root is derived from
- * the script location, so the wrapper never depends on cwd. */
+/** The Entry wrapper delegates to the public CLI (`tc state --breadcrumb`).
+ * The project root is derived from the script location, so the wrapper never
+ * depends on cwd. */
 export function entryHookTemplate(tcPath: string): string {
   return `#!/usr/bin/env bash
 # Taskcraft managed entry hook gate (tc init --agent <host>).
@@ -226,25 +223,8 @@ cd "$(dirname "$0")/../.." && node "${tcPath}" state --breadcrumb
 `;
 }
 
-export function stopHookTemplate(
-  tcPath: string,
-  protocol?: "claude" | "codex",
-): string {
-  const scriptPath = join(dirname(tcPath), "hooks", "stop.js");
-  // Hosts disagree on the Stop response contract: claude drives the block by
-  // exit code 2 and injects the stdout breadcrumb; codex parses the stdout
-  // JSON strictly and only honours {"decision":"block"} (unknown fields are
-  // rejected, so the breadcrumb payload would be ignored). The stop gate
-  // switches its stdout shape on the protocol flag.
-  return `#!/usr/bin/env bash
-# Taskcraft managed hook gate (tc init --agent <host>).
-node "${scriptPath}"${protocol === "codex" ? " --codex" : ""} "$(dirname "$0")/../config.json"
-`;
-}
-
 export interface HookCommands {
   entry: string;
-  stop: string;
 }
 
 export interface InstallFilesOptions {
@@ -253,10 +233,6 @@ export interface InstallFilesOptions {
   configPath: string;
   /** Serialized fresh project config for a first install. */
   freshConfig: (commands: HookCommands) => string;
-  /** Stop response contract: codex parses stdout JSON strictly
-   * ({"decision":"block"}), claude drives by exit code and injects the
-   * breadcrumb. Defaults to claude. */
-  stopProtocol?: "claude" | "codex";
 }
 
 /** Writes the hook scripts and the project config, both write-if-absent:
@@ -270,14 +246,11 @@ export function installEntryFiles(
   try {
     const hooksDir = join(input.projectDir, ".taskcraft", "hooks");
     const entryPath = join(hooksDir, "entry.sh");
-    const stopPath = join(hooksDir, "stop.sh");
     writeIfAbsent(entryPath, entryHookTemplate(tcPath));
-    writeIfAbsent(stopPath, stopHookTemplate(tcPath, options.stopProtocol));
 
     const configFile = join(input.projectDir, options.configPath);
     const commands: HookCommands = {
       entry: `bash "${entryPath}"`,
-      stop: `bash "${stopPath}"`,
     };
 
     // Existing project config is left untouched (write-if-absent), so the
@@ -287,14 +260,14 @@ export function installEntryFiles(
     if (existsSync(configFile)) {
       return {
         ok: false,
-        hookPaths: [entryPath, stopPath],
+        hookPaths: [entryPath],
         limitation: "config exists; hooks not registered",
       };
     }
 
     writeIfAbsent(configFile, options.freshConfig(commands));
 
-    return { ok: true, hookPaths: [entryPath, stopPath] };
+    return { ok: true, hookPaths: [entryPath] };
   } catch (error) {
     return {
       ok: false,
@@ -331,13 +304,11 @@ export function sampleOf(stdout: string): string {
   return trimmed.length > 500 ? `${trimmed.slice(0, 500)}…` : trimmed;
 }
 
-/** Installed-hooks field test: spawns the host with the minimal prompt (60s
- * hard timeout) and exercises the installed stop wrapper for the block and
- * loop-guard judgments. Nothing is installed or copied: the test runs the
- * real .taskcraft/hooks/ scripts against the real Task Store and project
- * config, and the breadcrumb is judged by the tc-breadcrumb/v1 JSON presence
- * in the host output. The spawn seam is injectable for fake hosts. */
-export function runHookTest(
+/** Installed Entry Hook field test: spawns the host with the minimal prompt
+ * (60s hard timeout). Nothing is installed or copied: the test runs the real
+ * project registration and installed entry wrapper against the real Task
+ * Store. The spawn seam is injectable for fake hosts. */
+export function runEntryHookTest(
   spawn: SpawnFn,
   now: () => string,
   hostCommand: string,
@@ -352,9 +323,6 @@ export function runHookTest(
     return {
       ok: false,
       entryInjected: false,
-      stopBlocked: false,
-      loopGuardOk: false,
-      enforced: false,
       testedAt,
       failure: gateFailure,
     };
@@ -365,43 +333,19 @@ export function runHookTest(
     cwd: input.projectDir,
     timeoutMs,
   });
-  const stop = spawn("bash", [input.stopScript], {
-    cwd: input.projectDir,
-    timeoutMs,
-  });
-  const loop = spawn("bash", [input.stopScript], {
-    cwd: input.projectDir,
-    timeoutMs,
-    input: '{"stop_hook_active":true}',
-  });
-
   const entryInjected =
     host.ok && host.stdout.includes(BREADCRUMB_SCHEMA_VERSION);
-  const stopBlocked =
-    stop.exitCode === 2 && stop.stdout.includes(BREADCRUMB_SCHEMA_VERSION);
-  const loopGuardOk = loop.exitCode === 0;
-  const failures = testFailures(
-    host,
-    stop,
-    loop,
-    entryInjected,
-    stopBlocked,
-    loopGuardOk,
-    timeoutMs,
-  );
+  const failures = entryTestFailures(host, entryInjected, timeoutMs);
 
   const result: HookTestResult = {
     ok: failures.length === 0,
     entryInjected,
-    stopBlocked,
-    loopGuardOk,
-    enforced: entryInjected && stopBlocked && loopGuardOk,
     testedAt,
     sample: sampleOf(host.stdout),
   };
 
   if (failures.length > 0) {
-    result.failure = `hook test failed: ${failures.join("; ")}`;
+    result.failure = `entry hook test failed: ${failures.join("; ")}`;
   }
 
   return result;
@@ -409,13 +353,9 @@ export function runHookTest(
 
 /** Collects the explicit reason for every failed judgment, so a partial
  * failure reports exactly which check failed instead of a vague "not ok". */
-function testFailures(
+function entryTestFailures(
   host: SpawnOutcome,
-  stop: SpawnOutcome,
-  loop: SpawnOutcome,
   entryInjected: boolean,
-  stopBlocked: boolean,
-  loopGuardOk: boolean,
   timeoutMs: number,
 ): string[] {
   const failures: string[] = [];
@@ -431,26 +371,6 @@ function testFailures(
   } else if (!entryInjected) {
     failures.push(
       `entry injection: ${BREADCRUMB_SCHEMA_VERSION} missing from host output`,
-    );
-  }
-
-  if (stop.error !== undefined) {
-    failures.push(`stop hook spawn failed: ${stop.error}`);
-  } else if (stop.exitCode !== 2) {
-    failures.push(
-      `stop hook did not block: expected exit 2, got ${exitDetail(stop.exitCode)}${stderrDetail(stop.stderr)}`,
-    );
-  } else if (!stopBlocked) {
-    failures.push(
-      `stop hook blocked without the ${BREADCRUMB_SCHEMA_VERSION} breadcrumb`,
-    );
-  }
-
-  if (loop.error !== undefined) {
-    failures.push(`loop guard spawn failed: ${loop.error}`);
-  } else if (loop.exitCode !== 0) {
-    failures.push(
-      `loop guard did not allow the re-entry: expected exit 0, got ${exitDetail(loop.exitCode)}${stderrDetail(loop.stderr)}`,
     );
   }
 

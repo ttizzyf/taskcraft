@@ -12,7 +12,7 @@ import {
   installEntryFiles,
   probeCapabilities,
   resolveTcPath,
-  runHookTest,
+  runEntryHookTest,
 } from "./shared.js";
 import type {
   AdapterCapabilities,
@@ -50,7 +50,6 @@ const CLAUDE_CAPABILITY_PROBES: readonly CapabilityProbe[] = [
     keywords: ["hook"],
     note: "limited: SessionStart ran pre-auth; UserPromptSubmit documented only",
   },
-  { name: "stop", keywords: ["hook"] },
   { name: "structured-output", keywords: ["json schema", "json-schema"] },
   { name: "run-correlation", keywords: ["session id", "session-id"] },
 ];
@@ -62,7 +61,6 @@ export interface ClaudeHookEntry {
 export interface ClaudeSettings {
   hooks?: {
     SessionStart?: ClaudeHookEntry[];
-    Stop?: ClaudeHookEntry[];
   };
 }
 
@@ -70,12 +68,11 @@ export interface ClaudeSettings {
  * appended, never duplicating existing commands and never mutating input. */
 export function buildClaudeProjectConfig(
   config: ClaudeSettings,
-  commands: { entry: string; stop: string },
+  commands: { entry: string },
 ): ClaudeSettings {
   const hooks = { ...(config.hooks ?? {}) };
 
   hooks.SessionStart = appendHook(hooks.SessionStart, commands.entry);
-  hooks.Stop = appendHook(hooks.Stop, commands.stop);
 
   return { ...config, hooks };
 }
@@ -118,8 +115,8 @@ export function createClaudeAdapter(deps: AdapterDeps = {}): HostAdapter {
         freshConfig: (commands) =>
           serializeClaudeSettings(buildClaudeProjectConfig({}, commands)),
       }),
-    testHook: (input: HookTestInput): HookTestResult =>
-      runHookTest(spawn, now, CLAUDE_ID, TEST_HOOK_ARGS, input),
+    testEntryHook: (input: HookTestInput): HookTestResult =>
+      runEntryHookTest(spawn, now, CLAUDE_ID, TEST_HOOK_ARGS, input),
     renderNodeBrief: (input: NodeBriefInput): RenderedNodeBrief =>
       renderNodeBrief(input),
     observe: (run: HostRun): RuntimeObservation => observeRun(run, now),

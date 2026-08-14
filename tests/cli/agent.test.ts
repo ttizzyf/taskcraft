@@ -1,7 +1,7 @@
 // tc agent: capabilities probes both local hosts (read-only, never crashes)
-// and reports explicit limitation reasons; test-hook rejects an unknown
+// and reports explicit limitation reasons; test-entry-hook rejects an unknown
 // agent before any probe and fails explicitly on a non-initialized project.
-// The runAgentTestHook chain scenarios live in agent-hook-test.test.ts; the
+// The runAgentTestEntryHook scenarios live in agent-hook-test.test.ts; the
 // CLI here never executes a real host binary.
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -37,7 +37,7 @@ describe("resolveAgentAdapter", () => {
         ERROR_CODES.TC_ADAPTER_UNSUPPORTED,
       );
       expect((error as TaskcraftError).remediation).toContain(
-        "tc agent test-hook --agent codex|claude",
+        "tc agent test-entry-hook --agent codex|claude",
       );
     }
   });
@@ -80,7 +80,6 @@ describe("renderCapabilities", () => {
     version: "1.2.3",
     items: [
       { name: "session-start", available: true },
-      { name: "stop", available: false, limitation: "probe failed" },
       {
         name: "structured-output",
         available: true,
@@ -94,10 +93,9 @@ describe("renderCapabilities", () => {
 
     expect(text).toContain("codex 1.2.3");
     expect(text).toContain("session-start: available");
-    expect(text).toContain("stop: unavailable: probe failed");
     expect(text).toContain("structured-output: limited: limited note");
     expect(text).toContain(
-      "hook test: never recorded (run: tc agent test-hook --agent codex)",
+      "entry hook test: never recorded (run: tc agent test-entry-hook --agent codex)",
     );
   });
 
@@ -105,30 +103,28 @@ describe("renderCapabilities", () => {
     const text = renderCapabilities([
       {
         ...capabilities,
-        hookTest: {
+        entryHookTest: {
           testedAt: "2026-08-13T00:00:00.000Z",
           version: "2.1.220",
           ok: true,
-          enforced: true,
         },
       },
       {
         ...capabilities,
-        hookTest: {
+        entryHookTest: {
           testedAt: "2026-08-13T00:00:00.000Z",
           version: null,
           ok: false,
-          enforced: false,
-          failure: "stop block missing",
+          failure: "breadcrumb missing",
         },
       },
     ]);
 
     expect(text).toContain(
-      "hook test: tested 2026-08-13T00:00:00.000Z, version 2.1.220, enforced, ok",
+      "entry hook test: tested 2026-08-13T00:00:00.000Z, version 2.1.220, ok",
     );
-    expect(text).toContain("failed: stop block missing");
-    expect(text).toContain("not enforced");
+    expect(text).toContain("failed: breadcrumb missing");
+    expect(text).not.toContain("enforced");
   });
 });
 
@@ -162,7 +158,7 @@ describe("tc agent (CLI smoke)", () => {
     });
   });
 
-  it("capabilities reads the latest hook test row from config.hookTests", () => {
+  it("capabilities reads the latest Entry Hook test row from config.entryHookTests", () => {
     withTemporaryDirectory((cwd) => {
       mkdirSync(join(cwd, ".taskcraft"), { recursive: true });
       writeFileSync(
@@ -170,12 +166,11 @@ describe("tc agent (CLI smoke)", () => {
         `${JSON.stringify(
           {
             takeOver: "ask",
-            hookTests: {
+            entryHookTests: {
               claude: {
                 testedAt: "2026-08-13T00:00:00.000Z",
                 version: "2.1.220",
                 ok: true,
-                enforced: true,
               },
             },
           },
@@ -188,7 +183,7 @@ describe("tc agent (CLI smoke)", () => {
       const text = runCli(["agent", "capabilities"], cwd);
       expect(text.status).toBe(0);
       expect(text.stdout).toContain(
-        "hook test: tested 2026-08-13T00:00:00.000Z, version 2.1.220, enforced, ok",
+        "entry hook test: tested 2026-08-13T00:00:00.000Z, version 2.1.220, ok",
       );
 
       const json = parseJson<{
@@ -196,40 +191,55 @@ describe("tc agent (CLI smoke)", () => {
         data: {
           hosts: Array<{
             host: string;
-            hookTest?: { testedAt: string; ok: boolean };
+            entryHookTest?: { testedAt: string; ok: boolean };
           }>;
         };
       }>(runCli(["agent", "capabilities", "--json"], cwd));
       const claude = json.data.hosts.find((host) => host.host === "claude");
       const codex = json.data.hosts.find((host) => host.host === "codex");
 
-      expect(claude?.hookTest).toMatchObject({
+      expect(claude?.entryHookTest).toMatchObject({
         testedAt: "2026-08-13T00:00:00.000Z",
         ok: true,
       });
-      expect(codex?.hookTest).toBeUndefined();
+      expect(codex?.entryHookTest).toBeUndefined();
     });
   });
 
-  it("test-hook rejects an unknown agent before any spawn", () => {
+  it("test-entry-hook rejects an unknown agent before any spawn", () => {
     withTemporaryDirectory((cwd) => {
-      const result = runCli(["agent", "test-hook", "--agent", "gemini"], cwd);
+      const result = runCli(
+        ["agent", "test-entry-hook", "--agent", "gemini"],
+        cwd,
+      );
 
       expect(result.status).toBe(1);
       expect(result.stderr).toContain("TC_ADAPTER_UNSUPPORTED");
       expect(result.stderr).toContain(
-        "tc agent test-hook --agent codex|claude",
+        "tc agent test-entry-hook --agent codex|claude",
       );
     });
   });
 
-  it("test-hook fails explicitly when the project is not initialized", () => {
+  it("test-entry-hook fails explicitly when the project is not initialized", () => {
     withTemporaryDirectory((cwd) => {
-      const result = runCli(["agent", "test-hook", "--agent", "claude"], cwd);
+      const result = runCli(
+        ["agent", "test-entry-hook", "--agent", "claude"],
+        cwd,
+      );
 
       expect(result.status).toBe(1);
       expect(result.stderr).toContain("TC_ADAPTER_HOOK_TEST_FAILED");
       expect(result.stderr).toContain("config.json");
+    });
+  });
+
+  it("does not expose the removed test-hook compatibility command", () => {
+    withTemporaryDirectory((cwd) => {
+      const result = runCli(["agent", "test-hook", "--agent", "claude"], cwd);
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("unknown command 'test-hook'");
     });
   });
 });

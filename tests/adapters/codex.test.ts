@@ -61,9 +61,6 @@ describe("codex adapter", () => {
       capabilities.items.find((item) => item.name === "session-start"),
     ).toMatchObject({ available: true });
     expect(
-      capabilities.items.find((item) => item.name === "stop"),
-    ).toMatchObject({ available: true });
-    expect(
       capabilities.items.find((item) => item.name === "structured-output"),
     ).toMatchObject({
       available: true,
@@ -95,7 +92,7 @@ describe("codex adapter", () => {
     ).toMatchObject({ available: false });
   });
 
-  it("testHook spawns codex exec with the minimal prompt and the installed scripts", () => {
+  it("testEntryHook spawns codex exec with the minimal prompt", () => {
     fake.reset();
     const projectDir = createTemporaryDirectory();
     const entryScript = join(
@@ -104,23 +101,12 @@ describe("codex adapter", () => {
       "hooks",
       "entry.sh",
     );
-    const stopScript = join(projectDir.path, ".taskcraft", "hooks", "stop.sh");
     fake.setProbeScript("codex", ["features", "list"], {
       stdout: "hooks stable true\n",
     });
     fake.setSpawnScript("codex", {
       stdout: `${BREADCRUMB_LINE}\nagent: TC_FIRST\n`,
     });
-    fake.setSpawnScript(
-      "bash",
-      { stdout: `${BREADCRUMB_LINE}\n`, exitCode: 2 },
-      { args: [stopScript] },
-    );
-    fake.setSpawnScript(
-      "bash",
-      { stdout: "", exitCode: 0 },
-      { args: [stopScript], input: '{"stop_hook_active":true}' },
-    );
 
     const userConfigPath = join(projectDir.path, "codex-user-config.toml");
     writeFileSync(
@@ -131,14 +117,13 @@ describe("codex adapter", () => {
 
     try {
       const adapter = createCodexAdapter({ ...fake.deps(), userConfigPath });
-      const result = adapter.testHook({
+      const result = adapter.testEntryHook({
         projectDir: projectDir.path,
         entryScript,
-        stopScript,
       });
 
       expect(result.ok).toBe(true);
-      expect(result.enforced).toBe(true);
+      expect(result.entryInjected).toBe(true);
       const call = fake.calls.find(
         (entry) => entry.kind === "spawn" && entry.command === "codex",
       );
@@ -154,7 +139,7 @@ describe("codex adapter", () => {
     }
   });
 
-  it("installEntry registers hooks in .codex/config.toml", () => {
+  it("installEntry registers only SessionStart in .codex/config.toml", () => {
     const projectDir = createTemporaryDirectory();
 
     try {
@@ -170,7 +155,8 @@ describe("codex adapter", () => {
         "utf8",
       );
       expect(config).toContain("hooks.SessionStart");
-      expect(config).toContain("hooks.Stop");
+      expect(config).not.toContain("hooks.Stop");
+      expect(config).not.toContain("stop.sh");
       expect(config).toContain("entry.sh");
     } finally {
       projectDir.cleanup();
@@ -178,7 +164,7 @@ describe("codex adapter", () => {
   });
 
   it("buildCodexProjectConfig merges without duplicating or mutating", () => {
-    const commands = { entry: "bash /p/entry.sh", stop: "bash /p/stop.sh" };
+    const commands = { entry: "bash /p/entry.sh" };
     const existing: CodexProjectConfig = {
       hooks: {
         SessionStart: [{ command: "bash /p/entry.sh" }],
@@ -190,11 +176,10 @@ describe("codex adapter", () => {
     expect(merged.hooks?.SessionStart).toEqual([
       { command: "bash /p/entry.sh" },
     ]);
-    expect(merged.hooks?.Stop).toEqual([{ command: "bash /p/stop.sh" }]);
     expect(existing.hooks?.SessionStart).toHaveLength(1);
-    expect(existing.hooks?.Stop).toBeUndefined();
     expect(serializeCodexProjectConfig(merged)).toContain(
       'hooks.SessionStart = [{ command = "bash /p/entry.sh" }]',
     );
+    expect(serializeCodexProjectConfig(merged)).not.toContain("Stop");
   });
 });

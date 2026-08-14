@@ -17,7 +17,7 @@ import {
   installEntryFiles,
   probeCapabilities,
   resolveTcPath,
-  runHookTest,
+  runEntryHookTest,
 } from "./shared.js";
 import type {
   AdapterDeps,
@@ -54,11 +54,10 @@ const TEST_HOOK_PROMPT =
  * version-level guarantee. */
 const CODEX_CAPABILITY_PROBES: readonly CapabilityProbe[] = [
   { name: "session-start", keywords: ["hooks"] },
-  { name: "stop", keywords: ["hooks"] },
   {
     name: "structured-output",
     keywords: ["output schema", "output-schema"],
-    note: "limited: upstream /responses 502 risk (host-feasibility 2026-08-10); verify with test-hook",
+    note: "limited: upstream /responses 502 risk (host-feasibility 2026-08-10); verify separately",
   },
   { name: "run-correlation", keywords: ["resume", "thread"] },
 ];
@@ -66,7 +65,6 @@ const CODEX_CAPABILITY_PROBES: readonly CapabilityProbe[] = [
 export interface CodexProjectConfig {
   hooks?: {
     SessionStart?: Array<{ command: string }>;
-    Stop?: Array<{ command: string }>;
   };
 }
 
@@ -74,12 +72,11 @@ export interface CodexProjectConfig {
  * appended, never duplicating existing commands and never mutating input. */
 export function buildCodexProjectConfig(
   config: CodexProjectConfig,
-  commands: { entry: string; stop: string },
+  commands: { entry: string },
 ): CodexProjectConfig {
   const hooks = { ...(config.hooks ?? {}) };
 
   hooks.SessionStart = appendCommand(hooks.SessionStart, commands.entry);
-  hooks.Stop = appendCommand(hooks.Stop, commands.stop);
 
   return { ...config, hooks };
 }
@@ -91,14 +88,9 @@ export function serializeCodexProjectConfig(
     "# Taskcraft hook registration (managed by tc init --agent codex)",
   ];
   const entry = config.hooks?.SessionStart ?? [];
-  const stop = config.hooks?.Stop ?? [];
 
   if (entry.length > 0) {
     lines.push(`hooks.SessionStart = [${tomlHooks(entry)}]`);
-  }
-
-  if (stop.length > 0) {
-    lines.push(`hooks.Stop = [${tomlHooks(stop)}]`);
   }
 
   return `${lines.join("\n")}\n`;
@@ -130,12 +122,11 @@ export function createCodexAdapter(deps: AdapterDeps = {}): HostAdapter {
     installEntry: (input: InstallInput): InstallResult =>
       installEntryFiles(input, resolveTcPath(), {
         configPath: ".codex/config.toml",
-        stopProtocol: "codex",
         freshConfig: (commands) =>
           serializeCodexProjectConfig(buildCodexProjectConfig({}, commands)),
       }),
-    testHook: (input: HookTestInput): HookTestResult =>
-      runHookTest(spawn, now, CODEX_ID, TEST_HOOK_ARGS, {
+    testEntryHook: (input: HookTestInput): HookTestResult =>
+      runEntryHookTest(spawn, now, CODEX_ID, TEST_HOOK_ARGS, {
         ...input,
         prompt: input.prompt ?? TEST_HOOK_PROMPT,
         gate: () => codexHookGate(probe, input.projectDir, userConfigPath),

@@ -1,4 +1,4 @@
-// Shared IO for the entry/stop hook gates: reading .taskcraft/config.json,
+// Shared IO for the Entry Hook gate: reading .taskcraft/config.json,
 // probing the Task Store and finding the single active task projection.
 // Hooks never spawn the tc CLI itself (no recursion) and never run
 // migrations: the store is only probed read-only.
@@ -19,31 +19,28 @@ export const TASKCRAFT_DATABASE_FILE = "taskcraft.db";
 
 export type TakeOverMode = "off" | "ask" | "always";
 
-/** Persisted per-agent hook field-test outcome (parent design "Hook 结果
- * 持久化 (C/D 合同)"): config.hookTests[agent] = { testedAt, version, ok,
- * enforced, failure? }, written by test-hook, read by the CLI capabilities
- * command and the Watch runtime/diagnostics APIs (one shared source). */
-export interface HookTestRecord {
+/** Persisted per-agent Entry Hook field-test outcome. The CLI capabilities
+ * command and Watch runtime/diagnostics APIs read this one shared source. */
+export interface EntryHookTestRecord {
   testedAt: string;
   version: string | null;
   ok: boolean;
-  enforced: boolean;
   failure?: string;
 }
 
 export interface TaskcraftConfig {
   takeOver?: TakeOverMode;
   agents?: string[];
-  hookTests?: Record<string, HookTestRecord>;
+  entryHookTests?: Record<string, EntryHookTestRecord>;
   [key: string]: unknown;
 }
 
-/** Reads the persisted hook field-test records from .taskcraft/config.json.
- * A missing, malformed or hookTests-less config yields an empty map (the
+/** Reads persisted Entry Hook test records from .taskcraft/config.json.
+ * A missing, malformed or entryHookTests-less config yields an empty map (the
  * callers render "not tested"); never throws. */
-export function readHookTests(
+export function readEntryHookTests(
   configPath: string,
-): Record<string, HookTestRecord> {
+): Record<string, EntryHookTestRecord> {
   let config: TaskcraftConfig;
 
   try {
@@ -52,17 +49,17 @@ export function readHookTests(
     return {};
   }
 
-  const hookTests = config.hookTests;
+  const entryHookTests = config.entryHookTests;
 
   if (
-    typeof hookTests !== "object" ||
-    hookTests === null ||
-    Array.isArray(hookTests)
+    typeof entryHookTests !== "object" ||
+    entryHookTests === null ||
+    Array.isArray(entryHookTests)
   ) {
     return {};
   }
 
-  return hookTests;
+  return entryHookTests;
 }
 
 export function isTakeOverMode(value: unknown): value is TakeOverMode {

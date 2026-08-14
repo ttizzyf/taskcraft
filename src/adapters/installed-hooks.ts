@@ -1,8 +1,8 @@
-// Installed-hook verification for `tc agent test-hook`: pre-flight checks
-// (hook scripts exist and reference valid dist/hooks gate artifacts; the
-// project-level host config actually registers both hooks), the codex
-// feature/trust gate and the config.hookTests persistence write. Every check
-// is read-only except persistHookTest (atomic tmp+rename on the project
+// Installed-hook verification for `tc agent test-entry-hook`: pre-flight
+// checks (entry.sh exists and references a valid CLI artifact; the project
+// host config registers SessionStart), the Codex feature/trust gate and the
+// config.entryHookTests persistence write. Every check
+// is read-only except persistEntryHookTest (atomic tmp+rename on the project
 // config). Failures are explicit TC_ADAPTER_HOOK_TEST_FAILED errors: the
 // command never substitutes an advisory success for a failed check.
 
@@ -17,7 +17,7 @@ import { dirname, join } from "node:path";
 
 import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
 import { readTaskcraftConfig } from "../hooks/shared.js";
-import type { HookTestRecord } from "../hooks/shared.js";
+import type { EntryHookTestRecord } from "../hooks/shared.js";
 import { safeProbe } from "./shared.js";
 import type { ProbeFn } from "./types.js";
 
@@ -25,10 +25,9 @@ export type TestAgent = "codex" | "claude";
 
 export interface InstalledHookScripts {
   entryScript: string;
-  stopScript: string;
 }
 
-/** Verifies both installed wrappers exist and reference an existing gate
+/** Verifies the installed Entry wrapper exists and references an existing gate
  * artifact under dist/hooks/ (the host silently ignores a missing script, so
  * a broken reference must fail before any host call). */
 export function checkInstalledScripts(
@@ -36,15 +35,13 @@ export function checkInstalledScripts(
 ): InstalledHookScripts {
   const hooksDir = join(projectDir, ".taskcraft", "hooks");
   const entryScript = join(hooksDir, "entry.sh");
-  const stopScript = join(hooksDir, "stop.sh");
 
-  checkScript(entryScript, "entry");
-  checkScript(stopScript, "stop");
+  checkScript(entryScript);
 
-  return { entryScript, stopScript };
+  return { entryScript };
 }
 
-function checkScript(scriptPath: string, kind: "entry" | "stop"): void {
+function checkScript(scriptPath: string): void {
   if (!existsSync(scriptPath)) {
     throw hookTestError(
       `Installed hook script is missing: ${scriptPath}`,
@@ -57,7 +54,7 @@ function checkScript(scriptPath: string, kind: "entry" | "stop"): void {
 
   if (gatePath === null) {
     throw hookTestError(
-      `${kind}.sh does not reference a gate script: ${scriptPath}`,
+      `entry.sh does not reference a gate script: ${scriptPath}`,
       "Re-install the hooks: tc init --agent codex|claude",
       { script: scriptPath },
     );
@@ -65,8 +62,8 @@ function checkScript(scriptPath: string, kind: "entry" | "stop"): void {
 
   if (!existsSync(gatePath)) {
     throw hookTestError(
-      `${kind}.sh references a missing gate artifact: ${gatePath}`,
-      "Build the CLI first: pnpm build, then re-run: tc agent test-hook",
+      `entry.sh references a missing gate artifact: ${gatePath}`,
+      "Build the CLI first: pnpm build, then re-run: tc agent test-entry-hook",
       { script: scriptPath, gate: gatePath },
     );
   }
@@ -87,7 +84,7 @@ function referencedGatePath(scriptPath: string): string | null {
   return match === null ? null : (match[1] ?? null);
 }
 
-/** Verifies the project-level host config registers the installed entry/stop
+/** Verifies the project-level host config registers the installed Entry
  * wrappers; an unregistered project fails explicitly (the host would silently
  * skip the hooks, so a test without registration proves nothing). */
 export function checkProjectRegistration(
@@ -109,12 +106,10 @@ export function checkProjectRegistration(
 
     if (
       !text.includes("hooks.SessionStart") ||
-      !text.includes("entry.sh") ||
-      !text.includes("hooks.Stop") ||
-      !text.includes("stop.sh")
+      !referencesManagedEntry(text, projectDir)
     ) {
       throw hookTestError(
-        `Hooks are not registered in ${configFile}: missing SessionStart/Stop entries pointing at entry.sh/stop.sh`,
+        `Entry Hook is not registered in ${configFile}: missing a SessionStart entry pointing at entry.sh`,
         "Register the hooks: tc init --agent codex (or merge the registrations manually)",
         { configFile },
       );
@@ -135,12 +130,9 @@ export function checkProjectRegistration(
 
   const settings = readJson(settingsFile, "claude project settings");
 
-  if (
-    !commandsContain(hookEntries(settings, "SessionStart"), "entry.sh") ||
-    !commandsContain(hookEntries(settings, "Stop"), "stop.sh")
-  ) {
+  if (!commandsContain(hookEntries(settings, "SessionStart"), projectDir)) {
     throw hookTestError(
-      `Hooks are not registered in ${settingsFile}: missing SessionStart/Stop entries pointing at entry.sh/stop.sh`,
+      `Entry Hook is not registered in ${settingsFile}: missing a SessionStart entry pointing at entry.sh`,
       "Register the hooks: tc init --agent claude (or merge the registrations manually)",
       { settingsFile },
     );
@@ -162,7 +154,7 @@ function hookEntries(
     : [];
 }
 
-function commandsContain(entries: unknown, needle: string): boolean {
+function commandsContain(entries: unknown, projectDir: string): boolean {
   if (!Array.isArray(entries)) {
     return false;
   }
@@ -185,9 +177,24 @@ function commandsContain(entries: unknown, needle: string): boolean {
 
       const command = (hook as Record<string, unknown>).command;
 
-      return typeof command === "string" && command.includes(needle);
+      return (
+        typeof command === "string" &&
+        referencesManagedEntry(command, projectDir)
+      );
     });
   });
+}
+
+function referencesManagedEntry(text: string, projectDir: string): boolean {
+  const absolutePath = join(projectDir, ".taskcraft", "hooks", "entry.sh");
+
+  if (text.includes(absolutePath)) {
+    return true;
+  }
+
+  return /(?:^|[\s"'=])(?:\.\/)?\.taskcraft\/hooks\/entry\.sh(?=$|[\s"',}\]])/m.test(
+    text,
+  );
 }
 
 /** Codex hooks feature/trust gate: the `codex features list` probe must
@@ -264,27 +271,27 @@ function isProjectTrusted(userConfigPath: string, projectDir: string): boolean {
   });
 }
 
-/** Writes the hook test record into .taskcraft/config.json with an atomic
+/** Writes the Entry Hook test record into .taskcraft/config.json with an atomic
  * tmp+rename; every other config field survives untouched. */
-export function persistHookTest(
+export function persistEntryHookTest(
   configPath: string,
   agent: string,
-  record: HookTestRecord,
+  record: EntryHookTestRecord,
 ): void {
   try {
     const existing = readTaskcraftConfig(configPath);
-    const hookTests = {
-      ...(existing.hookTests as Record<string, unknown> | undefined),
+    const entryHookTests = {
+      ...(existing.entryHookTests as Record<string, unknown> | undefined),
     };
 
-    hookTests[agent] = record;
-    atomicWriteJson(configPath, { ...existing, hookTests });
+    entryHookTests[agent] = record;
+    atomicWriteJson(configPath, { ...existing, entryHookTests });
   } catch (cause) {
     throw new TaskcraftError(ERROR_CODES.TC_ADAPTER_HOOK_TEST_FAILED, {
-      problem: `Could not persist the hook test result: ${describeCause(cause)}`,
-      impact: "The hook test ran but its result was not recorded",
+      problem: `Could not persist the Entry Hook test result: ${describeCause(cause)}`,
+      impact: "The Entry Hook test ran but its result was not recorded",
       remediation:
-        "Check the .taskcraft/ directory permissions, then re-run: tc agent test-hook",
+        "Check the .taskcraft/ directory permissions, then re-run: tc agent test-entry-hook",
       context: { configPath, agent },
       cause,
     });
@@ -339,7 +346,7 @@ function hookTestError(
 ): TaskcraftError {
   return new TaskcraftError(ERROR_CODES.TC_ADAPTER_HOOK_TEST_FAILED, {
     problem,
-    impact: "The installed hook chain is not ready for a field test",
+    impact: "The installed Entry Hook chain is not ready for a field test",
     remediation,
     context,
     ...(cause === undefined ? {} : { cause }),

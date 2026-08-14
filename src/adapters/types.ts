@@ -1,5 +1,5 @@
 // HostAdapter contract (architecture.md §9 + parent design "HostAdapter
-// Contract"). Capabilities/installEntry/testHook never crash a command:
+// Contract"). Capabilities/installEntry/testEntryHook never crash a command:
 // failures are reported through explicit result fields, not exceptions.
 
 import type { NodeBriefInput, RenderedNodeBrief } from "../core/node-brief.js";
@@ -10,7 +10,7 @@ export type {
 } from "../core/node-brief.js";
 
 export type CapabilityName =
-  "session-start" | "stop" | "structured-output" | "run-correlation";
+  "session-start" | "structured-output" | "run-correlation";
 
 export interface AdapterCapabilityItem {
   name: CapabilityName;
@@ -25,7 +25,7 @@ export interface AdapterCapabilities {
   /** null when the version probe failed. */
   version: string | null;
   items: AdapterCapabilityItem[];
-  /** Last test-hook timestamp, set by hook-wiring; absent before the first
+  /** Last Entry Hook test timestamp, set by hook-wiring; absent before the first
    * field test. */
   testedAt?: string;
 }
@@ -40,8 +40,7 @@ export interface ProbeOutcome {
 export interface SpawnOptions {
   cwd: string;
   timeoutMs: number;
-  /** stdin payload for the spawned process (e.g. the stop hook re-entry
-   * payload the hosts feed back as `stop_hook_active=true`). */
+  /** Optional stdin payload for the spawned process. */
   input?: string;
 }
 
@@ -75,7 +74,7 @@ export interface AdapterDeps {
   probe?: ProbeFn;
   spawn?: SpawnFn;
   now?: () => string;
-  /** Codex user config path read by the test-hook trust gate; tests inject a
+  /** Codex user config path read by the Entry Hook trust gate; tests inject a
    * temporary file instead of touching ~/.codex/config.toml (read-only). */
   userConfigPath?: string;
 }
@@ -93,11 +92,9 @@ export interface InstallResult {
 
 export interface HookTestInput {
   projectDir: string;
-  /** Installed entry wrapper (.taskcraft/hooks/entry.sh). test-hook never
+  /** Installed entry wrapper (.taskcraft/hooks/entry.sh). The field test never
    * reinstalls a temporary copy: the installed scripts are exercised. */
   entryScript: string;
-  /** Installed stop wrapper (.taskcraft/hooks/stop.sh). */
-  stopScript: string;
   timeoutMs?: number;
   prompt?: string;
   /** Host-specific pre-flight gate (codex feature/trust); null when
@@ -108,10 +105,6 @@ export interface HookTestInput {
 export interface HookTestResult {
   ok: boolean;
   entryInjected: boolean;
-  stopBlocked: boolean;
-  loopGuardOk: boolean;
-  /** enforced = entry injection + stop block + loop guard all passed. */
-  enforced: boolean;
   testedAt: string;
   failure?: string;
   sample?: string;
@@ -143,7 +136,7 @@ export interface HostAdapter {
   id: "codex" | "claude";
   capabilities(): AdapterCapabilities;
   installEntry(input: InstallInput): InstallResult;
-  testHook(input: HookTestInput): HookTestResult;
+  testEntryHook(input: HookTestInput): HookTestResult;
   renderNodeBrief(input: NodeBriefInput): RenderedNodeBrief;
   observe?(run: HostRun): RuntimeObservation;
 }

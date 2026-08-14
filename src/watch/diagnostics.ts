@@ -130,7 +130,7 @@ function collectConfigItems(configFile: string, items: DiagnosticItem[]): void {
     items.push({
       code: ERROR_CODES.TC_ADAPTER_HOOK_INSTALL_FAILED,
       problem: `The takeover config is unreadable: ${describe(cause)}`,
-      impact: "Entry/Stop hook behavior cannot be verified from the config",
+      impact: "Entry Hook behavior cannot be verified from the config",
       remediation:
         "Fix .taskcraft/config.json or re-run: tc enable off|ask|always",
       source: "adapter",

@@ -17,8 +17,6 @@ import { describe, expect, it } from "vitest";
 
 import { runCli, withTemporaryDirectory } from "./helpers.js";
 
-const HOOK_SCRIPTS = ["entry", "stop"] as const;
-
 function configPath(cwd: string): string {
   return join(cwd, ".taskcraft", "config.json");
 }
@@ -76,20 +74,16 @@ describe("tc enable", () => {
       expect(config.takeOver).toBe("off");
 
       // REQ-03: `enable off` must mean zero hook output — run the compiled
-      // gate entry points against this config and expect empty stdout.
-      for (const script of HOOK_SCRIPTS) {
-        const hook = spawnSync(
-          process.execPath,
-          [
-            join(process.cwd(), "dist", "hooks", `${script}.js`),
-            configPath(cwd),
-          ],
-          { encoding: "utf8" },
-        );
+      // gate entry point against this config and expect empty stdout.
+      const hook = spawnSync(
+        process.execPath,
+        [join(process.cwd(), "dist", "hooks", "entry.js"), configPath(cwd)],
+        { encoding: "utf8" },
+      );
 
-        expect(hook.stdout).toBe("");
-        expect(hook.status).toBe(0);
-      }
+      expect(hook.stdout).toBe("");
+      expect(hook.status).toBe(0);
+      expect(off.stdout).not.toContain("Stop hook");
     });
   });
 

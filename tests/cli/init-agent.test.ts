@@ -1,4 +1,4 @@
-// tc init --agent codex|claude: hook scripts land in .taskcraft/hooks/ and the
+// tc init --agent codex|claude: entry.sh lands in .taskcraft/hooks/ and the
 // project-level host config (write-if-absent, idempotent, never overwriting
 // user content); unknown agents fail with TC_ADAPTER_UNSUPPORTED; every real
 // write stays inside the project directory (global host config untouched).
@@ -44,7 +44,7 @@ vi.mock("node:fs", async (importOriginal) => {
 });
 
 describe("tc init --agent (CLI)", () => {
-  it("installs codex hooks and registers them in .codex/config.toml", () => {
+  it("installs the Codex Entry Hook and registers SessionStart", () => {
     withTemporaryDirectory((cwd) => {
       const result = runCli(["init", "--agent", "codex"], cwd);
 
@@ -56,26 +56,21 @@ describe("tc init --agent (CLI)", () => {
         join(cwd, ".taskcraft", "hooks", "entry.sh"),
         "utf8",
       );
-      const stop = readFileSync(
-        join(cwd, ".taskcraft", "hooks", "stop.sh"),
-        "utf8",
-      );
-      // The entry wrapper delegates to the public CLI (state --breadcrumb);
-      // the stop wrapper keeps the compiled gate under dist/hooks/ — a lost
-      // level in resolveTcPath would break the entry delegation the same way.
+      // The Entry wrapper delegates to the public CLI (state --breadcrumb).
       expect(entry).toContain("dist/cli.js");
       expect(entry).toContain("state --breadcrumb");
-      expect(stop).toContain("dist/hooks/stop.js");
-      expect(stop).toContain("config.json");
+      expect(existsSync(join(cwd, ".taskcraft", "hooks", "stop.sh"))).toBe(
+        false,
+      );
 
       const config = readFileSync(join(cwd, ".codex", "config.toml"), "utf8");
       expect(config).toContain("hooks.SessionStart");
-      expect(config).toContain("hooks.Stop");
+      expect(config).not.toContain("hooks.Stop");
       expect(config).toContain("entry.sh");
     });
   });
 
-  it("installs claude hooks and registers them in .claude/settings.json", () => {
+  it("installs the Claude Entry Hook and registers SessionStart", () => {
     withTemporaryDirectory((cwd) => {
       const result = runCli(["init", "--agent", "claude"], cwd);
 
@@ -84,9 +79,9 @@ describe("tc init --agent (CLI)", () => {
 
       const settings = JSON.parse(
         readFileSync(join(cwd, ".claude", "settings.json"), "utf8"),
-      ) as { hooks: { SessionStart: unknown[]; Stop: unknown[] } };
+      ) as { hooks: { SessionStart: unknown[]; Stop?: unknown[] } };
       expect(settings.hooks.SessionStart).toHaveLength(1);
-      expect(settings.hooks.Stop).toHaveLength(1);
+      expect(settings.hooks.Stop).toBeUndefined();
     });
   });
 
@@ -139,7 +134,7 @@ describe("installAgentHooks write confinement", () => {
         const installed = installAgentHooks(agent, projectDir.path);
 
         expect(installed.agent).toBe(agent);
-        expect(installed.hookPaths).toHaveLength(2);
+        expect(installed.hookPaths).toHaveLength(1);
         expect(fsWriteLog.paths.length).toBeGreaterThan(0);
         expect(
           fsWriteLog.paths.every((path) => path.startsWith(projectDir.path)),

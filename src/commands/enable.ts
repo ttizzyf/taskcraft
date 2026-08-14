@@ -9,7 +9,6 @@ import type { Command } from "commander";
 
 import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
 import { runEntryGate } from "../hooks/entry.js";
-import { runStopGate } from "../hooks/stop.js";
 import { CONFIG_FILE_NAME, readTaskcraftConfig } from "../hooks/shared.js";
 import type { TakeOverMode, TaskcraftConfig } from "../hooks/shared.js";
 import { isTakeOverMode } from "../hooks/shared.js";
@@ -24,7 +23,6 @@ export interface EnableData {
   takeOver: TakeOverMode;
   configPath: string;
   entryOutput: string | null;
-  stopOutput: string | null;
 }
 
 /** Parses the mode argument; anything else fails with a stable error and a
@@ -45,7 +43,7 @@ export function parseMode(value: string): TakeOverMode {
 /** Reads .taskcraft/config.json, switches takeOver and writes it back with an
  * atomic tmp+rename. A missing config starts from an empty object; unknown
  * fields survive untouched. After writing, off re-verifies that both gates
- * stay silent (REQ-03: `enable off` must mean zero hook output). */
+ * stays silent (`enable off` must mean zero hook output). */
 export function applyTakeOver(
   configPath: string,
   takeOver: TakeOverMode,
@@ -55,22 +53,21 @@ export function applyTakeOver(
 
   if (takeOver === "off") {
     const entry = runEntryGate(configPath);
-    const stop = runStopGate(configPath);
 
-    if (entry.output !== null || stop.output !== null) {
+    if (entry.output !== null) {
       throw new TaskcraftError(ERROR_CODES.TC_ADAPTER_HOOK_TEST_FAILED, {
         problem: "off mode must produce zero hook output",
-        impact: "Hooks could still inject or block while takeover is off",
+        impact: "The Entry Hook could still inject while takeover is off",
         remediation:
           "Inspect the config with: cat .taskcraft/config.json, then re-run: tc enable off",
         context: { configPath },
       });
     }
 
-    return { takeOver, configPath, entryOutput: null, stopOutput: null };
+    return { takeOver, configPath, entryOutput: null };
   }
 
-  return { takeOver, configPath, entryOutput: null, stopOutput: null };
+  return { takeOver, configPath, entryOutput: null };
 }
 
 function readExistingConfig(configPath: string): TaskcraftConfig {
@@ -139,7 +136,6 @@ export function register(program: Command): void {
             ? "silent (zero output)"
             : `active (${data.takeOver})`;
         console.log(`Entry hook: ${hookStatus}`);
-        console.log(`Stop hook: ${hookStatus}`);
       }, json);
     });
 }

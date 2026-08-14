@@ -27,7 +27,6 @@ import { createTemporaryDirectory } from "../helpers/temp-directory.js";
 
 export const CAPABILITY_NAMES: readonly CapabilityName[] = [
   "session-start",
-  "stop",
   "structured-output",
   "run-correlation",
 ];
@@ -110,14 +109,10 @@ export function runConformance(
         });
 
         expect(first.ok).toBe(true);
-        expect(first.hookPaths).toHaveLength(2);
+        expect(first.hookPaths).toHaveLength(1);
         expect(first.hookPaths[0]).toBe(
           join(projectDir.path, ".taskcraft", "hooks", "entry.sh"),
         );
-        expect(first.hookPaths[1]).toBe(
-          join(projectDir.path, ".taskcraft", "hooks", "stop.sh"),
-        );
-
         const entryContent = readFileSync(first.hookPaths[0]!, "utf8");
         // The entry wrapper delegates to the public CLI next to the adapter
         // module (resolveTcPath: dist/cli.js from the built layout, src/cli.js
@@ -168,7 +163,7 @@ export function runConformance(
     });
   });
 
-  describe(`conformance: ${id} testHook`, () => {
+  describe(`conformance: ${id} testEntryHook`, () => {
     const projectDir = createTemporaryDirectory();
     const entryScript = join(
       projectDir.path,
@@ -176,8 +171,7 @@ export function runConformance(
       "hooks",
       "entry.sh",
     );
-    const stopScript = join(projectDir.path, ".taskcraft", "hooks", "stop.sh");
-    const input = { projectDir: projectDir.path, entryScript, stopScript };
+    const input = { projectDir: projectDir.path, entryScript };
     // The codex trust gate must not depend on the developer's real
     // ~/.codex/config.toml: wire a user config that trusts the project.
     const userConfigPath = join(projectDir.path, "codex-user-config.toml");
@@ -186,15 +180,16 @@ export function runConformance(
       `[projects."${projectDir.path}"]\ntrust_level = "trusted"\n`,
       "utf8",
     );
-    const testHookAdapter = createAdapter({ ...fake.deps(), userConfigPath });
+    const testEntryHookAdapter = createAdapter({
+      ...fake.deps(),
+      userConfigPath,
+    });
 
     afterAll(() => {
       projectDir.cleanup();
     });
 
-    /** Scripts the fake environment for a fully passing chain: the codex
-     * features gate probe (codex only) plus the host and stop-wrapper spawn
-     * outcomes. Later setSpawnScript calls override the same command keys. */
+    /** Scripts the fake environment for a passing Entry Hook field test. */
     function scriptPassingChain(): void {
       if (id === "codex") {
         fake.setProbeScript("codex", ["features", "list"], {
@@ -204,29 +199,16 @@ export function runConformance(
       fake.setSpawnScript(id, {
         stdout: `${BREADCRUMB_LINE}\nagent: TC_FIRST\n`,
       });
-      fake.setSpawnScript(
-        "bash",
-        { stdout: `${BREADCRUMB_LINE}\n`, exitCode: 2 },
-        { args: [stopScript] },
-      );
-      fake.setSpawnScript(
-        "bash",
-        { stdout: "", exitCode: 0 },
-        { args: [stopScript], input: '{"stop_hook_active":true}' },
-      );
     }
 
-    it("observes entry injection, stop blocking and the loop guard with the default 60s timeout", () => {
+    it("observes Entry injection with the default 60s timeout", () => {
       fake.reset();
       scriptPassingChain();
 
-      const result = testHookAdapter.testHook(input);
+      const result = testEntryHookAdapter.testEntryHook(input);
 
       expect(result.ok).toBe(true);
       expect(result.entryInjected).toBe(true);
-      expect(result.stopBlocked).toBe(true);
-      expect(result.loopGuardOk).toBe(true);
-      expect(result.enforced).toBe(true);
       expect(result.testedAt).toBe(FIXED_NOW);
       const hostCall = fake.calls.find(
         (call) => call.kind === "spawn" && call.command === id,
@@ -241,10 +223,6 @@ export function runConformance(
       if (id === "codex") {
         expect(hostCall?.args).not.toContain("--dangerously-bypass-hook-trust");
       }
-      const loopCall = fake.calls.find(
-        (call) => call.kind === "spawn" && call.input !== undefined,
-      );
-      expect(loopCall?.input).toBe('{"stop_hook_active":true}');
     });
 
     it("fails explicitly when the host output lacks the breadcrumb", () => {
@@ -252,44 +230,11 @@ export function runConformance(
       scriptPassingChain();
       fake.setSpawnScript(id, { stdout: "agent: TC_FIRST\n" });
 
-      const result = testHookAdapter.testHook(input);
+      const result = testEntryHookAdapter.testEntryHook(input);
 
       expect(result.ok).toBe(false);
       expect(result.entryInjected).toBe(false);
-      expect(result.enforced).toBe(false);
       expect(result.failure).toContain("tc-breadcrumb/v1");
-    });
-
-    it("fails explicitly when the stop hook does not block", () => {
-      fake.reset();
-      scriptPassingChain();
-      fake.setSpawnScript(
-        "bash",
-        { stdout: "", exitCode: 0 },
-        { args: [stopScript] },
-      );
-
-      const result = testHookAdapter.testHook(input);
-
-      expect(result.ok).toBe(false);
-      expect(result.stopBlocked).toBe(false);
-      expect(result.failure).toContain("did not block");
-    });
-
-    it("fails explicitly when the loop guard does not allow the re-entry", () => {
-      fake.reset();
-      scriptPassingChain();
-      fake.setSpawnScript(
-        "bash",
-        { stdout: "", exitCode: 2 },
-        { args: [stopScript], input: '{"stop_hook_active":true}' },
-      );
-
-      const result = testHookAdapter.testHook(input);
-
-      expect(result.ok).toBe(false);
-      expect(result.loopGuardOk).toBe(false);
-      expect(result.failure).toContain("loop guard");
     });
 
     it("fails explicitly on the hard timeout", () => {
@@ -297,7 +242,7 @@ export function runConformance(
       scriptPassingChain();
       fake.setSpawnScript(id, { timedOut: true });
 
-      const result = testHookAdapter.testHook(input);
+      const result = testEntryHookAdapter.testEntryHook(input);
 
       expect(result.ok).toBe(false);
       expect(result.failure).toContain("timed out");
@@ -308,7 +253,7 @@ export function runConformance(
       scriptPassingChain();
       fake.setSpawnScript(id, { exitCode: 1, stderr: "boom" });
 
-      const result = testHookAdapter.testHook(input);
+      const result = testEntryHookAdapter.testEntryHook(input);
 
       expect(result.ok).toBe(false);
       expect(result.failure).toContain("exit");
@@ -326,13 +271,12 @@ export function runConformance(
         });
       }
 
-      const result = testHookAdapter.testHook({
+      const result = testEntryHookAdapter.testEntryHook({
         ...input,
         gate: () => "codex hooks feature gate: not enabled",
       });
 
       expect(result.ok).toBe(false);
-      expect(result.enforced).toBe(false);
       expect(result.failure).toContain("feature gate");
     });
 
@@ -341,7 +285,10 @@ export function runConformance(
       scriptPassingChain();
       fake.setSpawnScript(id, { timedOut: true });
 
-      const result = testHookAdapter.testHook({ ...input, timeoutMs: 5_000 });
+      const result = testEntryHookAdapter.testEntryHook({
+        ...input,
+        timeoutMs: 5_000,
+      });
 
       expect(result.ok).toBe(false);
       expect(result.failure).toContain("5000ms");
@@ -357,10 +304,7 @@ export function runConformance(
       const input: NodeBriefInput = {
         host: id,
         hostVersion: "1.2.3",
-        hostCapabilities: [
-          { name: "session-start", available: true },
-          { name: "stop", available: false, limitation: "probe failed" },
-        ],
+        hostCapabilities: [{ name: "session-start", available: true }],
         brief: {
           taskId: "T-1",
           taskTitle: "Sample",
@@ -386,7 +330,6 @@ export function runConformance(
       expect(rendered.text).toContain('"type":"object"');
       expect(rendered.text).toContain("tc run complete T-1");
       expect(rendered.text).toContain("session-start: available");
-      expect(rendered.text).toContain("stop: unavailable (probe failed)");
     });
   });
 

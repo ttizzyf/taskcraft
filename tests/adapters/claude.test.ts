@@ -61,9 +61,6 @@ describe("claude adapter", () => {
       limitation: expect.stringContaining("UserPromptSubmit"),
     });
     expect(
-      capabilities.items.find((item) => item.name === "stop"),
-    ).toMatchObject({ available: true });
-    expect(
       capabilities.items.find((item) => item.name === "structured-output"),
     ).toMatchObject({ available: true });
     expect(
@@ -89,7 +86,7 @@ describe("claude adapter", () => {
     });
   });
 
-  it("testHook spawns claude -p with the minimal prompt and the installed scripts", () => {
+  it("testEntryHook spawns claude -p with the minimal prompt", () => {
     fake.reset();
     const projectDir = createTemporaryDirectory();
     const entryScript = join(
@@ -98,31 +95,19 @@ describe("claude adapter", () => {
       "hooks",
       "entry.sh",
     );
-    const stopScript = join(projectDir.path, ".taskcraft", "hooks", "stop.sh");
     fake.setSpawnScript("claude", {
       stdout: `${BREADCRUMB_LINE}\nagent: TC_FIRST\n`,
     });
-    fake.setSpawnScript(
-      "bash",
-      { stdout: `${BREADCRUMB_LINE}\n`, exitCode: 2 },
-      { args: [stopScript] },
-    );
-    fake.setSpawnScript(
-      "bash",
-      { stdout: "", exitCode: 0 },
-      { args: [stopScript], input: '{"stop_hook_active":true}' },
-    );
 
     try {
       const adapter = createClaudeAdapter(fake.deps());
-      const result = adapter.testHook({
+      const result = adapter.testEntryHook({
         projectDir: projectDir.path,
         entryScript,
-        stopScript,
       });
 
       expect(result.ok).toBe(true);
-      expect(result.enforced).toBe(true);
+      expect(result.entryInjected).toBe(true);
       const call = fake.calls.find(
         (entry) => entry.kind === "spawn" && entry.command === "claude",
       );
@@ -136,7 +121,7 @@ describe("claude adapter", () => {
     }
   });
 
-  it("installEntry registers hooks in .claude/settings.json", () => {
+  it("installEntry registers only SessionStart in .claude/settings.json", () => {
     const projectDir = createTemporaryDirectory();
 
     try {
@@ -156,14 +141,14 @@ describe("claude adapter", () => {
       expect(settings.hooks.SessionStart?.[0]!.hooks[0]!.command).toContain(
         "entry.sh",
       );
-      expect(settings.hooks.Stop).toHaveLength(1);
+      expect(settings.hooks.Stop).toBeUndefined();
     } finally {
       projectDir.cleanup();
     }
   });
 
   it("buildClaudeProjectConfig merges without duplicating or mutating", () => {
-    const commands = { entry: "bash /p/entry.sh", stop: "bash /p/stop.sh" };
+    const commands = { entry: "bash /p/entry.sh" };
     const existing: ClaudeSettings = {
       hooks: {
         SessionStart: [
@@ -175,11 +160,8 @@ describe("claude adapter", () => {
     const merged = buildClaudeProjectConfig(existing, commands);
 
     expect(merged.hooks?.SessionStart).toHaveLength(1);
-    expect(merged.hooks?.Stop).toEqual([
-      { hooks: [{ type: "command", command: "bash /p/stop.sh" }] },
-    ]);
     expect(existing.hooks?.SessionStart).toHaveLength(1);
-    expect(existing.hooks?.Stop).toBeUndefined();
-    expect(serializeClaudeSettings(merged)).toContain('"bash /p/stop.sh"');
+    expect(serializeClaudeSettings(merged)).not.toContain("Stop");
+    expect(serializeClaudeSettings(merged)).not.toContain("stop.sh");
   });
 });

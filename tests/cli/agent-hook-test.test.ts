@@ -1,8 +1,8 @@
-// runAgentTestHook scenarios: the installed-hooks field test exercises a real
+// runAgentTestEntryHook scenarios: the installed Entry Hook field test exercises a real
 // project setup (installed scripts, host registration, takeover enabled) with
 // fake host spawn outcomes for the pre-flight failures (scripts/gate artifact/
-// registration/takeover/feature/trust), the chain failures (injection/block/
-// loop guard) and the enforced success, plus the config.hookTests persistence
+// registration/takeover/feature/trust), the injection failures and success,
+// plus the config.entryHookTests persistence
 // contract. No real host binary is ever spawned.
 
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -15,7 +15,7 @@ import { createClaudeAdapter } from "../../src/adapters/claude.js";
 import type { HostAdapter } from "../../src/adapters/types.js";
 import { ERROR_CODES, TaskcraftError } from "../../src/core/errors.js";
 import { run, taskNew } from "../../src/core/reducer.js";
-import { runAgentTestHook } from "../../src/commands/agent.js";
+import { runAgentTestEntryHook } from "../../src/commands/agent.js";
 import { openDatabase } from "../../src/store/database.js";
 import { applyMigrations } from "../../src/store/migrations.js";
 import {
@@ -32,29 +32,26 @@ interface ProjectSetup {
   cleanup(): void;
 }
 
-/** Real project setup for runAgentTestHook: installed hook scripts (exactly
+/** Real project setup for runAgentTestEntryHook: the installed Entry wrapper
  * the production wrapper layout — they reference the compiled gates next to
  * the built CLI, dist/hooks/*.js, which exist because the suite builds
  * first), project-level host registration, takeover enabled in config.json
  * and a codex user config trusting the project. The Task Store itself is
  * only exercised by real hosts; fake spawn outcomes drive the chain
  * judgments. */
-function setupProject(agent: "codex" | "claude"): ProjectSetup {
+function setupProject(
+  agent: "codex" | "claude",
+  activateTask = true,
+): ProjectSetup {
   const temporary = createTemporaryDirectory();
   const projectDir = temporary.path;
   const hooksDir = join(projectDir, ".taskcraft", "hooks");
   const entryPath = join(hooksDir, "entry.sh");
-  const stopPath = join(hooksDir, "stop.sh");
 
   mkdirSync(hooksDir, { recursive: true });
   writeFileSync(
     entryPath,
     `#!/usr/bin/env bash\nnode "${join(process.cwd(), "dist", "hooks", "entry.js")}" "$(dirname "$0")/../config.json"\n`,
-    { mode: 0o755 },
-  );
-  writeFileSync(
-    stopPath,
-    `#!/usr/bin/env bash\nnode "${join(process.cwd(), "dist", "hooks", "stop.js")}" "$(dirname "$0")/../config.json"\n`,
     { mode: 0o755 },
   );
   writeFileSync(
@@ -70,14 +67,16 @@ function setupProject(agent: "codex" | "claude"): ProjectSetup {
     level: 1,
     reason: "test fixture",
   });
-  run(database, taskId);
+  if (activateTask) {
+    run(database, taskId);
+  }
   database.close();
 
   if (agent === "codex") {
     mkdirSync(join(projectDir, ".codex"), { recursive: true });
     writeFileSync(
       join(projectDir, ".codex", "config.toml"),
-      `hooks.SessionStart = [{ command = "bash ${entryPath}" }]\nhooks.Stop = [{ command = "bash ${stopPath}" }]\n`,
+      `hooks.SessionStart = [{ command = "bash ${entryPath}" }]\n`,
       "utf8",
     );
   } else {
@@ -89,9 +88,6 @@ function setupProject(agent: "codex" | "claude"): ProjectSetup {
           hooks: {
             SessionStart: [
               { hooks: [{ type: "command", command: `bash "${entryPath}"` }] },
-            ],
-            Stop: [
-              { hooks: [{ type: "command", command: `bash "${stopPath}"` }] },
             ],
           },
         },
@@ -112,27 +108,11 @@ function setupProject(agent: "codex" | "claude"): ProjectSetup {
   return { projectDir, userConfigPath, cleanup: temporary.cleanup };
 }
 
-/** Scripts the fake spawn outcomes for a fully passing chain: host stdout
- * carries the injected breadcrumb, the stop wrapper blocks (exit 2 +
- * breadcrumb) and allows the stop_hook_active re-entry (exit 0). */
-function scriptPassingChain(
-  fake: FakeHost,
-  agent: "codex" | "claude",
-  stopScript: string,
-): void {
+/** Scripts a successful host call whose output carries the injected breadcrumb. */
+function scriptPassingChain(fake: FakeHost, agent: "codex" | "claude"): void {
   fake.setSpawnScript(agent, {
     stdout: `${BREADCRUMB_LINE}\nagent: TC_FIRST\n`,
   });
-  fake.setSpawnScript(
-    "bash",
-    { stdout: `${BREADCRUMB_LINE}\n`, exitCode: 2 },
-    { args: [stopScript] },
-  );
-  fake.setSpawnScript(
-    "bash",
-    { stdout: "", exitCode: 0 },
-    { args: [stopScript], input: '{"stop_hook_active":true}' },
-  );
 }
 
 function claudeAdapter(fake: FakeHost): HostAdapter {
@@ -149,10 +129,6 @@ function codexAdapter(fake: FakeHost, userConfigPath: string): HostAdapter {
   fake.setProbeScript("codex", ["exec", "--help"], { stdout: "help text\n" });
 
   return createCodexAdapter({ ...fake.deps(), userConfigPath });
-}
-
-function stopScriptPath(projectDir: string): string {
-  return join(projectDir, ".taskcraft", "hooks", "stop.sh");
 }
 
 function expectTestFailed(error: unknown, fragment: string): void {
@@ -173,7 +149,7 @@ function expectHookTestFailure(
 ): void {
   try {
     try {
-      runAgentTestHook(adapter, setup.projectDir);
+      runAgentTestEntryHook(adapter, setup.projectDir);
       throw new Error("expected TC_ADAPTER_HOOK_TEST_FAILED");
     } catch (error) {
       expectTestFailed(error, fragment);
@@ -183,7 +159,7 @@ function expectHookTestFailure(
   }
 }
 
-describe("runAgentTestHook pre-flight", () => {
+describe("runAgentTestEntryHook pre-flight", () => {
   it("fails explicitly when the hook scripts are missing", () => {
     const fake = createFakeHost();
     const setup = setupProject("claude");
@@ -217,6 +193,46 @@ describe("runAgentTestHook pre-flight", () => {
     expectHookTestFailure(claudeAdapter(fake), setup, "not registered");
   });
 
+  for (const agent of ["codex", "claude"] as const) {
+    it(`${agent}: fails when SessionStart points to a different entry.sh`, () => {
+      const fake = createFakeHost();
+      const setup = setupProject(agent);
+
+      if (agent === "codex") {
+        writeFileSync(
+          join(setup.projectDir, ".codex", "config.toml"),
+          'hooks.SessionStart = [{ command = "bash /wrong/.taskcraft/hooks/entry.sh" }]\n',
+          "utf8",
+        );
+      } else {
+        writeFileSync(
+          join(setup.projectDir, ".claude", "settings.json"),
+          JSON.stringify({
+            hooks: {
+              SessionStart: [
+                {
+                  hooks: [
+                    {
+                      type: "command",
+                      command: "bash /wrong/.taskcraft/hooks/entry.sh",
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+          "utf8",
+        );
+      }
+
+      const adapter =
+        agent === "codex"
+          ? codexAdapter(fake, setup.userConfigPath)
+          : claudeAdapter(fake);
+      expectHookTestFailure(adapter, setup, "not registered");
+    });
+  }
+
   it("fails explicitly when takeover is off", () => {
     const fake = createFakeHost();
     const setup = setupProject("claude");
@@ -227,6 +243,18 @@ describe("runAgentTestHook pre-flight", () => {
     );
 
     expectHookTestFailure(claudeAdapter(fake), setup, "takeover is off");
+  });
+
+  it("fails before spawning a host when no active task can produce a breadcrumb", () => {
+    const fake = createFakeHost();
+    const setup = setupProject("claude", false);
+
+    expectHookTestFailure(
+      claudeAdapter(fake),
+      setup,
+      "requires exactly one active",
+    );
+    expect(fake.calls.some((call) => call.kind === "spawn")).toBe(false);
   });
 
   it("fails explicitly when the config is missing", () => {
@@ -290,48 +318,47 @@ describe("runAgentTestHook pre-flight", () => {
   });
 });
 
-describe("runAgentTestHook chain judgments", () => {
-  it("reports ok with enforced when injection, block and loop guard all pass", () => {
+describe("runAgentTestEntryHook judgments", () => {
+  it("reports ok when Entry injection passes", () => {
     const fake = createFakeHost();
     const setup = setupProject("claude");
-    scriptPassingChain(fake, "claude", stopScriptPath(setup.projectDir));
+    scriptPassingChain(fake, "claude");
 
     try {
-      const summary = runAgentTestHook(claudeAdapter(fake), setup.projectDir);
+      const summary = runAgentTestEntryHook(
+        claudeAdapter(fake),
+        setup.projectDir,
+      );
 
       expect(summary.ok).toBe(true);
       expect(summary.host).toBe("claude");
       expect(summary.version).toBe("2.1.220");
       expect(summary.entryInjected).toBe(true);
-      expect(summary.stopBlocked).toBe(true);
-      expect(summary.loopGuardOk).toBe(true);
-      expect(summary.enforced).toBe(true);
       expect(summary.testedAt).toBe(FIXED_NOW);
     } finally {
       setup.cleanup();
     }
   });
 
-  it("persists the outcome into config.hookTests", () => {
+  it("persists the outcome into config.entryHookTests", () => {
     const fake = createFakeHost();
     const setup = setupProject("claude");
-    scriptPassingChain(fake, "claude", stopScriptPath(setup.projectDir));
+    scriptPassingChain(fake, "claude");
 
     try {
-      runAgentTestHook(claudeAdapter(fake), setup.projectDir);
+      runAgentTestEntryHook(claudeAdapter(fake), setup.projectDir);
       const config = JSON.parse(
         readFileSync(
           join(setup.projectDir, ".taskcraft", "config.json"),
           "utf8",
         ),
-      ) as { hookTests: unknown };
+      ) as { entryHookTests: unknown };
 
-      expect(config.hookTests).toEqual({
+      expect(config.entryHookTests).toEqual({
         claude: {
           testedAt: FIXED_NOW,
           version: "2.1.220",
           ok: true,
-          enforced: true,
         },
       });
     } finally {
@@ -346,7 +373,7 @@ describe("runAgentTestHook chain judgments", () => {
 
     try {
       try {
-        runAgentTestHook(claudeAdapter(fake), setup.projectDir);
+        runAgentTestEntryHook(claudeAdapter(fake), setup.projectDir);
         throw new Error("expected TC_ADAPTER_HOOK_TEST_FAILED");
       } catch (error) {
         expectTestFailed(error, "tc-breadcrumb/v1");
@@ -358,14 +385,10 @@ describe("runAgentTestHook chain judgments", () => {
           "utf8",
         ),
       ) as {
-        hookTests: Record<
-          string,
-          { ok: boolean; enforced: boolean; failure: string }
-        >;
+        entryHookTests: Record<string, { ok: boolean; failure: string }>;
       };
-      expect(config.hookTests.claude).toMatchObject({
+      expect(config.entryHookTests.claude).toMatchObject({
         ok: false,
-        enforced: false,
         failure: expect.stringContaining("tc-breadcrumb/v1"),
       });
     } finally {
@@ -373,46 +396,13 @@ describe("runAgentTestHook chain judgments", () => {
     }
   });
 
-  it("fails when the stop hook does not block", () => {
-    const fake = createFakeHost();
-    const setup = setupProject("claude");
-    fake.setSpawnScript("claude", {
-      stdout: `${BREADCRUMB_LINE}\nagent: TC_FIRST\n`,
-    });
-
-    expectHookTestFailure(claudeAdapter(fake), setup, "did not block");
-  });
-
-  it("fails when the loop guard does not allow the re-entry", () => {
-    const fake = createFakeHost();
-    const setup = setupProject("claude");
-    fake.setSpawnScript("claude", {
-      stdout: `${BREADCRUMB_LINE}\nagent: TC_FIRST\n`,
-    });
-    fake.setSpawnScript(
-      "bash",
-      { stdout: `${BREADCRUMB_LINE}\n`, exitCode: 2 },
-      { args: [stopScriptPath(setup.projectDir)] },
-    );
-    fake.setSpawnScript(
-      "bash",
-      { stdout: "", exitCode: 2 },
-      {
-        args: [stopScriptPath(setup.projectDir)],
-        input: '{"stop_hook_active":true}',
-      },
-    );
-
-    expectHookTestFailure(claudeAdapter(fake), setup, "loop guard");
-  });
-
-  it("reports enforced for codex when the full chain passes", () => {
+  it("reports ok for codex when Entry injection passes", () => {
     const fake = createFakeHost();
     const setup = setupProject("codex");
-    scriptPassingChain(fake, "codex", stopScriptPath(setup.projectDir));
+    scriptPassingChain(fake, "codex");
 
     try {
-      const summary = runAgentTestHook(
+      const summary = runAgentTestEntryHook(
         codexAdapter(fake, setup.userConfigPath),
         setup.projectDir,
       );
@@ -420,7 +410,7 @@ describe("runAgentTestHook chain judgments", () => {
       expect(summary.ok).toBe(true);
       expect(summary.host).toBe("codex");
       expect(summary.version).toBe("0.147.0");
-      expect(summary.enforced).toBe(true);
+      expect(summary.entryInjected).toBe(true);
     } finally {
       setup.cleanup();
     }

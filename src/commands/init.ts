@@ -1,8 +1,8 @@
 // tc init: idempotently creates .taskcraft/ + the Task Store database and
 // applies migrations. An existing database is only checked, never overwritten
 // (the migration ledger guards the schema; user data stays untouched).
-// `--agent codex|claude` additionally installs the entry/stop hook scripts
-// into .taskcraft/hooks/ and registers them in the project-level host config
+// `--agent codex|claude` additionally installs the Entry Hook script into
+// .taskcraft/hooks/ and registers it in the project-level host config
 // (write-if-absent: existing config content is never overwritten).
 
 import { existsSync } from "node:fs";
