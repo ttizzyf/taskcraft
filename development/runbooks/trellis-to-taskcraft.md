@@ -1,6 +1,8 @@
 # 从 Trellis 迁移到 Taskcraft 狗粮化
 
-> 状态：计划中的切换手册。默认在 Task 00–06 全部完成并通过 MVP 验收后执行；当前尚无 Trellis 文件需要移除。
+> 状态：切换条件未满足（2026-08-14 复核，迁移门 `blocked`）。Task 00–06 已归档，
+> Task 07 代码返工已完成，但修复后的公共 Claude `test-hook` 尚待真实复核，
+> Codex Stop Hook 由用户主动延期。当前不得执行卸载。
 
 目标是在一个明确切换窗口内停止 Trellis 的任务状态、Hook 和上下文注入，让 tc 成为后续开发的唯一活动任务系统。退出保留可审计历史，但不把 Trellis 状态机械翻译成 Taskcraft 五状态，也不设置双写期。
 
@@ -67,6 +69,9 @@ trellis uninstall
 
 ## 5. 启动 Taskcraft
 
+以下是迁移门通过后的目标顺序，不是当前可执行步骤。公共 `test-hook` 的实现已
+修复，但真实现场结果和 Codex Stop 进入条件关闭前，不得通过跳过命令提前切换。
+
 卸载提交完成后，打开全新 Codex/Claude 会话：
 
 ```bash
@@ -75,12 +80,18 @@ tc init --agent claude
 tc enable ask
 tc doctor
 tc agent capabilities
-tc agent test-hook
+tc task new --title "Hook cutover field test" --level 1 --reason "verify installed hooks"
+tc run <task-id>
+tc agent test-hook --agent claude
+tc agent test-hook --agent codex
 ```
 
-按实际 CLI 实现调整参数，但必须先通过 Store、migration、breadcrumb 和 Hook 检查。然后：
+`test-hook` 必须通过真实 Entry gate，因此运行前要恰好有一个 active task；无任务时
+它正确保持静默，不能形成注入证据。上面的低风险 L1 同时作为第一张 dogfood 任务，
+两个宿主现场测试通过后完成或取消它，不能留下验证用 zombie task。按实际 CLI
+实现调整参数，但必须先通过 Store、migration、breadcrumb 和 Hook 检查。然后：
 
-1. 创建一个低风险、局部、可回滚的 L1 dogfood 任务，验证新会话恢复与 done。
+1. 用上面的低风险、局部、可回滚 L1 dogfood 任务验证新会话恢复与 done。
 2. 创建一个需要独立 Review 的 L2 dogfood 任务，至少覆盖一次 pass 或 changes。
 3. 依据迁移清单逐个创建仍有价值的后续 tc task，并保留 Trellis 来源引用；不要批量导入旧 status。
 4. 观察期覆盖 waiting/resume、宿主 stale/恢复以及 Trellis 路径零写入。

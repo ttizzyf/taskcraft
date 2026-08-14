@@ -42,13 +42,19 @@ tc init --agent claude
 tc enable ask
 tc status --json
 tc agent capabilities
-tc agent test-hook
+tc task new --title "Hook field test" --level 1 --reason "verify installed hooks"
+tc run <task-id>
+tc agent test-hook --agent codex
+tc agent test-hook --agent claude
 ```
 
 `init` 已存在时只做幂等检查，不覆盖用户 entry 内容。`enable off` 必须让 hook
 零输出。`agent capabilities` 输出当前宿主名、版本和各项能力是否可用；
-`agent test-hook` 现场测试 Entry/Stop Hook，并返回测试时间和失败原因。研究报告中的
-`verified|documented|limited|pending|deferred` 不进入生产数据模型。
+`agent test-hook` 要求恰好一个 active task，现场测试已安装并已注册的真实
+Entry/Stop Hook，返回测试时间和失败原因，并把结果写入 `config.hookTests`。
+无 active task、多 active task、takeover off、注册/路径/trust/feature gate
+无效时均非零失败。研究报告中的 `verified|documented|limited|pending|deferred`
+不进入生产数据模型。
 
 ## 4. Task
 
@@ -112,12 +118,10 @@ tc watch --task T-104
 tc watch --port 0
 tc state --breadcrumb
 tc state --json
-tc lifecycle inspect T-104
-tc lifecycle explain T-104 --node review-1
-tc lifecycle validate T-104
 ```
 
 `watch` 默认绑定 `127.0.0.1` 随机端口并打开浏览器；`--no-open` 只打印 URL。深链在同一 Watch 会话内稳定；无浏览器环境可使用 `tc task list` 与 `tc task show`，两者读取同一 Task Store。
+`lifecycle inspect/explain/validate` 为 deferred，不进入首版帮助或闭环示例。
 
 ## 7. 常见闭环
 
@@ -170,7 +174,6 @@ tc run T-203 --node integrate-1
 tc run complete T-203 --node integrate-1 --result integrate.json
 tc run T-203 --node record-1
 tc run complete T-203 --node record-1 --result record.json
-tc lifecycle inspect T-203
 ```
 
 ### 7.1 Command transition table
@@ -178,15 +181,15 @@ tc lifecycle inspect T-203
 | 命令 | 前置事实 | 原子写集合 | 成功后的唯一 next |
 | --- | --- | --- | --- |
 | `task new` | 仓库已初始化；Agent 提交目标、Level、reason，可选 facts | Task、初始 lifecycle revision、required obligations、审计事件；不写激活事实或 attempt | 返回 `taskId`、`taskRevision` 与唯一 `run` |
-| `task promote/revise` | Task 存在；Agent 提交新 Level/合同与 reason；CAS 匹配 | 新 lifecycle revision、old/new diff、旧运行 attempt 的 `superseded` 结果、审计事件 | 返回新 revision 的首个 runnable node |
+| `task promote/revise`（deferred） | Task 存在；Agent 提交新 Level/合同与 reason；CAS 匹配 | 新 lifecycle revision、old/new diff、旧运行 attempt 的 `superseded` 结果、审计事件 | 返回新 revision 的首个 runnable node |
 | `task wait` | Task 已激活；typed reason 与 remediation 可读；CAS 匹配 | open blocker、审计事件 | 返回 `task resume`、用户输入或指定 remediation |
 | `task resume` | 对应 blocker 已具备解决事实；CAS 匹配 | blocker resolved、审计事件 | 返回当前首个 runnable node |
 | `task cancel` | Task 尚未形成取消事实；CAS 匹配 | cancel fact、活跃 attempt 终止结果、审计事件 | 返回只读 `task show` |
-| `task evidence add` | evidence reference 可读；目标 attempt/Task 引用有效；CAS 匹配 | evidence、可满足的 obligation result、审计事件 | 返回 projector 推导的 next |
+| `task evidence add`（deferred） | evidence reference 可读；目标 attempt/Task 引用有效；CAS 匹配 | evidence、可满足的 obligation result、审计事件 | 返回 projector 推导的 next |
 | `task fact add` | 来源 attempt 有效；category、subject、value 与可选 evidence 可读；CAS 匹配 | append-only Task fact、审计事件 | 返回当前 Review/节点的 next |
 | `run <task>` | Task 为 queued，或当前 lifecycle revision 存在 runnable node；CAS 匹配 | queued 时写激活事实；创建或领取 node attempt、actor claim、审计事件 | 返回 Node Brief 与 `run complete`；Agent 可选执行 `run attach` |
 | `run attach` | attempt 已创建；Agent 提供已有 host run；CAS 匹配 | agent run observation、attempt actor binding、审计事件 | 返回 `run status`/`run complete` |
-| `run retry` | 旧 attempt 已失败或 superseded，或其 host observation 为 stale；Agent 给出 reason；CAS 匹配 | successor attempt、旧 attempt 结束事实、审计事件 | 返回 successor `run`/`run attach` |
+| `run retry` | 目标是当前 revision 中该 node 的最新 attempt，且已失败/superseded 或 host observation 为 stale；Agent 给出 reason；CAS 匹配 | stale 活跃 attempt 原子标为 `superseded`、创建并领取 successor attempt、审计事件 | 直接返回 successor Node Brief 与 `run complete`；Agent 可选执行 `run attach` |
 | `run complete` | attempt 属于当前 lifecycle revision；结果满足节点 gate；CAS 匹配 | attempt outcome、evidence refs、obligation results、审计事件 | 返回 projector 推导的下一节点命令 |
 | `review start` | 当前 revision 的 review node runnable；review purpose 与被审核 attempt kind 匹配；CAS 匹配 | review attempt、review link、purpose、能力与独立性披露、审计事件 | 返回 Review 节点上下文、可选 attach 与结论命令 |
 | `review pass` | review link 有效；required review evidence 完整；CAS 匹配 | review outcome、evidence refs、审计事件 | 返回 `record`、`integrate` 或新的 runnable node |
@@ -235,6 +238,10 @@ Node Brief 告诉 Agent 应提交的 JSON 结构和登记命令。Taskcraft 在�
   }]
 }
 ```
+
+所有非零 JSON 结果（包括 `doctor --json` 发现完整性损坏）都写入 stderr，并使用
+同一个 `ok: false`、`data: null`、`errors` 信封；不得在退出码为 1 时返回顶层
+`ok: true`。
 
 ## 9. Error taxonomy
 

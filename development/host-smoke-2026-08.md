@@ -4,6 +4,10 @@
 > `research/host-feasibility.md` 的五级定义（verified / documented /
 > limited / pending / deferred）；"文档支持"与"本机真实验证"分列。
 > 记录是研究证据，不进入产品数据模型。
+>
+> 后续更新：本文件保存 2026-08-12 的原始 smoke 快照。Codex S2 关于 Entry 的
+> limited 结论已被 `dogfood-2026-08-13.md` D6 推翻；当前结论是 SessionStart/
+> Entry verified、Stop limited（用户于 2026-08-14 决定延期）。
 
 ## 环境
 
@@ -20,7 +24,7 @@
 | # | 样本 | 宿主 | 状态 | 备注 |
 | --- | --- | --- | --- | --- |
 | S1 | ordinary（无任务零注入） | codex | verified | `Reply exactly TC_FIRST.` 返回 TC_FIRST，input_tokens 与无 hook 基线一致（14342），无注入 |
-| S2 | active（Entry 注入 + Stop） | codex | limited | 见下：`codex exec --ephemeral` 不加载项目 `.codex/config.toml`；`-c` 传 hook 也未见执行（与 Task 00 探针 CX-02 记录矛盾，待交互会话复验） |
+| S2 | active（Entry 注入 + Stop） | codex | 历史 limited | 当时的 Entry 失败由错误引号导致，已被 D6 复验推翻；Stop 仍 limited |
 | S3 | ordinary（无任务零注入） | claude | verified | `claude -p` 返回 TC_THIRD；session 日志无 hook_success（零注入零写入） |
 | S4 | active（Entry 注入 + Stop） | claude | verified | session 日志 1×SessionStart hook_success（完整 breadcrumb 注入）+ 1×Stop exit 2（block）；修复 loop guard 后模型正常结束 |
 | S5 | off（`enable off` 后零输出） | 本地 | local（测试覆盖） | `enable off` 后 entry/stop 脚本零输出 exit 0（hooks 测试 + 手动 smoke） |
@@ -51,7 +55,7 @@ entry hook 读不到 config → 零输出 → 零注入。
 （S1/S2/补跑）的 `input_tokens` 完全一致（14342/14344/14346），hook 未影响
 模型输入。与 Task 00 探针 CX-02（2026-08-10，同版本 0.147.0）记录矛盾，差异
 原因未定位（可能是项目 trust 策略或非交互模式对 hooks 的版本差异）。
-**标记 limited：codex exec 非交互 hooks 待交互会话复验。**
+**历史标记 limited：Entry 结论已被后续 D6 更新；Stop 结论见 D7。**
 
 ### S3（claude，ordinary 零注入）— verified
 
@@ -81,7 +85,7 @@ hook 显式失败、中断后 breadcrumb 重建（Task 02/03 已验证投影可�
 
 | 宿主 | 判定 | 依据 |
 | --- | --- | --- |
-| codex | advisory | 真实 exec smoke 未观察到 hook 效果（S2 limited），Task 00 探针 CX-02 为 verified 但本机当前未复现；交互会话复验前不声明 enforced |
+| codex | advisory | D6 已验证 SessionStart/Entry；D7 在 exec 与真实 TTY 中均未观察到 Stop，用户已决定延期，不声明 enforced |
 | claude | enforced | 本次 smoke 实测：SessionStart 注入 + Stop block + loop guard 放行（S4 verified）；与 Task 00 探针 CL-02（同版本）一致 |
 
 ## Smoke 中发现的缺陷（已修复）
@@ -98,8 +102,8 @@ hook 显式失败、中断后 breadcrumb 重建（Task 02/03 已验证投影可�
 ## 结论
 
 - 静默入口 gate：普通问答 / off / 无 durable task 零注入零写入（S1/S3/S5）✓
-- active task 只注入定位信息与唯一 next（S4）✓
-- claude Stop Hook：enforced（S4 verified）；codex：advisory（S2 limited）
+- active task 只注入定位信息与唯一 next（S4；Codex 另见 D6）✓
+- claude Stop Hook：enforced（S4 verified）；codex Entry verified、Stop advisory（D6/D7）
 - observation 不驱动任务完成（Task 02/03 保证，projector 不读 agent_runs）✓
 - Hook 失败显式进 diagnostics（S8 + TC_ADAPTER_* 错误映射）✓
 - 全局宿主配置零改动 ✓（仅项目级/临时配置；日志只读观察）

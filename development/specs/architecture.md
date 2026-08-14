@@ -8,7 +8,7 @@ SQLite 是 Taskcraft 唯一可写的 Task Store，Command service 是唯一写�
 
 1. **Definition facts**：当前任务的 lifecycle revision、节点、边和 obligation definitions。每个 revision 只增不改。
 2. **Runtime facts**：任务激活/取消、node attempt、Review link、finding、append-only Task fact、obligation result、evidence、blocker 和 reducer event。
-3. **Observations**：宿主运行状态、heartbeat、last seen、token 与耗时，统一存放在 `agent_runs`，用于诊断和提示。
+3. **Observations**：宿主运行状态、heartbeat、last seen、token 与耗时，统一存放在 `agent_runs`，用于诊断和提示；只能由 `runAttach` reducer 写入。
 
 `tc watch`、`tc task show`、CLI JSON、Markdown export 和 breadcrumb 都是只读投影。删除这些投影后，Command service 可以从 SQLite 重建相同结果。
 
@@ -45,7 +45,7 @@ Codex 与 Claude Code 是首版用户沟通和任务执行主体，负责使用�
 可选派发说明、结果校验和记录，不启动或调度 subagent。Command service 负责
 canonical facts 与 observations 的写入；Read projector 负责状态、runnable
 nodes、下一步和用户视图；Adapter 负责入口安装、节点执行卡渲染、正常结束时的
-Stop Hook 与可选运行观察。
+Stop Hook 与运行观察的纯映射，不直接写 SQLite。
 
 静态 entry gate 负责一次廉价接管探测：接管关闭或没有 durable execution 时保持静默；检测到可执行任务时注入 task anchor 和下一步命令。该 gate 读取同一个 projector 结果。
 
@@ -70,7 +70,7 @@ Stop Hook 与可选运行观察。
 
 ### 3.3 Observations
 
-`agent_runs.observation_status` 的枚举为 `pending`、`running`、`stale`、`finished`、`failed`、`unsupported`。Projector 将 observation 用于诊断；需要改变任务事实时，Agent 或控制面提交显式 reducer command。
+`agent_runs.observation_status` 的枚举为 `pending`、`running`、`stale`、`finished`、`failed`、`unsupported`。`tc run attach` 是 `agent_runs` 的唯一生产写路径，并通过 `runAttach` reducer、CAS、事务和审计事件提交；Adapter 的 `observe` 仅把已存储行映射为宿主观察视图。Projector 将 observation 用于诊断；需要改变任务事实时，Agent 或控制面提交显式 reducer command。
 
 ## 4. 数据模型
 
@@ -179,7 +179,6 @@ interface HostAdapter {
   installEntry(input: InstallInput): InstallResult;
   testHook(input: HookTestInput): HookTestResult;
   renderNodeBrief(input: NodeBriefInput): NodeBrief;
-  attachObservation?(input: AttachInput): HostRun;
   observe?(run: HostRun): RuntimeObservation;
 }
 ```
@@ -195,7 +194,10 @@ Review UI 始终展示 capability 和 independence status；`host-observed` 只�
 关联，不提供 review 内容签名。
 
 模型只能使用宿主实际暴露给当前会话的工具和上下文。Hook 安装、权限和现场测试
-结果由 Adapter 检查并写入 Node Brief；Taskcraft 不要求模型猜测宿主的隐藏配置。
+结果由 Adapter 检查并持久化到 `config.hookTests`，由 capabilities 与 Watch
+Diagnostics 同源展示；Taskcraft 不要求模型猜测宿主的隐藏配置。现场测试要求
+恰好一个 active task，使真实 Entry gate 必须产出 breadcrumb；无 active task、
+多 active task、未注册、未批准、路径损坏或版本漂移都不能伪装成成功。
 
 ## 10. 安全与隐私
 

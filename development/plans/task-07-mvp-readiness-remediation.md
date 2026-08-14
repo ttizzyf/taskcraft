@@ -1,8 +1,29 @@
 # 任务 07：MVP 就绪度返工与狗粮化门复核
 
-> 状态：待执行（2026-08-13 交付审查发现）。Task 00–06 的实现和归档历史保留，
-> 但在本任务验收通过前，不得据此宣称 MVP 发布门或 Trellis → Taskcraft
-> 狗粮化进入条件已经满足。
+> 状态：代码返工完成、最终宿主验收未通过（2026-08-14）。Task 00–06
+> 的实现和归档历史保留，但在本任务验收通过前，不得据此宣称 MVP 发布门或
+> Trellis → Taskcraft 狗粮化进入条件已经满足。
+
+## 2026-08-14 返工结果
+
+- 已完成并复验：`tc doctor`、waiting/resume/retry/fail 公开闭环、
+  `run attach/status`、`tc state`/`task list`、L3 单 execute 收窄、Claude
+  L1/L2 dogfood，以及 Codex SessionStart/Entry 注入。
+- 已修复并由自动测试复验：公共 `test-hook` 现在要求唯一 active breadcrumb，
+  拒绝 Codex hooks feature disabled 和无效 registration/trust，不再使用 bypass；
+  Hook Diagnostics 覆盖 wrapper/gate 路径、宿主注册、缺少现场测试及宿主版本漂移；
+  `agent_runs` 只允许 `runAttach` reducer 写入，Adapter 仅保留纯观察映射。
+- 同轮补齐：`doctor --json` 的损坏结果改为标准失败信封；stale retry 会先原子
+  supersede 旧 attempt，并直接返回 successor Node Brief，不再留下两个 active
+  attempt 或要求额外执行一次 `run`。
+- 尚缺真实宿主复核：用修复后的公共 `tc agent test-hook --agent claude` 重新保存
+  现场结果；Codex 公共测试仍会受 Stop Hook 未通过阻断。自动测试不能冒充这两项
+  真实调用证据。
+- 用户主动延期：Codex Stop Hook。该项不计入本轮其余返工的完成度，但迁移手册
+  仍要求 Codex/Claude Hook 全部通过，因此迁移门继续为 `blocked`。
+- 文档同步：本结果取代早期“待执行”“L2 样本缺失”“Codex Entry 未复验”以及
+  “公共 test-hook/Diagnostics/单写入口待返工”等
+  已过期表述；历史 smoke 结论保留时必须明确标注已被后续证据更新。
 
 ## 目标
 

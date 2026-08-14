@@ -76,9 +76,9 @@ tests/                              # 99 用例：store/core/commands/contracts/
    `events_task_sequence_insert` 冲突（per-task 连续性）。
 7. **任务 ID 生成**：`T-<N>`（事务内 `COUNT(*)+1`，单进程 better-sqlite3
    串行写安全）。
-8. **失败 attempt 语义（无 CLI 命令）**：reducer 保留写 failed 的能力；连续
-   3 次失败写 open blocker `failed_retries_exhausted` → projector 输出
-   `waiting`。`run retry` / `task wait` / `resume` 命令尚未实现。
+8. **失败 attempt 语义（Task 02 历史状态）**：Task 02 归档时只有 reducer 能力，
+   尚无公开 CLI；Task 07 已补齐 `run fail/retry`、`task wait/resume`，连续 3 次
+   失败写 open blocker `failed_retries_exhausted` → projector 输出 `waiting`。
 9. **其余沿用 Task 01 约束**：max-lines 400（不豁免）、npmmirror 版本冻结、
    测试隔离、pretest 先 build、ajv 具名导入、无 ORM/bundler/workspace。
 

@@ -10,10 +10,10 @@
 | [Task 01](task-01-engineering-foundation.md) 工程基础 | 已完成（2026-08-11） | 可安装、测试、构建、迁移的最小工程 | 空库 migration、Schema fixture、静态检查和构建通过 |
 | [Task 02](task-02-l1-vertical-slice.md) L1 纵切 | 已归档（2026-08-11）；Task 07 补齐 waiting/resume/retry | Store、单 reducer/projector、L1 CLI 闭环 | L1 真实任务完成；waiting/resume/retry 公开闭环已补齐 |
 | [Task 03](task-03-l2-review-loop.md) L2 Review | 已完成（2026-08-12） | 独立 Review 节点及三种 outcome 回流 | passed/changes/replan 均有可追溯样本 |
-| [Task 04](task-04-host-adapters.md) Adapter | 已归档（2026-08-12）；Task 07 复验 | Codex/Claude Adapter、Node Brief、能力披露 | Claude Hook verified（含 dogfood 恢复）；Codex 仍 limited，迁移门 blocked 原因之一 |
+| [Task 04](task-04-host-adapters.md) Adapter | 阶段已归档（2026-08-12）；Task 07 已完成代码返工 | Codex/Claude Adapter、Node Brief、能力披露 | 公共 test-hook 与 Diagnostics 已修复并自动验证；Codex SessionStart verified，Stop 由用户延期 |
 | [Task 05](task-05-l3.md) L3 | 已归档（2026-08-13）；Task 07 收窄单 execute | Plan、Feasibility Review、Execute、Integrate | 主路径可回放；首版收窄单 execute，合同已同步 |
-| [Task 06](task-06-watch.md) Watch | 已归档（2026-08-13）；Task 07 补齐 Diagnostics | 只读 Board、详情、Runtime、Diagnostics | 页面 smoke 通过；Hook 测试结果持久化与同源诊断已补齐 |
-| [Task 07](task-07-mvp-readiness-remediation.md) MVP 就绪度返工 | 已完成（2026-08-13）；迁移门 blocked | doctor、waiting/resume、真实 Hook/恢复样本与合同收口 | doctor/waiting/resume/CLI 收敛/L3 收窄完成；Claude dogfood verified；Codex Hook 未复验 + L2 真实样本缺失 → 迁移门 blocked |
+| [Task 06](task-06-watch.md) Watch | 阶段已归档（2026-08-13）；Task 07 已补 Diagnostics | 只读 Board、详情、Runtime、Diagnostics | 页面 smoke 与 Runtime 同源展示通过；Hook 注册/路径/现场结果/宿主版本漂移诊断已自动验证 |
+| [Task 07](task-07-mvp-readiness-remediation.md) MVP 就绪度返工 | 代码返工完成；最终宿主验收未通过（2026-08-14） | doctor、waiting/resume、真实 Hook/恢复样本与合同收口 | 代码与自动测试缺口已关闭；公共 Claude test-hook 待重跑，Codex Stop 用户延期 → 迁移门 blocked |
 
 Task 00–06 的阶段任务已经归档，但交付审查发现其结果尚未满足 MVP 狗粮化门。
 必须先完成 Task 07 并重新通过 [`../runbooks/trellis-to-taskcraft.md`](../runbooks/trellis-to-taskcraft.md)

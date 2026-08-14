@@ -4,6 +4,10 @@
 > Adapter 与连续执行）已完成并归档，新 agent 应先读本文件了解现状与约束，再开始
 > Task 05（L3 子任务与 Integrate）。Task 02/03 交接见 `task-02-handoff.md` /
 > `task-03-handoff.md`（工程基础与 Review 决策仍适用）。
+>
+> 后续状态更新（2026-08-14）：本文件保留 Task 04 归档时的历史上下文；Codex
+> SessionStart/Entry 已由 `dogfood-2026-08-13.md` D6 复验为 verified，S2 的
+> “Entry 不可用”结论已失效。Codex Stop Hook 仍为 limited，并由用户主动延期。
 
 ## 一、当前状态
 
@@ -21,7 +25,9 @@ src/adapters/types.ts              # HostAdapter 接口与全部输入输出类�
 src/adapters/shared.ts             # 共享机制：safeProbe / installEntryFiles
                                    #   （write-if-absent 幂等）/ runHookTest /
                                    #   resolveTcPath（dist 路径解析）/
-                                   #   attachObservation / hook 模板
+                                   #   hook 模板
+src/adapters/observe.ts            # 已存储 agent_runs 的纯观察映射；
+                                   #   Task 07 后不再包含数据库写入口
 src/adapters/codex.ts              # codex adapter（capabilities 只读探针 /
                                    #   .codex/config.toml / exec --json test-hook）
 src/adapters/claude.ts             # claude adapter（--help 探针 /
@@ -62,11 +68,10 @@ Task 02/03 全部决策仍适用，新增：
    `stop_hook_active: true`；hook 必须读 stdin 并放行（allow），否则宿主
    无限循环（实测 claude 17 次 block）。缺失此逻辑是真实缺陷，不是宿主
    协议职责。
-3. **codex exec 非交互 hooks 行为异常**（S2 limited）：`codex exec --ephemeral`
-   不加载项目级 `.codex/config.toml`（`-c` 只覆盖用户配置）；`-c` 传 hook
-   亦未见执行，与 Task 00 探针 CX-02 记录矛盾。**codex Stop Hook 目前只声明
-   advisory**，交互会话复验通过前不声明 enforced。claude 侧 enforced（S4
-   实测注入 + block + loop guard）。
+3. **Codex 历史 S2 已被拆分更新**：S2 当时因 hook command 引号错误未观察到
+   Entry；Task 07 的 D6 已复验 SessionStart/Entry 为 verified。Stop 在 exec 和
+   真实 TTY 中仍未触发，只声明 advisory，且由用户主动延期。claude 侧 enforced
+   （S4 实测注入 + block + loop guard）。
 4. **真实宿主调用边界**：只读探针自动跑；付费调用逐次向用户确认；只改
    项目级/临时配置，**全局 `~/.codex/`、`~/.claude/` 配置零改动**（观察
    日志只读）。
