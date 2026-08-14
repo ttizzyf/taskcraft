@@ -29,6 +29,17 @@ interface DoctorData {
   }>;
 }
 
+interface DoctorFailure {
+  ok: false;
+  data: null;
+  errors: Array<{
+    code: string;
+    problem: string;
+    impact: string;
+    remediation: string;
+  }>;
+}
+
 function newTask(cwd: string, level: string): void {
   const result = runCli(
     ["task", "new", "--title", "t", "--level", level, "--reason", "r"],
@@ -111,19 +122,15 @@ describe("tc doctor", () => {
 
       const result = runCli(["doctor", "--json"], cwd);
       expect(result.status).toBe(1);
-      const json = parseJson<{ ok: boolean; data: DoctorData }>(result);
-      expect(json.ok).toBe(true);
-      expect(json.data.healthy).toBe(false);
-      expect(json.data.failedChecks).toBe(1);
-
-      const digest = json.data.checks.find(
-        (check) => check.name === "definition-digest",
-      )!;
-      expect(digest.ok).toBe(false);
-      expect(digest.error?.code).toBe("TC_STORE_DEFINITION_DIGEST_MISMATCH");
-      expect(digest.error?.problem).toBeTruthy();
-      expect(digest.error?.impact).toBeTruthy();
-      expect(digest.error?.remediation).toBeTruthy();
+      expect(result.stdout).toBe("");
+      const json = JSON.parse(result.stderr) as DoctorFailure;
+      expect(json.ok).toBe(false);
+      expect(json.data).toBeNull();
+      expect(json.errors).toHaveLength(1);
+      expect(json.errors[0]?.code).toBe("TC_STORE_DEFINITION_DIGEST_MISMATCH");
+      expect(json.errors[0]?.problem).toBeTruthy();
+      expect(json.errors[0]?.impact).toBeTruthy();
+      expect(json.errors[0]?.remediation).toBeTruthy();
     });
   });
 
@@ -141,12 +148,11 @@ describe("tc doctor", () => {
       const result = runCli(["doctor", "--json"], cwd);
       expect(result.status).toBe(1);
 
-      const json = parseJson<{ ok: boolean; data: DoctorData }>(result);
-      expect(json.data.healthy).toBe(false);
-      expect(json.data.checks[0]?.name).toBe("migration-ledger");
-      expect(json.data.checks[0]?.error?.code).toBe(
-        "TC_STORE_MIGRATION_LEDGER_INVALID",
-      );
+      expect(result.stdout).toBe("");
+      const json = JSON.parse(result.stderr) as DoctorFailure;
+      expect(json.ok).toBe(false);
+      expect(json.data).toBeNull();
+      expect(json.errors[0]?.code).toBe("TC_STORE_MIGRATION_LEDGER_INVALID");
     });
   });
 

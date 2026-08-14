@@ -12,6 +12,7 @@ import { run, runAttach, taskNew } from "../../src/core/reducer.js";
 import { openDatabase } from "../../src/store/database.js";
 import { applyMigrations } from "../../src/store/migrations.js";
 import type { WatchDiagnostics, WatchRuntime } from "../../src/watch/routes.js";
+import { collectDiagnostics } from "../../src/watch/diagnostics.js";
 import { getJson, withProject, withServer } from "./helpers.js";
 
 describe("watch runtime same-source", () => {
@@ -141,6 +142,7 @@ describe("watch diagnostics hook anomalies", () => {
         const codes = body.items.map((item) => item.code);
 
         expect(codes).toContain("TC_ADAPTER_HOOK_TEST_FAILED");
+        expect(codes).toContain("TC_HOOK_REGISTRATION_INVALID");
         expect(codes).toContain("TC_HOOK_VERSION_DRIFT");
 
         const failed = body.items.find(
@@ -178,6 +180,101 @@ describe("watch diagnostics hook anomalies", () => {
 
         expect(codes).toContain("TC_HOOK_TEST_MISSING");
       });
+    });
+  });
+
+  it("reports a missing registration and a wrapper with a broken gate path", async () => {
+    await withProject("five-status", async (projectDir) => {
+      const hooksDir = join(projectDir, ".taskcraft", "hooks");
+      mkdirSync(hooksDir, { recursive: true });
+      writeFileSync(
+        join(hooksDir, "entry.sh"),
+        'node "/missing/entry.js"\n',
+        "utf8",
+      );
+      writeFileSync(
+        join(hooksDir, "stop.sh"),
+        `node "${resolve("dist/hooks/stop.js")}"\n`,
+        "utf8",
+      );
+      writeFileSync(
+        join(projectDir, ".taskcraft", "config.json"),
+        `${JSON.stringify({ takeOver: "ask", agents: ["claude"] }, null, 2)}\n`,
+        "utf8",
+      );
+
+      const items = collectDiagnostics(projectDir, () => ({
+        ok: false,
+        stdout: "",
+        stderr: "not installed",
+      }));
+      const problems = items.map((item) => item.problem).join("\n");
+      const codes = items.map((item) => item.code);
+
+      expect(problems).toContain("missing gate artifact");
+      expect(problems).toContain("not registered");
+      expect(codes).toContain("TC_ADAPTER_HOOK_INSTALL_FAILED");
+      expect(codes).toContain("TC_HOOK_REGISTRATION_INVALID");
+    });
+  });
+
+  it("compares the recorded field-test version with the current host", async () => {
+    await withProject("five-status", async (projectDir) => {
+      const hooksDir = join(projectDir, ".taskcraft", "hooks");
+      mkdirSync(join(projectDir, ".claude"), { recursive: true });
+      mkdirSync(hooksDir, { recursive: true });
+      writeFileSync(
+        join(hooksDir, "entry.sh"),
+        `node "${resolve("dist/hooks/entry.js")}"\n`,
+        "utf8",
+      );
+      writeFileSync(
+        join(hooksDir, "stop.sh"),
+        `node "${resolve("dist/hooks/stop.js")}"\n`,
+        "utf8",
+      );
+      writeFileSync(
+        join(projectDir, ".claude", "settings.json"),
+        JSON.stringify({
+          hooks: {
+            SessionStart: [
+              { hooks: [{ command: "bash .taskcraft/hooks/entry.sh" }] },
+            ],
+            Stop: [{ hooks: [{ command: "bash .taskcraft/hooks/stop.sh" }] }],
+          },
+        }),
+        "utf8",
+      );
+      writeFileSync(
+        join(projectDir, ".taskcraft", "config.json"),
+        `${JSON.stringify({
+          takeOver: "ask",
+          hookTests: {
+            claude: {
+              testedAt: new Date(Date.now() + 60_000).toISOString(),
+              version: "2.1.220",
+              ok: true,
+              enforced: true,
+            },
+          },
+        })}\n`,
+        "utf8",
+      );
+
+      const items = collectDiagnostics(projectDir, () => ({
+        ok: true,
+        stdout: "2.2.0\n",
+        stderr: "",
+      }));
+
+      expect(
+        items.some(
+          (item) =>
+            item.code === "TC_HOOK_VERSION_DRIFT" &&
+            item.problem.includes("2.2.0") &&
+            item.problem.includes("2.1.220"),
+        ),
+      ).toBe(true);
     });
   });
 });

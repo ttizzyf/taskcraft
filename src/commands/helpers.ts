@@ -14,6 +14,7 @@ import {
   commandOk,
   errorFromTaskcraftError,
 } from "../core/command-result.js";
+import type { CommandResultError } from "../core/command-result.js";
 import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
 import type { TaskcraftErrorCode } from "../core/errors.js";
 import type { TaskcraftDatabase } from "../store/database.js";
@@ -171,6 +172,15 @@ export function isJsonMode(command: Command): boolean {
 
 export function printCommandResult<T>(data: T): void {
   console.log(JSON.stringify(commandOk(data), null, 2));
+}
+
+/** Writes a command-result failure envelope to stderr. Commands that perform
+ * batch/read-only checks use this when the operation completed but found one
+ * or more stable errors. */
+export function printCommandFailure(
+  errors: readonly CommandResultError[],
+): void {
+  process.stderr.write(`${JSON.stringify(commandFailure(errors), null, 2)}\n`);
 }
 
 function writeFailure(error: TaskcraftError, json: boolean): void {

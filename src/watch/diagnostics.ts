@@ -1,48 +1,37 @@
 // Read-only diagnostics aggregation for the watch API. Every item is derived
 // from the Task Store, the takeover config and the installed hook files;
-// nothing here writes files or probes a live host, so the endpoint stays safe
-// to call repeatedly.
+// nothing here writes files. A bounded --version probe compares the current
+// host with the persisted field-test version; it never starts an agent run.
 
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 
+import { defaultProbe } from "../adapters/shared.js";
+import type { ProbeFn } from "../adapters/types.js";
 import {
   TASKCRAFT_DATABASE_FILE,
   TASKCRAFT_DIRECTORY_NAME,
   migrationsDirectory,
 } from "../commands/helpers.js";
 import { ERROR_CODES } from "../core/errors.js";
-import {
-  CONFIG_FILE_NAME,
-  readHookTests,
-  readTaskcraftConfig,
-} from "../hooks/shared.js";
+import { CONFIG_FILE_NAME, readTaskcraftConfig } from "../hooks/shared.js";
 import type { TaskcraftDatabase } from "../store/database.js";
 import { openDatabase } from "../store/database.js";
 import { applyMigrations, MigrationError } from "../store/migrations.js";
 import { getAgentRuns, getOpenBlockers, listTasks } from "../store/query.js";
+import {
+  WATCH_DIAGNOSTIC_CODES,
+  type DiagnosticItem,
+} from "./diagnostic-types.js";
+import { collectHookDiagnostics } from "./hook-diagnostics.js";
 
-/** Watch-local codes for anomalies the core taxonomy does not name. */
-export const WATCH_DIAGNOSTIC_CODES = {
-  TC_RETRIES_EXHAUSTED: "TC_RETRIES_EXHAUSTED",
-  TC_OBSERVATION_STALE: "TC_OBSERVATION_STALE",
-  /** Installed hooks were never verified by a field test. */
-  TC_HOOK_TEST_MISSING: "TC_HOOK_TEST_MISSING",
-  /** The installed hook chain changed after the last recorded field test. */
-  TC_HOOK_VERSION_DRIFT: "TC_HOOK_VERSION_DRIFT",
-} as const;
+export { WATCH_DIAGNOSTIC_CODES } from "./diagnostic-types.js";
+export type { DiagnosticItem, DiagnosticSource } from "./diagnostic-types.js";
 
-export type DiagnosticSource = "store" | "migration" | "adapter" | "task";
-
-export interface DiagnosticItem {
-  code: string;
-  problem: string;
-  impact: string;
-  remediation: string;
-  source: DiagnosticSource;
-}
-
-export function collectDiagnostics(projectDir: string): DiagnosticItem[] {
+export function collectDiagnostics(
+  projectDir: string,
+  probe: ProbeFn = defaultProbe,
+): DiagnosticItem[] {
   const storeDirectory = join(projectDir, TASKCRAFT_DIRECTORY_NAME);
   const databaseFile = join(storeDirectory, TASKCRAFT_DATABASE_FILE);
   const items: DiagnosticItem[] = [];
@@ -68,7 +57,7 @@ export function collectDiagnostics(projectDir: string): DiagnosticItem[] {
 
   try {
     collectConfigItems(configFile, items);
-    collectHookTestItems(projectDir, configFile, items);
+    collectHookDiagnostics(projectDir, configFile, items, probe);
     collectBlockerItems(database, items);
     collectObservationItems(database, items);
   } finally {
@@ -147,140 +136,6 @@ function collectConfigItems(configFile: string, items: DiagnosticItem[]): void {
       source: "adapter",
     });
   }
-}
-
-/** Hook anomalies derived from config.hookTests compared against the
- * installed wrapper files (no re-running of the field test): a failed test,
- * wrappers that changed after the tested state (version drift) and installed
- * hooks that were never field-tested. */
-function collectHookTestItems(
-  projectDir: string,
-  configFile: string,
-  items: DiagnosticItem[],
-): void {
-  if (!existsSync(configFile)) {
-    return;
-  }
-
-  const hookTests = readHookTests(configFile);
-  const hooksDir = join(projectDir, TASKCRAFT_DIRECTORY_NAME, "hooks");
-  const wrappers = {
-    entry: join(hooksDir, "entry.sh"),
-    stop: join(hooksDir, "stop.sh"),
-  };
-
-  for (const agent of Object.keys(hookTests).sort()) {
-    const record = hookTests[agent]!;
-
-    if (!record.ok) {
-      items.push({
-        code: ERROR_CODES.TC_ADAPTER_HOOK_TEST_FAILED,
-        problem: `Hook field test failed for ${agent}: ${record.failure ?? "unknown failure"}`,
-        impact: "Entry injection or stop blocking could not be verified",
-        remediation: `Fix the failing check, then re-run: tc agent test-hook --agent ${agent}`,
-        source: "adapter",
-      });
-      continue;
-    }
-
-    if (!existsSync(wrappers.entry) || !existsSync(wrappers.stop)) {
-      items.push({
-        code: ERROR_CODES.TC_ADAPTER_HOOK_INSTALL_FAILED,
-        problem: `Installed hook wrapper is missing for ${agent}: ${wrappers.entry} or ${wrappers.stop}`,
-        impact: "The host silently skips the missing wrapper",
-        remediation: `Re-install the hooks: tc init --agent ${agent}`,
-        source: "adapter",
-      });
-      continue;
-    }
-
-    const changed = hookChainChangedAfter(wrappers, record.testedAt);
-
-    if (changed !== null) {
-      items.push({
-        code: WATCH_DIAGNOSTIC_CODES.TC_HOOK_VERSION_DRIFT,
-        problem: `Installed hook chain for ${agent} changed after the last field test (${record.testedAt}): ${changed}`,
-        impact:
-          "The recorded hook version no longer reflects the installed scripts",
-        remediation: `Re-run the field test: tc agent test-hook --agent ${agent}`,
-        source: "adapter",
-      });
-    }
-  }
-
-  if (Object.keys(hookTests).length === 0 && existsSync(wrappers.entry)) {
-    items.push({
-      code: WATCH_DIAGNOSTIC_CODES.TC_HOOK_TEST_MISSING,
-      problem: "Installed hooks were never field-tested",
-      impact: "Entry/Stop hook behavior is unverified",
-      remediation: "Verify them with: tc agent test-hook --agent codex|claude",
-      source: "adapter",
-    });
-  }
-}
-
-/** True when a wrapper script or the gate artifact it references was
- * modified after the recorded test time (both wrappers and the built gates
- * are part of the installed chain). */
-function hookChainChangedAfter(
-  wrappers: { entry: string; stop: string },
-  testedAt: string,
-): string | null {
-  const tested = Date.parse(testedAt);
-
-  if (Number.isNaN(tested)) {
-    return `unparsable testedAt ${testedAt}`;
-  }
-
-  for (const [label, path] of [
-    ["entry.sh", wrappers.entry],
-    ["stop.sh", wrappers.stop],
-  ] as const) {
-    if (modifiedAfter(path, tested)) {
-      return `${label} was modified after the test`;
-    }
-  }
-
-  for (const gate of referencedGatePaths([wrappers.entry, wrappers.stop])) {
-    if (modifiedAfter(gate, tested)) {
-      return `${gate} was rebuilt after the test`;
-    }
-  }
-
-  return null;
-}
-
-function modifiedAfter(path: string, timestamp: number): boolean {
-  try {
-    return statSync(path).mtimeMs > timestamp;
-  } catch {
-    return false;
-  }
-}
-
-/** Extracts the `node "<path>"` gate references from managed wrappers. */
-function referencedGatePaths(scripts: readonly string[]): string[] {
-  const paths: string[] = [];
-
-  for (const script of scripts) {
-    let text: string;
-
-    try {
-      text = readFileSync(script, "utf8");
-    } catch {
-      continue;
-    }
-
-    for (const match of text.matchAll(/node "([^"]+\.js)"/g)) {
-      const path = match[1];
-
-      if (path !== undefined) {
-        paths.push(path);
-      }
-    }
-  }
-
-  return paths;
 }
 
 /** Aggregates open blockers into one item per task per anomaly category. */

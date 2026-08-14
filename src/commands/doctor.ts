@@ -18,6 +18,7 @@ import {
   execute,
   isJsonMode,
   migrationsDirectory,
+  printCommandFailure,
   printCommandResult,
   TASKCRAFT_DATABASE_FILE,
   taskcraftDirectory,
@@ -38,12 +39,16 @@ export function register(program: Command): void {
           const failedChecks = checks.filter((check) => !check.ok);
 
           if (json) {
-            printCommandResult({
-              healthy: failedChecks.length === 0,
-              totalChecks: checks.length,
-              failedChecks: failedChecks.length,
-              checks,
-            });
+            if (failedChecks.length === 0) {
+              printCommandResult({
+                healthy: true,
+                totalChecks: checks.length,
+                failedChecks: 0,
+                checks,
+              });
+            } else {
+              printCommandFailure(failedChecks.map((check) => check.error!));
+            }
           } else {
             printTextReport(checks);
           }
