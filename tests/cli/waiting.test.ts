@@ -234,10 +234,9 @@ describe("tc run fail / retry", () => {
       );
       expect(retry.status).toBe(0);
       expect(retry.stdout).toContain("Successor attempt: att-T-1-execute-1-2");
-
-      const claim = runCli(["run", "T-1"], cwd);
-      expect(claim.status).toBe(0);
-      expect(claim.stdout).toContain("Attempt: att-T-1-execute-1-2");
+      expect(retry.stdout).toContain("Node Brief");
+      expect(retry.stdout).toContain("Attempt: att-T-1-execute-1-2");
+      expect(retry.stdout).toContain("Complete command: tc run complete T-1");
     });
   });
 

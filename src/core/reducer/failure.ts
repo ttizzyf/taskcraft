@@ -36,6 +36,7 @@ import {
   insertEvent,
   nowIso,
 } from "./shared.js";
+import { buildNodeBrief } from "./run.js";
 
 export interface RetryResult extends CommandData {
   /** Successor attempt id, or null when the retry budget was exhausted and
@@ -130,10 +131,12 @@ export function runRetry(
       snapshot,
       input.attemptId,
     );
+    assertLatestNodeAttempt(database, taskId, snapshot, attempt);
+    const staleObservation = hasStaleObservation(database, taskId, attempt);
     const retryable =
       attempt.status === "failed" ||
       attempt.status === "superseded" ||
-      hasStaleObservation(database, taskId, attempt);
+      staleObservation;
 
     if (!retryable) {
       throw attemptRefError(
@@ -219,6 +222,16 @@ export function runRetry(
 
     const actor = input.actorInstanceId ?? L1_DEFAULT_ACTOR;
     const now = nowIso();
+    if (staleObservation) {
+      database
+        .prepare(
+          `UPDATE node_attempts
+             SET status = 'superseded', outcome = 'superseded', finished_at = ?
+           WHERE id = ?`,
+        )
+        .run(now, attempt.id);
+    }
+
     // Successor numbers advance per node across every lifecycle revision:
     // node_attempts.id is a global primary key, so a replanned revision must
     // not reuse the ids of superseded revision-1 attempts.
@@ -260,6 +273,13 @@ export function runRetry(
     return {
       ...commandData(database, taskId, snapshotOf(database, taskId)),
       successorAttemptId: successorAttempt,
+      nodeBrief: buildNodeBrief(
+        database,
+        taskId,
+        snapshot,
+        successorAttempt,
+        attempt.nodeId,
+      ),
     };
   });
 }
@@ -289,6 +309,38 @@ function findCurrentAttempt(
   }
 
   return attempt;
+}
+
+/** Retry only advances the latest attempt of a node. Retrying an older
+ * failed/superseded id after a successor exists would create two active
+ * successors or reopen a node that already completed. */
+function assertLatestNodeAttempt(
+  database: TaskcraftDatabase,
+  taskId: string,
+  snapshot: { currentLifecycleRevision: number },
+  attempt: AttemptRow,
+): void {
+  const latest = getAttempts(database, taskId)
+    .filter(
+      (candidate) =>
+        candidate.lifecycleRevision === snapshot.currentLifecycleRevision &&
+        candidate.nodeId === attempt.nodeId,
+    )
+    .reduce<AttemptRow | undefined>(
+      (current, candidate) =>
+        current === undefined || candidate.attemptNumber > current.attemptNumber
+          ? candidate
+          : current,
+      undefined,
+    );
+
+  if (latest?.id !== attempt.id) {
+    throw attemptRefError(
+      taskId,
+      `Attempt ${attempt.id} is not the latest attempt of node ${attempt.nodeId}`,
+      `Retry the latest attempt instead: ${latest?.id ?? "tc task show <task-id> --json"}`,
+    );
+  }
 }
 
 /** A created/running attempt whose latest host observation is stale can be

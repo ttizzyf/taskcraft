@@ -164,7 +164,7 @@ export function run(
     const data = commandData(database, taskId, snapshotOf(database, taskId));
     return {
       ...data,
-      nodeBrief: nodeBrief(
+      nodeBrief: buildNodeBrief(
         database,
         taskId,
         snapshot,
@@ -178,7 +178,7 @@ export function run(
 /** Node Brief for the claimed node: objective, its obligations, the node
  * result schema and the registered completion command, all read from the
  * current revision. */
-function nodeBrief(
+export function buildNodeBrief(
   database: TaskcraftDatabase,
   taskId: string,
   snapshot: { title: string; currentLifecycleRevision: number },

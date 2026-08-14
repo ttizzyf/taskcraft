@@ -205,6 +205,12 @@ describe("reducer runRetry", () => {
 
       expect(result.status).toBe("active");
       expect(result.successorAttemptId).toBe(`att-${taskId}-execute-1-2`);
+      expect(result.nodeBrief).toMatchObject({
+        taskId,
+        nodeId: "execute-1",
+        attemptId: `att-${taskId}-execute-1-2`,
+        nextCommand: `tc run complete ${taskId}`,
+      });
       expect(getAttempts(database, taskId)).toEqual([
         expect.objectContaining({ attemptNumber: 1, status: "failed" }),
         expect.objectContaining({
@@ -275,10 +281,43 @@ describe("reducer runRetry", () => {
       const result = runRetry(database, taskId, { attemptId, reason: "stale" });
 
       expect(result.successorAttemptId).toBe(`att-${taskId}-execute-1-2`);
+      expect(result.nodeBrief?.attemptId).toBe(`att-${taskId}-execute-1-2`);
       expect(getAttempts(database, taskId)).toEqual([
-        expect.objectContaining({ attemptNumber: 1, status: "created" }),
+        expect.objectContaining({
+          attemptNumber: 1,
+          status: "superseded",
+          outcome: "superseded",
+          finishedAt: expect.any(String),
+        }),
         expect.objectContaining({ attemptNumber: 2, status: "created" }),
       ]);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("rejects retrying an older attempt after its successor exists", () => {
+    const database = createMigratedDatabase();
+
+    try {
+      const taskId = taskNew(database, {
+        title: "No duplicate successor",
+        level: 1,
+        reason: "reason",
+      }).taskId;
+      const first = run(database, taskId).nodeBrief!.attemptId;
+      runFail(database, taskId, { attemptId: first, reason: "failed" });
+      runRetry(database, taskId, { attemptId: first, reason: "retry once" });
+
+      const error = captureTaskcraftError(() =>
+        runRetry(database, taskId, {
+          attemptId: first,
+          reason: "duplicate retry",
+        }),
+      );
+
+      expect(error.code).toBe(ERROR_CODES.TC_ATTEMPT_REF_INVALID);
+      expect(getAttempts(database, taskId)).toHaveLength(2);
     } finally {
       database.close();
     }

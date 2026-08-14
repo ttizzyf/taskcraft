@@ -1,7 +1,7 @@
 // tc run retry: creates a successor attempt for the same node through the
-// reducer (old attempt stays failed). When the node's retry budget is spent
-// the reducer writes the failed_retries_exhausted blocker instead and the
-// command reports the waiting state; the successor id is echoed on success.
+// reducer (a stale active attempt is atomically superseded). When the node's
+// retry budget is spent the reducer writes the failed_retries_exhausted
+// blocker instead. A successful retry returns the successor's Node Brief.
 
 import type { Command } from "commander";
 
@@ -14,7 +14,7 @@ import {
   parseExpectedRevision,
   printCommandResult,
 } from "./helpers.js";
-import { renderCommandData } from "./render.js";
+import { renderRunData } from "./render.js";
 
 export function register(runCommand: Command): void {
   runCommand
@@ -48,7 +48,7 @@ export function register(runCommand: Command): void {
           if (json) {
             printCommandResult(data);
           } else {
-            const lines = [renderCommandData(data)];
+            const lines = [renderRunData(data)];
 
             if (data.successorAttemptId !== null) {
               lines.push(`Successor attempt: ${data.successorAttemptId}`);
