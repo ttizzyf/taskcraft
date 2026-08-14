@@ -470,3 +470,25 @@ Task 07 全部完成并归档：tc doctor（7 项只读检查）、waiting/resum
 ### Status
 
 [OK] **Completed**
+
+
+## Session 21: Remove Stop Hook and adopt agent-driven continuation
+
+**Date**: 2026-08-14
+**Task**: Remove Stop Hook and adopt agent-driven continuation
+**Branch**: `main`
+
+### Summary
+
+Removed Codex/Claude Stop Hook and forced continuation; adopted Entry-only recovery, agent-driven progress, typed waiting, Entry-specific field tests/diagnostics, and synchronized product/Trellis specs.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `babeb09` | (see git log) |
+| `b70adb5` | (see git log) |
+
+### Status
+
+[OK] **Completed**
