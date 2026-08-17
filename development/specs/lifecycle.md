@@ -104,27 +104,36 @@ research [optional]
 ### L3
 
 ```text
-frame [required]
-plan [required]
-feasibility review [required, separate attempt, reviews plan attempt]
-  - user intent coverage retained
-  - blocking feasibility assumptions probed
-  - decomposition and integration path accepted
-execute [required; first version: single execute]
-  - per-child execute/review materialization deferred; plan children is an
-    informational declaration capped at one child
-delivery review [required, separate attempt]
-  - reviewed_attempt_id retained
-  - review capability state retained
-integrate [required]
-  - first version materializes a single integrate gate; per-branch
-    aggregation is deferred alongside per-child execute
-record [required]
-research/security/migration/release checks [recommended or required by policy]
+planning revision:
+  frame [required]
+  plan [required]
+    - decomposition.mode = modules | single
+    - acceptance anchors, coverage, dependencies and integration path retained
+  feasibility review [required, separate attempt, reviews plan attempt]
+
+modules execution revision:
+  required L1/L2 child tasks [required, projected gate]
+  integrate [required, consumes exact child task/revision/evidence refs]
+  integration review [required only when Integrate modifies deliverables]
+  record [required]
+
+single execution revision:
+  execute [required]
+  delivery review [required, separate attempt]
+  integrate [required]
+  integration review [required only when Integrate modifies deliverables]
+  record [required]
 ```
 
-> 首版 L3 只物化单 execute：plan 的 `children` 是信息性声明（最多一个
-> child），不产生 per-child execute/review 分支；per-child 物化延后。
+`modules` 至少包含两个可独立验收的交付模块。Feasibility Review 通过时，
+Reducer 在同一事务中创建真实 L1/L2 child、父 execution revision、验收锚点、
+覆盖、显式依赖、共享验证 owner 和 inherited planning 来源；任一步失败全部回滚。
+child 不重复 Frame/Plan，也不伪造 planning Attempt，第一个真实节点是 execute。
+
+任务树固定一层，L3 child 永久禁止；候选模块仍需 L3 拆分时必须回父 Plan 拆成
+sibling modules。`scope` 是主战场提示，不是写入红线；只有显式 `dependsOn` 会
+阻塞 runnable。确实无法诚实拆分时允许 `single`，但 Plan 必须记录至少一次尝试
+拆分及失败原因并通过 Feasibility Review，不能创建形式主义单 child。
 
 ## 6. 图编译
 
@@ -146,6 +155,13 @@ flowchart LR
 首版 lifecycle revision 单线递增、只增不改。每个 revision 记录 compiler version、facts digest、policy digest、typed reason 和 old/new diff。跨 revision 保持相同语义的节点复用稳定 node id，新语义使用新 id；稳定 node id 表达 lineage。
 
 revision 切换事务将旧 revision 中 `created` 或 `running` 的 attempt 标记为 `superseded`。旧 revision 的节点停止接受新 attempt，历史 attempt 与 evidence 保留；新 revision 通过稳定 node id 和显式 evidence 引用使用历史事实。
+
+L3 的 Feasibility pass 是 planning revision 到 execution revision 的原子切换点。
+新 execution revision 通过 `source_plan_attempt_id` 和
+`feasibility_review_attempt_id` 引用被接受的规划。replan 时，旧 required child
+在新 planning revision 记录为 `not_required`；新 Plan 可用 `reuseTaskId` 复用
+同一父任务下合同完全一致的历史 child。复用不改写 child 内容、lifecycle、Attempt、
+Evidence 或原始 inherited planning 来源。
 
 ## 7. Agent 连续执行合同
 
@@ -216,6 +232,18 @@ Taskcraft 不注册结束轮次的 Hook，也不阻止 Agent 正常结束。任�
 Claude 安装 Entry Hook；Entry 缺失、未注册、现场测试失败或版本漂移时明确报错
 并进入 diagnostics。
 
+Codex 注册写入项目级 `.codex/hooks.json`，使用 `SessionStart -> matcher group ->
+command handler` 三层结构；Claude 注册写入 `.claude/settings.json`。Codex 的项目
+信任与 Hook 定义信任是两道独立门：项目必须可信，且新增或变更的 Hook 必须由用户
+在 Codex `/hooks` 中审核。Taskcraft 的现场测试不得使用跳过 Hook 信任的参数伪造通过。
+Entry wrapper 只在有 breadcrumb 时输出文本标签和 breadcrumb；标签用于避免 Codex
+把业务 JSON 误判为 Hook 控制协议，无任务或 takeover off 时仍保持零输出。
+
+Entry 只在 root tasks 中寻找唯一 active 投影。模块化 L3 的父任务与正在执行的
+child 可以同时为 `active`，这不是歧义；breadcrumb 始终锚定 root parent，父投影
+的确定性 `next` 指向当前首选 child。完整并行集合由
+`tc task next <parent> --json` 的 `runnableWorkItems` 返回。
+
 ## 8. 状态与闭环
 
 ### Task status
@@ -234,6 +262,11 @@ queued | active | waiting | done | cancelled
 - `waiting`：没有可运行节点，且存在 typed blocker。`waiting_reason` 取 `needs_input`、`needs_decision`、`failed_retries_exhausted` 或 `blocked_dependency`。
 - `done`：所有 required 义务满足，record 已完成。
 - `cancelled`：用户或策略显式终止，保留原因。
+
+模块化 L3 父任务仍只使用这五种状态：存在任一 runnable/running required child
+时为 `active`；某 child waiting 但仍有 sibling runnable 时仍为 `active`；所有路径
+均阻塞时为 `waiting`；required child cancelled 时为
+`waiting(needs_decision)`；全部 required children `done` 后才解锁 Integrate。
 
 ### Node status
 
@@ -279,10 +312,12 @@ attempt。独立 reviewer 可用时优先使用；不可用时当前 Agent 可�
 flowchart LR
     F[Frame by main Agent] --> P1[Plan attempt 1 by main Agent]
     P1 --> V1[Feasibility Review attempt 1]
-    V1 -- advisory facts + passed --> E[Execute]
+    V1 -- modules passed --> C[Materialize L1/L2 children]
+    V1 -- single passed --> E[Parent Execute]
     V1 -- material changes requested --> P2[Plan attempt 2]
     P2 --> V2[Feasibility Review attempt 2]
-    V2 -- passed --> E
+    V2 -- modules passed --> C
+    V2 -- single passed --> E
     V1 -- user decision required --> W[Waiting]
 ```
 
@@ -303,12 +338,15 @@ Feasibility Review 在以下条件同时成立时通过：
 - 每项用户意图都有对应子任务或验收动作。
 - 没有已知的阻断性可行性问题。
 - 子任务、关键依赖、验证责任和集成路径可以执行。
+- `modules` 至少两个 L1/L2 module，每个 required acceptance anchor 均有覆盖；
+  `single` 提供 attempted split 与失败原因。
 
 局部实现方式、低影响未知项和优化建议记录为 advisory finding，不阻止通过。`changes_requested` 只用于未覆盖用户意图、阻断性假设、不可执行的拆分/依赖或缺失的验证/集成路径。
 
 Feasibility Reviewer 可以追加 `intent`、`probe`、`constraint`、`assumption`、`dependency` 与 `environment` Task facts 及其 evidence。主 Agent 负责修改目标、范围、验收和 Plan attempt。初次 Review 后默认进行一次集中 Plan 修订；第二次仍存在 blocking finding 时，主 Agent 必须选择再次修订、记录并接受风险，或进入 `waiting(needs_decision)`。
 
-所有 Execute 节点都依赖当前 Plan attempt 的 Feasibility Review `passed` outcome。Projector 在该 gate 满足前不投影 Execute 为 runnable。
+Feasibility Review `passed` 之前不创建 child。通过后，`modules` 原子创建真实 child
+并切换到父 execution revision；`single` 切换到父自身的 execute revision。
 
 ### 9.2 Delivery Review 与回流
 
@@ -336,17 +374,27 @@ Review 只使用三个 outcome：
 共同约束：
 
 - Review 使用独立节点和独立 attempt，并记录 `reviewed_attempt_id` 与 `reviewPurpose`。`feasibility` 审核 plan attempt，`delivery` 审核 execute attempt，`integration` 审核 integrate attempt。Adapter 声明 `context-only`、`manual-attach` 或 `host-observed` 能力；UI 始终展示 `observed-distinct`、`unverified`、`same-actor` 或 `unsupported` 独立性状态。
+- 被审核 attempt 必须是当前 revision 中对应 node kind 最新的
+  `finished/success` attempt；显式传入失败、blocked 或已被 successor 取代的旧
+  attempt 必须拒绝，不能先写一个形式上的 passed 再让 Projector 卡住后继节点。
 - finding 归属原 Task，不创建另一种 Review Task。
 - 不创建 `review_resolutions`；outcome、successor/revision 引用、finding、evidence
   和 event 已足以说明处理结果。所有路径保留旧产物和证据。
 - `changes_requested` 在当前 revision 为被审核 node kind 创建 successor attempt；`replan_required` 在 scope、contract 或 lifecycle graph 改变时创建 lifecycle revision。
 - Integrate 只执行组合验证时可以进入 Record；Integrate 修改代码、配置或冲突结果时必须生成 `integration` Review。
+- inherited L2 child 的 Delivery Review 返回 `replan_required` 时，Reducer 将
+  replan 路由到 root L3：父任务进入新的 planning revision，旧 required children
+  记录为 `not_required`。Taskcraft 不取消 sibling、不停止宿主 subagent，也不删除
+  child 的 Attempt/Evidence；主 Agent 决定宿主中断时机并随后记录各 child 的真实处置。
 
 ## 10. Agent 编排与并行
 
 执行主体与工具边界遵循 [架构与唯一真相源](architecture.md#2-逻辑架构)。Taskcraft projector 返回可运行节点、依赖事实和可选派发说明；reducer 负责 CAS、引用、节点归属和结果合同校验。是否使用宿主原生 subagent 由当前 Agent 决定；没有该能力时当前 Agent 自己执行。Taskcraft 不创建派发实体，也不启动或调度 subagent；`manual-attach` 只记录已有运行关联。
 
-Agent 仅在写入范围不冲突、共享验证 owner 明确、依赖已满足且并行收益明确时并行执行。Reducer 在依赖、CAS 或节点归属冲突时写入 typed blocker，并返回稳定 remediation。
+`runnableWorkItems` 只由 child lifecycle gate 与未满足的显式 `dependsOn` 推导。
+共享 scope、验收锚点或验证 owner 是协调提示，不自动推断互斥或执行顺序；需要
+顺序时必须写依赖边。Agent 根据宿主能力、写入冲突和协调成本决定串行或并行，
+Taskcraft 不设置并行预算、并发控制或调度锁。
 
 ## 11. 图安全约束
 
@@ -355,4 +403,6 @@ Agent 仅在写入范围不冲突、共享验证 owner 明确、依赖已满足�
 - 节点数和边数由实现版本设定可解释上限，并在超限时返回稳定错误。
 - required obligation 必须可追溯到某个节点输出或 evidence evaluator。
 - lifecycle revision 只增不改；旧节点与其 attempt/evidence 保持可追溯，当前视图的隐藏不会物理删除历史事实。
+- L3 父子树最多一层，child 只能是 L1/L2；父子关系不表达依赖，显式依赖边只在
+  同一父 execution revision 内连接 required children。
 - 后续动态插件的扩展边界是 typed node、gate 与 obligation；Task 顶层状态固定为五种。

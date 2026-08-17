@@ -57,6 +57,11 @@ nodes、下一步和用户视图；Adapter 负责 Entry Hook 安装、节点执�
 - `lifecycle_revisions` 保存 revision 原因、编译器版本和输入摘要 digest。
 - `lifecycle_nodes`、`lifecycle_edges` 保存图结构、typed node kind、objective、procedure reference、scope、gate、retry 和输入输出合同。
 - `obligation_definitions` 保存 `required`、`recommended`、`optional` 及其 evaluator 定义。
+- `lifecycle_acceptance_anchors`、`lifecycle_execution_sources`、
+  `lifecycle_child_requirements`、`lifecycle_anchor_coverage`、
+  `lifecycle_task_dependencies`、`lifecycle_validation_assignments` 与
+  `lifecycle_inherited_planning` 保存 accepted L3 Plan 编译出的 revision-scoped、
+  append-only 定义事实。
 - stable node id 在跨 revision 的相同语义中复用，新语义使用新 id。
 
 ### 3.2 Runtime facts
@@ -90,6 +95,13 @@ erDiagram
     TASKS ||--o{ BLOCKERS : has
     NODE_ATTEMPTS ||--o{ AGENT_RUNS : observes
     TASKS ||--o{ EVENTS : audits
+    TASKS ||--o{ TASKS : parent_of
+    LIFECYCLE_REVISIONS ||--o| LIFECYCLE_EXECUTION_SOURCES : accepts
+    LIFECYCLE_REVISIONS ||--o{ LIFECYCLE_ACCEPTANCE_ANCHORS : defines
+    LIFECYCLE_REVISIONS ||--o{ LIFECYCLE_CHILD_REQUIREMENTS : requires
+    LIFECYCLE_CHILD_REQUIREMENTS ||--o{ LIFECYCLE_ANCHOR_COVERAGE : covers
+    LIFECYCLE_CHILD_REQUIREMENTS ||--o{ LIFECYCLE_TASK_DEPENDENCIES : orders
+    LIFECYCLE_CHILD_REQUIREMENTS ||--o| LIFECYCLE_INHERITED_PLANNING : sources
 ```
 
 `development/contracts/storage.sql` 是表结构和外键的唯一合同。Definition 表的 append-only trigger 保持旧 revision、旧 attempt 和旧 evidence 可引用。
@@ -117,11 +129,16 @@ project(taskSnapshot)
 | --- | --- | --- |
 | `queued` | 任务尚未激活，当前 revision 已登记 | 空 |
 | `active` | 任务已激活，至少一个节点 runnable 或 running | 空 |
-| `waiting` | 任务已激活，没有 runnable/running 节点，存在 open blocker | blocker 的 `waiting_reason` |
 | `done` | record 结果已满足，当前 revision 的全部 required obligations 已满足 | 空 |
 | `cancelled` | 存在显式取消事实 | 空 |
 
 `cancelled` 优先级最高，`done` 需要满足 record 和 required obligations。Attempt 的 `failed` outcome 由 reducer 转为下一次 retry、typed blocker 或取消事实；重试耗尽时使用 `waiting(failed_retries_exhausted)`。
+
+模块化 L3 不引入第六种状态。Projector 只聚合一层 current required children：
+任一 child runnable/running 时父任务为 `active`，全部路径阻塞时为 `waiting`，
+cancelled child 使父任务进入 `waiting(needs_decision)`，全部 required children
+`done` 后父 Integrate 才 runnable。`runnableWorkItems` 返回完整可运行集合；硬阻塞
+只来自 child 自身 lifecycle 和显式 dependency edges。
 
 ## 6. Level 与 lifecycle 合同
 
@@ -132,7 +149,13 @@ project(taskSnapshot)
 
 Level 表达治理强度判断，当前 revision 的 required obligations 表达可验收合同。Agent 可以通过显式 revision 重新判断 Level 或义务；Projector 以当前 revision 的 required obligations 判断完成。
 
-首版支持 typed node kind：`frame`、`plan`、`execute`、`review`、`integrate`、`record`。L1/L2 纵切优先验证；完整首版提供 `frame -> plan -> feasibility review -> execute -> delivery review -> integrate -> record` 基础 L3 合同。当前 Agent 按自身能力串行执行或使用宿主原生 subagent；Taskcraft 只在 Node Brief 中提供派发说明，`manual-attach` 只保存已有运行关联。
+首版支持 typed node kind：`frame`、`plan`、`execute`、`review`、`integrate`、`record`。
+L3 编译为 planning revision 与 accepted execution revision：`modules` 由真实 L1/L2
+children gate 父 Integrate，`single` 才在父任务上生成 execute/delivery review。
+child 使用 execution-only graph 并保存 inherited planning provenance，不生成伪
+Frame/Plan Attempt，也不允许 L3 child 或递归任务树。当前 Agent 按自身能力串行
+执行或使用宿主原生 subagent；Taskcraft 只返回 runnable facts 和可选派发说明，
+`manual-attach` 只保存已有运行关联。
 
 Lifecycle compiler 根据任务 facts 和 policy digest materialize definition。Review link
 保存运行关联能力和独立性披露。局部 Review finding 在当前 revision 为被审核节点
@@ -168,7 +191,10 @@ SQLite 使用 WAL、短写事务和 busy timeout。同一任务的事实写入�
 }
 ```
 
-静默入口只输出必要的 task anchor；多个 runnable node 通过 `tc task next --json` 返回结构化列表。Breadcrumb 的 schema 见 `development/contracts/breadcrumb.schema.json`。
+静默入口只输出必要的 root task anchor；多个 runnable node/children 通过
+`tc task next --json` 返回结构化列表。父 L3 与 child 同时 active 时不算多 root
+歧义，breadcrumb 锚定父任务，确定性 next 可指向 child。Breadcrumb 的 schema 见
+`development/contracts/breadcrumb.schema.json`。
 
 Breadcrumb 负责跨轮定位；节点执行卡负责当前节点指导；command result 负责同轮连续推进。完整行为以 [Agent 连续执行合同](lifecycle.md#7-agent-连续执行合同) 为规则源。
 
@@ -197,8 +223,17 @@ Review UI 始终展示 capability 和 independence status；`host-observed` 只�
 模型只能使用宿主实际暴露给当前会话的工具和上下文。Hook 安装、权限和现场测试
 结果由 Adapter 检查并持久化到 `config.entryHookTests`，由 capabilities 与 Watch
 Diagnostics 同源展示；Taskcraft 不要求模型猜测宿主的隐藏配置。现场测试要求
-恰好一个 active task，使真实 Entry gate 必须产出 breadcrumb；无 active task、
-多 active task、未注册、未批准、路径损坏或版本漂移都不能伪装成成功。
+恰好一个 active root task，使真实 Entry gate 必须产出 breadcrumb；无 active
+root、多 active roots、未注册、未批准、路径损坏或版本漂移都不能伪装成成功。
+一个 modular L3 root 与其 active child 共存是正常状态。
+
+Codex Adapter 将 SessionStart 注册为 `.codex/hooks.json` 中的 matcher group 和
+`type: "command"` handler；Claude Adapter 使用 `.claude/settings.json` 的同类三层
+结构。Codex 项目 trust 只允许加载项目配置，不等于已信任具体 Hook；Hook 定义变更后
+仍需用户在 `/hooks` 中审核。`testEntryHook` 不使用
+`--dangerously-bypass-hook-trust`，只有真实宿主输出 breadcrumb 才记录成功。
+共享 Entry wrapper 在 breadcrumb 前增加非 JSON 文本标签；裸 JSON stdout 会进入
+Codex Hook 控制协议解析，因此不允许直接把业务 breadcrumb 作为 Hook 的完整 stdout。
 
 ## 10. 安全与隐私
 
@@ -209,7 +244,8 @@ Diagnostics 同源展示；Taskcraft 不要求模型猜测宿主的隐藏配置�
 - Node Brief 遇到付费、外部写入、新凭据或高风险权限时要求 Agent 先询问用户；
   非敏感决定写入 `constraint` fact。Taskcraft 不签发或校验授权凭证。
 - export 支持移除绝对路径、session id 和运行细节。
-- `doctor` 检查外键、孤儿事实、事件连续性、definition digest 和投影缓存；它提供完整性诊断。
+- `doctor` 检查 migration ledger、外键、孤儿事实、事件连续性、definition digest、
+  L3 层级/覆盖/依赖/provenance、投影重建和 breadcrumb schema；它提供完整性诊断。
 
 ## 11. 迁移
 

@@ -49,6 +49,8 @@ tc enable ask
 ```
 
 `init` 创建 `.taskcraft/config.json`、`.taskcraft/taskcraft.db`、极薄 entry block 和宿主 hook。
+Codex 的项目注册位于 `.codex/hooks.json`，Claude 的项目注册位于
+`.claude/settings.json`；已有宿主注册文件不会被静默覆盖。
 
 ### 4.2 普通问答
 
@@ -72,10 +74,16 @@ attempt；合同变化使用 `replan_required` 创建新 lifecycle revision。
 ### 4.5 L3 复杂任务
 
 `frame` 和 `plan` 由当前 Agent 完成。Feasibility Review 使用独立节点和 attempt，
-检查关键外部假设、用户意图覆盖、拆分、依赖、验证和集成路径；独立 reviewer
-不可用时允许当前 Agent 自审并披露 `same-actor`。通过后 Execute 才可运行。
-Node Brief 可以给出派发说明，是否使用宿主原生 subagent 由当前 Agent 决定；
-Taskcraft 不派发 subagent，只记录已有运行关系。
+检查关键外部假设、产品验收锚点、拆分、依赖、验证和集成路径；独立 reviewer
+不可用时允许当前 Agent 自审并披露 `same-actor`。Plan 必须选择 `modules` 或
+`single`：`modules` 通过后原子创建至少两个真实 L1/L2 child，每个 child 独立拥有
+状态、Attempt、Review、waiting/resume 和 evidence，父任务在全部 required
+children 完成后 Integrate；`single` 必须记录尝试拆分及失败原因，通过后由父任务
+自身执行。child 不重复 Frame/Plan，也不允许 L3 child 或递归拆分。
+
+父任务显示完整 `runnableWorkItems`，当前 Agent 决定串行或使用宿主原生 subagent。
+Taskcraft 不派发、停止或调度 subagent；scope、共享锚点和共享验证只是协调提示，
+只有显式 `dependsOn` 会阻塞 child runnable。
 
 ### 4.6 连续执行
 
@@ -103,6 +111,8 @@ Taskcraft 不派发 subagent，只记录已有运行关系。
 - 每个节点的 required/recommended/optional 义务。
 - evidence、Review finding、Agent attempt、事件时间线。
 - Feasibility Review 追加的探测事实、证据、意图覆盖与未决假设。
+- L3 父任务的 acceptance anchors、覆盖、required/not-required children、依赖、
+  共享验证 owner、child 完成度和 inherited planning 来源。
 - 下一条 CLI 命令。
 
 ### Runtime
@@ -144,6 +154,8 @@ flowchart TD
 - Review pass、changes requested、需要重新 plan。
 - Reviewer 修改内容后的 diff/evidence、同 kind successor 与新 lifecycle revision。
 - L3 Feasibility Review 的探测中、待修改、通过与等待决策。
+- L3 planning/modules/single revision、多个 runnable children、局部 waiting、
+  cancelled child 的 `needs_decision`、全部 children done 后的 Integrate gate。
 - Agent running、stale、attempt failed、finished but result not collected，以及 `waiting_reason`。
 - Entry Hook 的可用与失败诊断状态。
 - revision conflict、DB migration failure、hook timeout、host unsupported。
@@ -153,5 +165,10 @@ flowchart TD
 - Web 提供只读任务视图，任务操作调用 Command service。
 - Task Store 保存任务摘要、结构化事实和 evidence reference。
 - Agent heartbeat 进入 runtime observation，完成状态由当前 revision 的 required obligations 与 record 结果推导。
-- L1 任务使用 `execute -> record`；L2 使用 `frame -> execute -> delivery review -> record`；L3 的基础合同包含 `frame -> plan -> feasibility review -> execute -> delivery review -> integrate -> record`，节点顺序由当前 revision 决定。
+- L1 任务使用 `execute -> record`；L2 使用
+  `frame -> execute -> delivery review -> record`。L3 先运行
+  `frame -> plan -> feasibility review` planning revision；accepted `modules` revision
+  由真实 child gate `integrate -> optional integration review -> record`，accepted
+  `single` revision 使用父级
+  `execute -> delivery review -> integrate -> optional integration review -> record`。
 - 首版部署边界是单仓库、单机、本地用户；团队账号、云同步和远程权限属于后续版本。

@@ -17,6 +17,7 @@
 | [0007：结果校验与 Agent 探测边界](0007-evaluator-and-probe-safety-boundary.md) | Taskcraft 校验结果；Agent 使用宿主工具检查环境 |
 | [0008：文档权威与初始模块边界](0008-document-authority-and-module-boundaries.md) | 单 package 起步，只创建 Task 01 实际使用的模块 |
 | [0009：Agent 自主推进与 Entry-only Hook](0009-agent-driven-continuation.md) | 移除 Stop Hook；任务连续性由持久事实、next、typed waiting 与 Entry 恢复承担 |
+| [0010：L3 模块化父子任务](0010-l3-modular-task-decomposition.md) | accepted Plan 原子物化一层真实 L1/L2 children；保留经审核的 single 模式，不引入调度器 |
 
 ## 使用规则
 

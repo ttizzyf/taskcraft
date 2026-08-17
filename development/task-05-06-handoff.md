@@ -1,15 +1,12 @@
-# Task 05/06/07 交接说明（阶段已归档，Task 07 最终验收返工中）
+# Task 05/06/07 交接说明（2026-08-14 历史快照）
 
-> 更新日期：2026-08-14。本文件是给下一个会话 agent 的交接文档：Task 05（L3
-> Feasibility 与 Integrate）和 Task 06（Watch）阶段已归档；Task 07 的代码返工
-> 已完成，但最终宿主验收尚未通过。Task 07 已交付：`tc doctor`、waiting/resume/retry
-> 公开闭环、Entry Hook 现场测试实现与真实宿主记录、run attach/status、`tc state`/`tc task list`、
-> CLI 收敛与 L3 单 execute 收窄。L2 Review/done 与 Codex SessionStart 已补真实
-> 样本；Entry Hook Diagnostics 与 `agent_runs` 单写入口也已修复并自动验证。
-> ADR 0009 已移除 Stop Hook。**迁移门结论仍为 blocked**：公共 Codex/Claude
-> `test-entry-hook` 待真实复核。见
-> [`development/dogfood-2026-08-13.md`](dogfood-2026-08-13.md)与 Task 07
-> 2026-08-14 复核快照。
+> 本文件保留 Task 05/06/07 当时的交接上下文，不再代表当前实现状态。后续 L3 已
+> 升级为 `tc-l3/2` 模块化合同，真实 L1/L2 children、single 模式和公开 CLI 闭环
+> 已通过；Codex 0.147.0 的公共 `test-entry-hook` 也已真实通过。Claude 仍未取得
+> 成功现场结果，所以迁移门继续为 `blocked`。当前结论见
+> [`README.md`](README.md)、[`plans/roadmap.md`](plans/roadmap.md)和
+> [`entry-hook-smoke-2026-08-17.md`](entry-hook-smoke-2026-08-17.md)。下文的
+> “L3 单 execute 收窄”“无活动 Trellis 任务”等只属于 2026-08-14 历史快照。
 
 ## 一、当前状态
 

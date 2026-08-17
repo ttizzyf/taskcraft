@@ -17,6 +17,8 @@ Taskcraft 已经拥有跨轮连续性所需的持久机制：Task Store、Node B
 ## Decision
 
 - Codex 与 Claude 只安装和注册 Entry Hook，不注册 Stop Hook。
+- Codex 使用官方 `.codex/hooks.json` 三层事件结构；项目 trust 与具体 Hook 的
+  `/hooks` 审核分别满足，现场测试不通过 bypass 参数跳过审核。
 - Agent 在下一步清楚、安全且可执行时自主继续；不明确或受阻时提交 typed
   `waiting`，说明缺少的输入、决定或依赖。
 - 正常结束一个 Agent 轮次不改变 Task 状态，不代表完成、失败、取消或 waiting。

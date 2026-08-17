@@ -5,27 +5,33 @@
 > `tc agent test-entry-hook`；下文原始返工要求保留为历史输入，不再是当前
 > Stop 行为合同。
 
-> 状态：代码返工完成、最终宿主验收未通过（2026-08-14）。Task 00–06
+> 状态：代码返工与自动验证完成，真实宿主验收部分通过（2026-08-17）。Codex
+> 0.147.0 已通过公共 `tc agent test-entry-hook`，Claude 仍未取得成功结果。Task 00–06
 > 的实现和归档历史保留，但在本任务验收通过前，不得据此宣称 MVP 发布门或
 > Trellis → Taskcraft 狗粮化进入条件已经满足。
 
-## 2026-08-14 返工结果
+## 当前返工结果（更新于 2026-08-17）
 
 - 已完成并复验：`tc doctor`、waiting/resume/retry/fail 公开闭环、
-  `run attach/status`、`tc state`/`task list`、L3 单 execute 收窄、Claude
-  L1/L2 dogfood，以及 Codex SessionStart/Entry 注入。
-- 已修复并由自动测试复验：公共 `test-hook` 现在要求唯一 active breadcrumb，
-  拒绝 Codex hooks feature disabled 和无效 registration/trust，不再使用 bypass；
+  `run attach/status`、`tc state`/`task list`、Claude 历史 L1/L2 dogfood，以及
+  Codex SessionStart/Entry 注入。
+- L3 后续已升级为 `tc-l3/2` 模块化合同：公开 CLI 可原子物化真实 L1/L2
+  children，并已回放 dependency、waiting/resume、Delivery Review、父取消拒绝、
+  Integrate/Record、single L3 和 doctor；不再以“首版收窄单 execute”为当前结论。
+- 已修复并由自动测试复验：公共 `test-entry-hook` 要求唯一 active root breadcrumb，
+  拒绝 Codex hooks feature disabled 和无效 registration/trust，不使用 trust bypass；
   Hook Diagnostics 覆盖 wrapper/gate 路径、宿主注册、缺少现场测试及宿主版本漂移；
   `agent_runs` 只允许 `runAttach` reducer 写入，Adapter 仅保留纯观察映射。
 - 同轮补齐：`doctor --json` 的损坏结果改为标准失败信封；stale retry 会先原子
   supersede 旧 attempt，并直接返回 successor Node Brief，不再留下两个 active
   attempt 或要求额外执行一次 `run`。
-- 尚缺真实宿主复核：用修复后的公共 `tc agent test-hook --agent claude` 重新保存
-  现场结果；Codex 公共测试仍会受 Stop Hook 未通过阻断。自动测试不能冒充这两项
-  真实调用证据。
-- 用户主动延期：Codex Stop Hook。该项不计入本轮其余返工的完成度，但迁移手册
-  仍要求 Codex/Claude Hook 全部通过，因此迁移门继续为 `blocked`。
+- 真实宿主复核：Codex 0.147.0 已通过公共
+  `tc agent test-entry-hook --agent codex --json`，结果为 `ok=true`、
+  `entryInjected=true`，且没有使用 trust bypass；Claude 同命令此前 60 秒超时，
+  尚无成功现场记录。
+- Stop Hook 已由 ADR 0009 从产品合同中移除，不再是迁移阻断项。迁移门继续为
+  `blocked` 的当前原因只有：迁移手册仍要求 Codex 与 Claude Entry 现场检测均通过，
+  而 Claude 证据未完成。
 - 文档同步：本结果取代早期“待执行”“L2 样本缺失”“Codex Entry 未复验”以及
   “公共 test-hook/Diagnostics/单写入口待返工”等
   已过期表述；历史 smoke 结论保留时必须明确标注已被后续证据更新。

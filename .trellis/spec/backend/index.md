@@ -7,13 +7,17 @@ Taskcraft 的 TypeScript 生产实现位于 `src/`，测试位于 `tests/`。本
 
 - [Entry Hook 跨层合同](entry-hook-contract.md)：Adapter、CLI、配置持久化、
   Watch Runtime/Diagnostics 的 Entry-only 数据流。
+- [L3 模块化跨层实现合同](l3-modular-contract.md)：accepted Plan 事务、真实 child、
+  parent Projector、replan/reuse、Entry root 选择、CLI/Watch/doctor 同源合同。
 
 ## Pre-Development Checklist
 
 1. 阅读 [`Taskcraft 规范来源索引`](../taskcraft.md) 和任务涉及的权威产品规范。
 2. 修改 Hook、Adapter、`tc agent` 或 Watch Hook 状态时，阅读
    [Entry Hook 跨层合同](entry-hook-contract.md)。
-3. 先搜索命令名、配置字段和诊断码的全部生产与测试消费者。
+3. 修改 L3 lifecycle、父子关系、Projector、replan/cancel、L3 CLI/Watch 或 doctor
+   时，阅读 [L3 模块化跨层实现合同](l3-modular-contract.md)。
+4. 先搜索命令名、配置字段和诊断码的全部生产与测试消费者。
 
 ## Quality Check
 

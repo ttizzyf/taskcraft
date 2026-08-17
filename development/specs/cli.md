@@ -50,11 +50,16 @@ tc agent test-entry-hook --agent claude
 
 `init` 已存在时只做幂等检查，不覆盖用户 entry 内容。`enable off` 必须让 hook
 零输出。`agent capabilities` 输出当前宿主名、版本和各项能力是否可用；
-`agent test-entry-hook` 要求恰好一个 active task，现场测试已安装并已注册的真实
+`agent test-entry-hook` 要求恰好一个 active root task，现场测试已安装并已注册的真实
 Entry Hook，返回测试时间和失败原因，并把结果写入 `config.entryHookTests`。
-无 active task、多 active task、takeover off、注册/路径/trust/feature gate
+无 active root、多 active roots、takeover off、注册/路径/trust/feature gate
 无效时均非零失败。研究报告中的 `verified|documented|limited|pending|deferred`
 不进入生产数据模型。
+
+`tc init --agent codex` 将注册写入 `.codex/hooks.json`，不是旧式
+`hooks.SessionStart = [{ command = ... }]`。若该文件已存在，命令不得覆盖用户内容，
+而应明确失败并要求人工合并。首次安装或 Hook 定义变化后，用户还需在 Codex
+`/hooks` 中审核该 Hook；`tc agent test-entry-hook --agent codex` 不绕过这道信任门。
 
 ## 4. Task
 
@@ -80,6 +85,11 @@ Agent 提交任务目标、Level 和判定理由；其他 facts 按需提供，�
 result 的 evidence refs 引用落库，`evidence add`/`export` 均 deferred。根命令 `tc`
 只在恰有一个 active task 时提供无 task id 的快捷 next；`task next` 始终使用显式
 task id。
+
+`task list` 返回 `parentTaskId`；`task show` 对 L3 parent 返回 children、acceptance
+anchors、coverage、dependencies、validation owners、execution source 和 inherited
+planning；`task next --json` 返回完整 `runnableWorkItems`。文本与 JSON 必须消费同一
+Projector DTO，不在 CLI 重算父状态。
 
 ## 5. Run 与 Review
 
@@ -108,7 +118,10 @@ subagent。当前 Agent 使用自身能力执行，也可以按 Node Brief 的�
 `review pass` 检查 required evidence；Reviewer 修改过内容时先用现有 evidence
 命令记录 diff 和验证，outcome 仍为 `passed`。`review changes` 在当前 revision
 为被审核 node kind 创建 successor attempt；`review replan` 创建新的 lifecycle
-revision。三个命令都由 reducer 校验结构、CAS、结果 Schema 和引用关系。
+revision。inherited L2 child 的 Delivery Review 执行 `review replan <child>` 时，
+Reducer 将新 planning revision 创建在 root L3 parent 上，返回父任务的 next；旧
+children 只记录为 `not_required`，不自动取消或停止宿主运行。三个命令都由 reducer
+校验结构、CAS、结果 Schema 和引用关系。
 
 ## 6. Watch 与状态
 
@@ -164,12 +177,18 @@ tc run complete T-203 --node plan-1 --result plan.json
 tc review start T-203 --node review-plan-1 --purpose feasibility --reviewed-attempt att_plan_1 --host claude
 tc task fact add T-203 --attempt att_review_plan_1 --category probe --subject "Auth API" --value @api-probe.json --evidence ev_api_probe
 tc review pass T-203 --attempt att_review_plan_1 --reviewed-attempt att_plan_1 --evidence ev_plan_review
-# Plan Review 通过后，当前 Agent 使用自身工具逐项执行并按需 manual-attach
+# modules Plan Review 通过后原子创建真实 child；返回 child ids 和完整 runnable 集合
 tc task next T-203 --json
-tc run T-203 --node execute-1
-tc run complete T-203 --node execute-1 --result execute.json
-tc review start T-203 --node review-execute-1 --purpose delivery --reviewed-attempt att_execute_1 --host claude
-tc review pass T-203 --attempt att_review_execute_1 --reviewed-attempt att_execute_1 --evidence ev_delivery_review
+# 以下 id 取自 review pass 结果；L2 child 有独立 Delivery Review，L1 child 可直接闭环
+tc run T-204 --node execute-1
+tc run complete T-204 --node execute-1 --result child-a.json
+tc review start T-204 --node review-1 --purpose delivery --reviewed-attempt att_child_a_execute --host claude
+tc review pass T-204 --attempt att_child_a_review --reviewed-attempt att_child_a_execute --evidence ev_child_a_review
+tc run T-204 --node record-1
+tc run complete T-204 --node record-1 --result record.json
+tc run T-205 --node execute-1
+tc run complete T-205 --node execute-1 --result child-b.json
+# Integrate result 必须逐一引用当前 required child 的精确 task revision 和所属 evidence
 tc run T-203 --node integrate-1
 tc run complete T-203 --node integrate-1 --result integrate.json
 tc run T-203 --node record-1
@@ -184,7 +203,7 @@ tc run complete T-203 --node record-1 --result record.json
 | `task promote/revise`（deferred） | Task 存在；Agent 提交新 Level/合同与 reason；CAS 匹配 | 新 lifecycle revision、old/new diff、旧运行 attempt 的 `superseded` 结果、审计事件 | 返回新 revision 的首个 runnable node |
 | `task wait` | Task 已激活；typed reason 与 remediation 可读；CAS 匹配 | open blocker、审计事件 | 返回 `task resume`、用户输入或指定 remediation |
 | `task resume` | 对应 blocker 已具备解决事实；CAS 匹配 | blocker resolved、审计事件 | 返回当前首个 runnable node |
-| `task cancel` | Task 尚未形成取消事实；CAS 匹配 | cancel fact、活跃 attempt 终止结果、审计事件 | 返回只读 `task show` |
+| `task cancel` | Task 尚未形成取消事实；L3 parent 没有 queued/active/waiting required child；CAS 匹配 | cancel fact、当前任务活跃 attempt 终止结果、审计事件；不级联 child | 返回只读 `task show` |
 | `task evidence add`（deferred） | evidence reference 可读；目标 attempt/Task 引用有效；CAS 匹配 | evidence、可满足的 obligation result、审计事件 | 返回 projector 推导的 next |
 | `task fact add` | 来源 attempt 有效；category、subject、value 与可选 evidence 可读；CAS 匹配 | append-only Task fact、审计事件 | 返回当前 Review/节点的 next |
 | `run <task>` | Task 为 queued，或当前 lifecycle revision 存在 runnable node；CAS 匹配 | queued 时写激活事实；创建或领取 node attempt、actor claim、审计事件 | 返回 Node Brief 与 `run complete`；Agent 可选执行 `run attach` |
@@ -192,9 +211,9 @@ tc run complete T-203 --node record-1 --result record.json
 | `run retry` | 目标是当前 revision 中该 node 的最新 attempt，且已失败/superseded 或 host observation 为 stale；Agent 给出 reason；CAS 匹配 | stale 活跃 attempt 原子标为 `superseded`、创建并领取 successor attempt、审计事件 | 直接返回 successor Node Brief 与 `run complete`；Agent 可选执行 `run attach` |
 | `run complete` | attempt 属于当前 lifecycle revision；结果满足节点 gate；CAS 匹配 | attempt outcome、evidence refs、obligation results、审计事件 | 返回 projector 推导的下一节点命令 |
 | `review start` | 当前 revision 的 review node runnable；review purpose 与被审核 attempt kind 匹配；CAS 匹配 | review attempt、review link、purpose、能力与独立性披露、审计事件 | 返回 Review 节点上下文、可选 attach 与结论命令 |
-| `review pass` | review link 有效；required review evidence 完整；CAS 匹配 | review outcome、evidence refs、审计事件 | 返回 `record`、`integrate` 或新的 runnable node |
+| `review pass` | review link 有效；required review evidence 完整；L3 Plan schema、coverage、dependencies 和 child 引用有效；CAS 匹配 | 普通 Review 写 outcome/evidence；L3 Feasibility pass 原子写 execution revision、anchors、relations 与真实 children | 返回 `record`、`integrate` 或新的 runnable node/child 集合 |
 | `review changes` | review link 有效；finding 需要实质修改且合同保持不变；CAS 匹配 | finding、被审核 node kind 的 successor attempt、审计事件 | 返回 successor `run` |
-| `review replan` | review link 有效；Agent 提交 typed reason 与新合同；CAS 匹配 | 新 lifecycle revision、old/new diff、旧运行 attempt 的 `superseded` 结果、审计事件 | 返回新 revision 的首个 runnable node |
+| `review replan` | review link 有效；Agent 提交 typed reason；CAS 匹配；child 路径要求其属于当前 L3 required 集合 | 新 planning revision、old/new diff、旧 child 的 `not_required` membership 与审计事件；不删除或取消 child | 返回 root 新 revision 的首个 runnable node |
 
 所有写命令以当前 revision 的 CAS 校验为入口；冲突返回 `TC_REVISION_CONFLICT` 与最新 `tc status --json` 查询命令。reducer 的结构校验、引用校验和事务失败保持显式可见。
 

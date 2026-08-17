@@ -34,6 +34,7 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 - Task Level records the Agent's governance judgment. Required obligations generated for the current lifecycle revision form the completion contract.
 - Execute and Review use separate typed nodes and attempts. Each Review link records its `reviewed_attempt_id`, capability and independence status.
 - L3 requires a feasibility Review attempt before Execute becomes runnable. Use an independent reviewer when available; otherwise disclose `same-actor`. Check results append Task facts and evidence.
+- An accepted L3 Plan selects `modules` or `single`. Modules atomically materialize a one-level set of real L1/L2 child tasks with explicit anchor coverage and dependency facts; nested L3 is forbidden. Child planning is inherited from the accepted parent Plan without fake host Attempts.
 - Lifecycle revisions advance on one line. Stable node ids express semantic lineage; older revisions, attempts and evidence remain referenceable.
 - Host values are open strings; the first supported adapters are `codex` and `claude`. Node kinds are `frame`, `plan`, `execute`, `review`, `integrate` and `record`.
 - Execution ownership and the Taskcraft tool boundary follow `development/specs/architecture.md`, section 2.
