@@ -1,5 +1,5 @@
 // Shared IO for the Entry Hook gate: reading .taskcraft/config.json,
-// probing the Task Store and finding the single active task projection.
+// probing the Task Store and finding the single active root task projection.
 // Hooks never spawn the tc CLI itself (no recursion) and never run
 // migrations: the store is only probed read-only.
 
@@ -118,12 +118,17 @@ export function openProjectDatabase(configPath: string): TaskcraftDatabase {
   return openDatabase(databaseFileFor(configPath));
 }
 
-/** The single active task projection, or null when there is no task, no
- * active task or several active tasks (ambiguous: no unique next). */
+/** The single active root task projection, or null when there is no task, no
+ * active root task or several active roots (ambiguous: no unique next).
+ *
+ * A modular L3 parent and its currently running child are both active by
+ * design. Entry anchors the durable root task; the root projection's
+ * deterministic next command points at the current child work. */
 export function findActiveProjection(
   database: TaskcraftDatabase,
 ): Projection | null {
   const active = listTasks(database)
+    .filter((task) => task.parentTaskId === null)
     .map((task) => project(database, task.id))
     .filter((entry) => entry.status === "active");
 

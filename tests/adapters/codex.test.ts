@@ -46,7 +46,9 @@ describe("codex adapter", () => {
 
   it("derives capabilities from codex-specific probe text", () => {
     fake.reset();
-    fake.setProbeScript("codex", ["--version"], { stdout: "0.147.0\n" });
+    fake.setProbeScript("codex", ["--version"], {
+      stdout: "codex-cli 0.147.0\n",
+    });
     fake.setProbeScript("codex", ["features", "list"], {
       stdout: "hooks: stable\nmulti_agent: stable\n",
     });
@@ -139,7 +141,7 @@ describe("codex adapter", () => {
     }
   });
 
-  it("installEntry registers only SessionStart in .codex/config.toml", () => {
+  it("installEntry registers only SessionStart in .codex/hooks.json", () => {
     const projectDir = createTemporaryDirectory();
 
     try {
@@ -150,14 +152,20 @@ describe("codex adapter", () => {
       });
 
       expect(result.ok).toBe(true);
-      const config = readFileSync(
-        join(projectDir.path, ".codex", "config.toml"),
-        "utf8",
-      );
-      expect(config).toContain("hooks.SessionStart");
-      expect(config).not.toContain("hooks.Stop");
-      expect(config).not.toContain("stop.sh");
-      expect(config).toContain("entry.sh");
+      const config = JSON.parse(
+        readFileSync(join(projectDir.path, ".codex", "hooks.json"), "utf8"),
+      ) as CodexProjectConfig;
+      expect(config.hooks?.SessionStart).toEqual([
+        {
+          hooks: [
+            {
+              type: "command",
+              command: expect.stringContaining("entry.sh"),
+            },
+          ],
+        },
+      ]);
+      expect(config.hooks).not.toHaveProperty("Stop");
     } finally {
       projectDir.cleanup();
     }
@@ -167,19 +175,25 @@ describe("codex adapter", () => {
     const commands = { entry: "bash /p/entry.sh" };
     const existing: CodexProjectConfig = {
       hooks: {
-        SessionStart: [{ command: "bash /p/entry.sh" }],
+        SessionStart: [
+          {
+            hooks: [{ type: "command", command: "bash /p/entry.sh" }],
+          },
+        ],
       },
     };
 
     const merged = buildCodexProjectConfig(existing, commands);
 
-    expect(merged.hooks?.SessionStart).toEqual([
-      { command: "bash /p/entry.sh" },
-    ]);
+    expect(merged.hooks?.SessionStart).toEqual(existing.hooks?.SessionStart);
     expect(existing.hooks?.SessionStart).toHaveLength(1);
-    expect(serializeCodexProjectConfig(merged)).toContain(
-      'hooks.SessionStart = [{ command = "bash /p/entry.sh" }]',
-    );
-    expect(serializeCodexProjectConfig(merged)).not.toContain("Stop");
+    const serialized = JSON.parse(
+      serializeCodexProjectConfig(merged),
+    ) as CodexProjectConfig;
+    expect(serialized.hooks?.SessionStart?.[0]?.hooks[0]).toEqual({
+      type: "command",
+      command: "bash /p/entry.sh",
+    });
+    expect(serialized.hooks).not.toHaveProperty("Stop");
   });
 });

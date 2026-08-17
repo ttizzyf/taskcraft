@@ -210,7 +210,7 @@ function configuredAgents(
     // The aggregate diagnostics already reports malformed configuration.
   }
 
-  if (existsSync(join(projectDir, ".codex", "config.toml"))) {
+  if (existsSync(join(projectDir, ".codex", "hooks.json"))) {
     agents.add("codex");
   }
 

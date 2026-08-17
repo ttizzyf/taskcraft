@@ -1,7 +1,9 @@
 // Installed entry wrapper (entry.sh -> tc state --breadcrumb) behaves
 // exactly like the old inline gate (node dist/hooks/entry.js): takeOver off,
 // no task and non-active projections stay silent with exit 0; the unique
-// active task prints exactly one breadcrumb line. The wrapper is the real
+// active task prints a text label followed by exactly one breadcrumb line.
+// The prefix keeps hosts from parsing the business JSON as hook-control JSON.
+// The wrapper is the real
 // production template (entryHookTemplate) spawned through bash, and the
 // project root is derived from the script location, so the spawn cwd is
 // intentionally different from the project (cwd-independence proof).
@@ -103,7 +105,7 @@ describe("installed entry wrapper equivalence", () => {
     });
   });
 
-  it("prints the breadcrumb for the unique active task", () => {
+  it("prints plain hook context and the breadcrumb for the unique active task", () => {
     withTemporaryDirectory((cwd) => {
       const entryPath = installEntryWrapper(cwd);
       expect(runCli(["init"], cwd).status).toBe(0);
@@ -120,8 +122,9 @@ describe("installed entry wrapper equivalence", () => {
 
       expect(result.status).toBe(0);
       const lines = result.stdout.trim().split("\n");
-      expect(lines).toHaveLength(1);
-      const breadcrumb = JSON.parse(lines[0]!) as {
+      expect(lines).toHaveLength(2);
+      expect(lines[0]).toBe("Taskcraft Entry context:");
+      const breadcrumb = JSON.parse(lines[1]!) as {
         schemaVersion: string;
         task: { id: string; status: string };
       };

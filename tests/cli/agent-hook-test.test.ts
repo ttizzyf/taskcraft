@@ -5,159 +5,22 @@
 // plus the config.entryHookTests persistence
 // contract. No real host binary is ever spawned.
 
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { createCodexAdapter } from "../../src/adapters/codex.js";
-import { createClaudeAdapter } from "../../src/adapters/claude.js";
-import type { HostAdapter } from "../../src/adapters/types.js";
-import { ERROR_CODES, TaskcraftError } from "../../src/core/errors.js";
-import { run, taskNew } from "../../src/core/reducer.js";
 import { runAgentTestEntryHook } from "../../src/commands/agent.js";
-import { openDatabase } from "../../src/store/database.js";
-import { applyMigrations } from "../../src/store/migrations.js";
+import { createFakeHost, FIXED_NOW } from "../helpers/fake-host.js";
 import {
-  BREADCRUMB_LINE,
-  createFakeHost,
-  FIXED_NOW,
-} from "../helpers/fake-host.js";
-import type { FakeHost } from "../helpers/fake-host.js";
-import { createTemporaryDirectory } from "../helpers/temp-directory.js";
-
-interface ProjectSetup {
-  projectDir: string;
-  userConfigPath: string;
-  cleanup(): void;
-}
-
-/** Real project setup for runAgentTestEntryHook: the installed Entry wrapper
- * the production wrapper layout — they reference the compiled gates next to
- * the built CLI, dist/hooks/*.js, which exist because the suite builds
- * first), project-level host registration, takeover enabled in config.json
- * and a codex user config trusting the project. The Task Store itself is
- * only exercised by real hosts; fake spawn outcomes drive the chain
- * judgments. */
-function setupProject(
-  agent: "codex" | "claude",
-  activateTask = true,
-): ProjectSetup {
-  const temporary = createTemporaryDirectory();
-  const projectDir = temporary.path;
-  const hooksDir = join(projectDir, ".taskcraft", "hooks");
-  const entryPath = join(hooksDir, "entry.sh");
-
-  mkdirSync(hooksDir, { recursive: true });
-  writeFileSync(
-    entryPath,
-    `#!/usr/bin/env bash\nnode "${join(process.cwd(), "dist", "hooks", "entry.js")}" "$(dirname "$0")/../config.json"\n`,
-    { mode: 0o755 },
-  );
-  writeFileSync(
-    join(projectDir, ".taskcraft", "config.json"),
-    `${JSON.stringify({ takeOver: "ask" }, null, 2)}\n`,
-    "utf8",
-  );
-
-  const database = openDatabase(join(projectDir, ".taskcraft", "taskcraft.db"));
-  applyMigrations(database, resolve("migrations"));
-  const { taskId } = taskNew(database, {
-    title: "Hook field test",
-    level: 1,
-    reason: "test fixture",
-  });
-  if (activateTask) {
-    run(database, taskId);
-  }
-  database.close();
-
-  if (agent === "codex") {
-    mkdirSync(join(projectDir, ".codex"), { recursive: true });
-    writeFileSync(
-      join(projectDir, ".codex", "config.toml"),
-      `hooks.SessionStart = [{ command = "bash ${entryPath}" }]\n`,
-      "utf8",
-    );
-  } else {
-    mkdirSync(join(projectDir, ".claude"), { recursive: true });
-    writeFileSync(
-      join(projectDir, ".claude", "settings.json"),
-      `${JSON.stringify(
-        {
-          hooks: {
-            SessionStart: [
-              { hooks: [{ type: "command", command: `bash "${entryPath}"` }] },
-            ],
-          },
-        },
-        null,
-        2,
-      )}\n`,
-      "utf8",
-    );
-  }
-
-  const userConfigPath = join(projectDir, "codex-user-config.toml");
-  writeFileSync(
-    userConfigPath,
-    `[projects."${projectDir}"]\ntrust_level = "trusted"\n`,
-    "utf8",
-  );
-
-  return { projectDir, userConfigPath, cleanup: temporary.cleanup };
-}
-
-/** Scripts a successful host call whose output carries the injected breadcrumb. */
-function scriptPassingChain(fake: FakeHost, agent: "codex" | "claude"): void {
-  fake.setSpawnScript(agent, {
-    stdout: `${BREADCRUMB_LINE}\nagent: TC_FIRST\n`,
-  });
-}
-
-function claudeAdapter(fake: FakeHost): HostAdapter {
-  fake.setProbeScript("claude", ["--version"], { stdout: "2.1.220\n" });
-
-  return createClaudeAdapter(fake.deps());
-}
-
-function codexAdapter(fake: FakeHost, userConfigPath: string): HostAdapter {
-  fake.setProbeScript("codex", ["--version"], { stdout: "0.147.0\n" });
-  fake.setProbeScript("codex", ["features", "list"], {
-    stdout: "hooks stable true\n",
-  });
-  fake.setProbeScript("codex", ["exec", "--help"], { stdout: "help text\n" });
-
-  return createCodexAdapter({ ...fake.deps(), userConfigPath });
-}
-
-function expectTestFailed(error: unknown, fragment: string): void {
-  expect(error).toBeInstanceOf(TaskcraftError);
-  const taskcraftError = error as TaskcraftError;
-  expect(taskcraftError.code).toBe(ERROR_CODES.TC_ADAPTER_HOOK_TEST_FAILED);
-  expect(taskcraftError.problem).toContain(fragment);
-  expect(taskcraftError.impact).toBeTruthy();
-  expect(taskcraftError.remediation).toBeTruthy();
-}
-
-/** Runs the field test and asserts the stable TC_ADAPTER_HOOK_TEST_FAILED
- * three-part diagnostic; cleans the project up afterwards. */
-function expectHookTestFailure(
-  adapter: HostAdapter,
-  setup: ProjectSetup,
-  fragment: string,
-): void {
-  try {
-    try {
-      runAgentTestEntryHook(adapter, setup.projectDir);
-      throw new Error("expected TC_ADAPTER_HOOK_TEST_FAILED");
-    } catch (error) {
-      expectTestFailed(error, fragment);
-    }
-  } finally {
-    setup.cleanup();
-  }
-}
+  claudeAdapter,
+  codexAdapter,
+  expectHookTestFailure,
+  expectTestFailed,
+  scriptPassingChain,
+  setupProject,
+} from "./agent-hook-test-helpers.js";
 
 describe("runAgentTestEntryHook pre-flight", () => {
   it("fails explicitly when the hook scripts are missing", () => {
@@ -200,8 +63,21 @@ describe("runAgentTestEntryHook pre-flight", () => {
 
       if (agent === "codex") {
         writeFileSync(
-          join(setup.projectDir, ".codex", "config.toml"),
-          'hooks.SessionStart = [{ command = "bash /wrong/.taskcraft/hooks/entry.sh" }]\n',
+          join(setup.projectDir, ".codex", "hooks.json"),
+          `${JSON.stringify({
+            hooks: {
+              SessionStart: [
+                {
+                  hooks: [
+                    {
+                      type: "command",
+                      command: "bash /wrong/.taskcraft/hooks/entry.sh",
+                    },
+                  ],
+                },
+              ],
+            },
+          })}\n`,
           "utf8",
         );
       } else {
@@ -232,6 +108,31 @@ describe("runAgentTestEntryHook pre-flight", () => {
       expectHookTestFailure(adapter, setup, "not registered");
     });
   }
+
+  it("codex: rejects the obsolete flat SessionStart shape", () => {
+    const fake = createFakeHost();
+    const setup = setupProject("codex");
+    writeFileSync(
+      join(setup.projectDir, ".codex", "hooks.json"),
+      `${JSON.stringify({
+        hooks: {
+          SessionStart: [
+            {
+              command: `bash "${join(setup.projectDir, ".taskcraft", "hooks", "entry.sh")}"`,
+            },
+          ],
+        },
+      })}\n`,
+      "utf8",
+    );
+
+    expectHookTestFailure(
+      codexAdapter(fake, setup.userConfigPath),
+      setup,
+      "not registered",
+    );
+    expect(fake.calls.some((call) => call.kind === "spawn")).toBe(false);
+  });
 
   it("fails explicitly when takeover is off", () => {
     const fake = createFakeHost();
@@ -309,6 +210,22 @@ describe("runAgentTestEntryHook pre-flight", () => {
     const fake = createFakeHost();
     const setup = setupProject("codex");
     writeFileSync(setup.userConfigPath, "# no trusted projects\n", "utf8");
+
+    expectHookTestFailure(
+      codexAdapter(fake, setup.userConfigPath),
+      setup,
+      "trust gate",
+    );
+  });
+
+  it("fails explicitly when only a parent directory is trusted", () => {
+    const fake = createFakeHost();
+    const setup = setupProject("codex");
+    writeFileSync(
+      setup.userConfigPath,
+      `[projects."${dirname(setup.projectDir)}"]\ntrust_level = "trusted"\n`,
+      "utf8",
+    );
 
     expectHookTestFailure(
       codexAdapter(fake, setup.userConfigPath),

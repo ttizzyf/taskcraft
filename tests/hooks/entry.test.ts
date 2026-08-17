@@ -7,8 +7,14 @@
 import { describe, expect, it } from "vitest";
 
 import { ERROR_CODES } from "../../src/core/errors.js";
+import { reviewStart, run } from "../../src/core/reducer.js";
 import { decideEntry, runEntryGate } from "../../src/hooks/entry.js";
 import { insertL1Fixture, insertNode, insertTask } from "../store/helpers.js";
+import {
+  passReview,
+  reviewInput,
+  setupL3ToFeasibility,
+} from "../core/l3-utils.js";
 import {
   activeProjection,
   createHookProject,
@@ -119,6 +125,31 @@ describe("runEntryGate IO wrapper", () => {
       expect(result.output).toContain("tc-breadcrumb/v1");
       expect(result.output).toContain('"id":"T-1"');
       expect(result.output).toContain("tc run T-1 --node execute-1");
+    } finally {
+      project.cleanup();
+    }
+  });
+
+  it("anchors the active L3 root while its current child is also active", () => {
+    const project = createHookProject({ takeOver: "always" }, true);
+    const database = createStoreAt(project.databasePath);
+    const { taskId, planAttemptId } = setupL3ToFeasibility(database);
+    const feasibility = reviewStart(
+      database,
+      taskId,
+      reviewInput(taskId, "review-plan-1", planAttemptId, "feasibility"),
+    );
+    passReview(database, taskId, feasibility.reviewAttemptId, planAttemptId);
+    run(database, "T-2");
+    database.close();
+
+    try {
+      const result = runEntryGate(project.configPath, false);
+
+      expect(result.decision.kind).toBe("inject");
+      expect(result.output).toContain('"id":"T-1"');
+      expect(result.output).not.toContain('"id":"T-2"');
+      expect(result.output).toContain("tc run complete T-2");
     } finally {
       project.cleanup();
     }

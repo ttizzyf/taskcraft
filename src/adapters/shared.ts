@@ -198,9 +198,17 @@ function probeFailure(outcome: ProbeOutcome): string {
 }
 
 function tokenOrNull(stdout: string): string | null {
-  const token = stdout.trim().split(/\s+/)[0];
+  const tokens = stdout.trim().split(/\s+/);
+  const version = tokens.find((token) =>
+    /^v?\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?$/.test(token),
+  );
+  const token = version ?? tokens[0];
 
-  return token === undefined || token.length === 0 ? null : token;
+  if (token === undefined || token.length === 0) {
+    return null;
+  }
+
+  return token.startsWith("v") ? token.slice(1) : token;
 }
 
 function execStderr(error: unknown): string {
@@ -219,7 +227,17 @@ function describeError(error: unknown): string {
 export function entryHookTemplate(tcPath: string): string {
   return `#!/usr/bin/env bash
 # Taskcraft managed entry hook gate (tc init --agent <host>).
-cd "$(dirname "$0")/../.." && node "${tcPath}" state --breadcrumb
+cd "$(dirname "$0")/../.." || exit $?
+taskcraft_output="$(node "${tcPath}" state --breadcrumb)"
+taskcraft_status=$?
+if [ "$taskcraft_status" -ne 0 ]; then
+  exit "$taskcraft_status"
+fi
+if [ -n "$taskcraft_output" ]; then
+  # A bare JSON object is interpreted as the host's hook control protocol.
+  # Prefix the business breadcrumb so both Codex and Claude inject it as text.
+  printf '%s\n' 'Taskcraft Entry context:' "$taskcraft_output"
+fi
 `;
 }
 
@@ -227,8 +245,27 @@ export interface HookCommands {
   entry: string;
 }
 
+export interface CommandHookEntry {
+  hooks: Array<{ type: "command"; command: string }>;
+}
+
+/** Appends a command handler using the lifecycle-hook shape shared by Codex
+ * hooks.json and Claude settings.json. */
+export function appendCommandHook(
+  existing: readonly CommandHookEntry[] | undefined,
+  command: string,
+): CommandHookEntry[] {
+  const current = existing ?? [];
+
+  return current.some((entry) =>
+    entry.hooks.some((hook) => hook.command === command),
+  )
+    ? [...current]
+    : [...current, { hooks: [{ type: "command", command }] }];
+}
+
 export interface InstallFilesOptions {
-  /** Project config path relative to projectDir (".codex/config.toml" or
+  /** Project config path relative to projectDir (".codex/hooks.json" or
    * ".claude/settings.json"). */
   configPath: string;
   /** Serialized fresh project config for a first install. */
@@ -284,18 +321,6 @@ function writeIfAbsent(path: string, content: string): void {
 
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content, { mode: 0o755 });
-}
-
-/** Appends a hook command without duplicating an existing identical one. */
-export function appendCommand(
-  existing: readonly { command: string }[] | undefined,
-  command: string,
-): Array<{ command: string }> {
-  const current = existing ?? [];
-
-  return current.some((hook) => hook.command === command)
-    ? [...current]
-    : [...current, { command }];
 }
 
 export function sampleOf(stdout: string): string {

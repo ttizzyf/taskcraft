@@ -7,6 +7,7 @@ import { renderNodeBrief } from "../core/node-brief.js";
 import type { NodeBriefInput, RenderedNodeBrief } from "../core/node-brief.js";
 import { observeRun } from "./observe.js";
 import {
+  appendCommandHook,
   defaultProbe,
   defaultSpawn,
   installEntryFiles,
@@ -14,6 +15,7 @@ import {
   resolveTcPath,
   runEntryHookTest,
 } from "./shared.js";
+import type { CommandHookEntry } from "./shared.js";
 import type {
   AdapterCapabilities,
   AdapterDeps,
@@ -54,9 +56,7 @@ const CLAUDE_CAPABILITY_PROBES: readonly CapabilityProbe[] = [
   { name: "run-correlation", keywords: ["session id", "session-id"] },
 ];
 
-export interface ClaudeHookEntry {
-  hooks: Array<{ type: "command"; command: string }>;
-}
+export type ClaudeHookEntry = CommandHookEntry;
 
 export interface ClaudeSettings {
   hooks?: {
@@ -72,22 +72,9 @@ export function buildClaudeProjectConfig(
 ): ClaudeSettings {
   const hooks = { ...(config.hooks ?? {}) };
 
-  hooks.SessionStart = appendHook(hooks.SessionStart, commands.entry);
+  hooks.SessionStart = appendCommandHook(hooks.SessionStart, commands.entry);
 
   return { ...config, hooks };
-}
-
-function appendHook(
-  existing: ClaudeHookEntry[] | undefined,
-  command: string,
-): ClaudeHookEntry[] {
-  const current = existing ?? [];
-
-  return current.some((entry) =>
-    entry.hooks.some((hook) => hook.command === command),
-  )
-    ? [...current]
-    : [...current, { hooks: [{ type: "command", command }] }];
 }
 
 export function serializeClaudeSettings(config: ClaudeSettings): string {

@@ -1,5 +1,5 @@
-// Codex HostAdapter. Host-specific surface: probe commands, project config
-// (.codex/config.toml), test session format and exec flags. All shared logic
+// Codex HostAdapter. Host-specific surface: probe commands, project hooks
+// (.codex/hooks.json), test session format and exec flags. All shared logic
 // lives in shared.ts; capabilities never assume what the local probe did not
 // evidence.
 
@@ -11,7 +11,7 @@ import type { NodeBriefInput, RenderedNodeBrief } from "../core/node-brief.js";
 import { codexHookGate } from "./installed-hooks.js";
 import { observeRun } from "./observe.js";
 import {
-  appendCommand,
+  appendCommandHook,
   defaultProbe,
   defaultSpawn,
   installEntryFiles,
@@ -19,6 +19,7 @@ import {
   resolveTcPath,
   runEntryHookTest,
 } from "./shared.js";
+import type { CommandHookEntry } from "./shared.js";
 import type {
   AdapterDeps,
   CapabilityProbe,
@@ -63,8 +64,9 @@ const CODEX_CAPABILITY_PROBES: readonly CapabilityProbe[] = [
 ];
 
 export interface CodexProjectConfig {
+  description?: string;
   hooks?: {
-    SessionStart?: Array<{ command: string }>;
+    SessionStart?: CommandHookEntry[];
   };
 }
 
@@ -76,30 +78,21 @@ export function buildCodexProjectConfig(
 ): CodexProjectConfig {
   const hooks = { ...(config.hooks ?? {}) };
 
-  hooks.SessionStart = appendCommand(hooks.SessionStart, commands.entry);
+  hooks.SessionStart = appendCommandHook(hooks.SessionStart, commands.entry);
 
-  return { ...config, hooks };
+  return {
+    description:
+      config.description ??
+      "Taskcraft Entry Hook registration (managed by tc init --agent codex)",
+    ...config,
+    hooks,
+  };
 }
 
 export function serializeCodexProjectConfig(
   config: CodexProjectConfig,
 ): string {
-  const lines = [
-    "# Taskcraft hook registration (managed by tc init --agent codex)",
-  ];
-  const entry = config.hooks?.SessionStart ?? [];
-
-  if (entry.length > 0) {
-    lines.push(`hooks.SessionStart = [${tomlHooks(entry)}]`);
-  }
-
-  return `${lines.join("\n")}\n`;
-}
-
-function tomlHooks(hooks: readonly { command: string }[]): string {
-  return hooks
-    .map((hook) => `{ command = ${JSON.stringify(hook.command)} }`)
-    .join(", ");
+  return `${JSON.stringify(config, null, 2)}\n`;
 }
 
 export function createCodexAdapter(deps: AdapterDeps = {}): HostAdapter {
@@ -121,7 +114,7 @@ export function createCodexAdapter(deps: AdapterDeps = {}): HostAdapter {
       ),
     installEntry: (input: InstallInput): InstallResult =>
       installEntryFiles(input, resolveTcPath(), {
-        configPath: ".codex/config.toml",
+        configPath: ".codex/hooks.json",
         freshConfig: (commands) =>
           serializeCodexProjectConfig(buildCodexProjectConfig({}, commands)),
       }),

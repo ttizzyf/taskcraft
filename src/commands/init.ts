@@ -65,7 +65,7 @@ export function installAgentHooks(
 }
 
 function hostConfigFile(agent: AgentId): string {
-  return agent === "codex" ? ".codex/config.toml" : ".claude/settings.json";
+  return agent === "codex" ? ".codex/hooks.json" : ".claude/settings.json";
 }
 
 export function register(program: Command): void {

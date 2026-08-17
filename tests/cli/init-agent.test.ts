@@ -63,10 +63,22 @@ describe("tc init --agent (CLI)", () => {
         false,
       );
 
-      const config = readFileSync(join(cwd, ".codex", "config.toml"), "utf8");
-      expect(config).toContain("hooks.SessionStart");
-      expect(config).not.toContain("hooks.Stop");
-      expect(config).toContain("entry.sh");
+      const config = JSON.parse(
+        readFileSync(join(cwd, ".codex", "hooks.json"), "utf8"),
+      ) as {
+        hooks: {
+          SessionStart: Array<{
+            hooks: Array<{ type: string; command: string }>;
+          }>;
+          Stop?: unknown[];
+        };
+      };
+      expect(config.hooks.SessionStart).toHaveLength(1);
+      expect(config.hooks.SessionStart[0]?.hooks[0]).toMatchObject({
+        type: "command",
+        command: expect.stringContaining("entry.sh"),
+      });
+      expect(config.hooks.Stop).toBeUndefined();
     });
   });
 
@@ -87,11 +99,11 @@ describe("tc init --agent (CLI)", () => {
 
   it("fails explicitly when the host config already exists instead of a partial success", () => {
     withTemporaryDirectory((cwd) => {
-      const configFile = join(cwd, ".codex", "config.toml");
+      const configFile = join(cwd, ".codex", "hooks.json");
       mkdirSync(join(cwd, ".codex"), { recursive: true });
       writeFileSync(
         configFile,
-        'model = "claude-sonnet"\n# user content must survive\n',
+        `${JSON.stringify({ description: "user content must survive" })}\n`,
         "utf8",
       );
 

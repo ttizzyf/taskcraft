@@ -92,7 +92,7 @@ export function checkProjectRegistration(
   projectDir: string,
 ): void {
   if (agent === "codex") {
-    const configFile = join(projectDir, ".codex", "config.toml");
+    const configFile = join(projectDir, ".codex", "hooks.json");
 
     if (!existsSync(configFile)) {
       throw hookTestError(
@@ -102,12 +102,9 @@ export function checkProjectRegistration(
       );
     }
 
-    const text = readText(configFile, "codex project config");
+    const config = readJson(configFile, "codex project hooks");
 
-    if (
-      !text.includes("hooks.SessionStart") ||
-      !referencesManagedEntry(text, projectDir)
-    ) {
+    if (!commandsContain(hookEntries(config, "SessionStart"), projectDir)) {
       throw hookTestError(
         `Entry Hook is not registered in ${configFile}: missing a SessionStart entry pointing at entry.sh`,
         "Register the hooks: tc init --agent codex (or merge the registrations manually)",
@@ -236,8 +233,9 @@ function probeDetail(outcome: { stderr: string; error?: string }): string {
   return stderr.length > 0 ? stderr : (outcome.error ?? "probe failed");
 }
 
-/** True when a [projects."<path>"] section whose path covers projectDir
- * declares trust_level = "trusted" in the codex user config. */
+/** True when the exact [projects."<path>"] section for projectDir declares
+ * trust_level = "trusted" in the Codex user config. Parent-directory trust
+ * does not activate a nested Git project's local hooks. */
 function isProjectTrusted(userConfigPath: string, projectDir: string): boolean {
   let text: string;
 
@@ -261,14 +259,13 @@ function isProjectTrusted(userConfigPath: string, projectDir: string): boolean {
     }
   }
 
-  return sections.some((section) => {
-    const base = section.path.replace(/\/$/, "");
+  const normalizedProjectDir = projectDir.replace(/\/$/, "");
 
-    return (
-      (projectDir === base || projectDir.startsWith(`${base}/`)) &&
-      section.lines.some((line) => line.includes('trust_level = "trusted"'))
-    );
-  });
+  return sections.some(
+    (section) =>
+      section.path.replace(/\/$/, "") === normalizedProjectDir &&
+      section.lines.some((line) => line.includes('trust_level = "trusted"')),
+  );
 }
 
 /** Writes the Entry Hook test record into .taskcraft/config.json with an atomic
@@ -327,7 +324,7 @@ function readJson(path: string, what: string): Record<string, unknown> | null {
   } catch (cause) {
     throw hookTestError(
       `The ${what} is not valid JSON: ${path}`,
-      "Re-run: tc init --agent claude to regenerate the registration",
+      "Move the invalid host config aside, then re-run: tc init --agent codex|claude",
       { path },
       cause,
     );
