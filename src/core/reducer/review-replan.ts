@@ -6,6 +6,8 @@
 // event. Historical attempts/evidence/findings stay queryable.
 
 import type { TaskcraftDatabase } from "../../store/database.js";
+import { getTaskRelations } from "../../store/query.js";
+import type { TaskSnapshot } from "../../store/revision-guard.js";
 import { withTransaction } from "../../store/transaction.js";
 import { ERROR_CODES, TaskcraftError } from "../errors.js";
 import { L1_DEFAULT_ACTOR } from "../lifecycle/l1.js";
@@ -96,6 +98,19 @@ export function reviewReplan(
       now,
     });
 
+    if (snapshot.parentTaskId !== null) {
+      return replanParentFromChildReview(database, {
+        child: snapshot,
+        attempt,
+        reviewedAttemptId: link.reviewedAttemptId,
+        reasonCode: input.reasonCode,
+        finding: input.finding,
+        findingId,
+        actor,
+        now,
+      });
+    }
+
     // A replan rebuilds the graph of the task's own level: an L3 replan
     // re-compiles the L3 graph, so the new Plan goes through the Feasibility
     // Review again (lifecycle spec 9.1/9.2).
@@ -122,6 +137,15 @@ export function reviewReplan(
         factsDigest: L3_FACTS_DIGEST,
         policyDigest: L3_POLICY_DIGEST,
       });
+      recordSupersededChildren(
+        database,
+        taskId,
+        oldRevision,
+        newRevision,
+        snapshot.revision + 1,
+        actor,
+        now,
+      );
     } else {
       materializeL2Graph(database, {
         ...graphInput,
@@ -168,4 +192,195 @@ export function reviewReplan(
       newRevision,
     };
   });
+}
+
+interface ChildReviewReplanContext {
+  child: TaskSnapshot;
+  attempt: {
+    id: string;
+    lifecycleRevision: number;
+    nodeId: string;
+    host: string;
+  };
+  reviewedAttemptId: string;
+  reasonCode: ReviewReplanInput["reasonCode"];
+  finding: string;
+  findingId: string;
+  actor: string;
+  now: string;
+}
+
+function replanParentFromChildReview(
+  database: TaskcraftDatabase,
+  context: ChildReviewReplanContext,
+): ReviewResultData {
+  const parent = resolveSnapshot(
+    database,
+    context.child.parentTaskId!,
+    undefined,
+  );
+  assertNotCancelled(parent);
+  const oldRevision = parent.currentLifecycleRevision;
+  const relations = getTaskRelations(database, parent.id, oldRevision);
+  const isCurrentRequiredChild = relations.children.some(
+    (child) =>
+      child.childTaskId === context.child.id &&
+      child.requirementStatus === "required",
+  );
+
+  if (
+    parent.level !== 3 ||
+    relations.executionSource?.mode !== "modules" ||
+    !isCurrentRequiredChild
+  ) {
+    throw new TaskcraftError(ERROR_CODES.TC_TASK_INPUT_INVALID, {
+      problem: `Child review ${context.attempt.id} is not part of the current modular L3 contract`,
+      impact: "No parent revision or child review facts were written",
+      remediation: `Inspect the current parent contract with: tc task show ${parent.id} --json`,
+      context: { taskId: context.child.id, parentTaskId: parent.id },
+    });
+  }
+
+  const newRevision = oldRevision + 1;
+  materializeL3Graph(database, {
+    taskId: parent.id,
+    revision: newRevision,
+    reasonCode: context.reasonCode,
+    reason: context.finding,
+    compilerVersion: L3_COMPILER_VERSION,
+    factsDigest: L3_FACTS_DIGEST,
+    policyDigest: L3_POLICY_DIGEST,
+    changeSummary: {
+      oldRevision,
+      newRevision,
+      reasonCode: context.reasonCode,
+      sourceChildTaskId: context.child.id,
+      reviewedAttemptId: context.reviewedAttemptId,
+    },
+    objective: parent.objectiveMd,
+    actor: context.actor,
+    now: context.now,
+  });
+  recordSupersededChildren(
+    database,
+    parent.id,
+    oldRevision,
+    newRevision,
+    parent.revision + 1,
+    context.actor,
+    context.now,
+  );
+  database
+    .prepare(
+      "UPDATE tasks SET current_lifecycle_revision = ?, updated_at = ? WHERE id = ?",
+    )
+    .run(newRevision, context.now, parent.id);
+
+  // The parent stops requiring every old child, but Taskcraft does not
+  // cancel or complete them. Only the review attempt that requested the
+  // replan is closed as superseded; sibling runtime facts stay untouched.
+  supersedeRevisionAttempts(
+    database,
+    context.child.id,
+    context.child.currentLifecycleRevision,
+    context.now,
+  );
+  supersedeRevisionAttempts(database, parent.id, oldRevision, context.now);
+
+  insertEvent(database, {
+    taskId: context.child.id,
+    lifecycleRevision: context.attempt.lifecycleRevision,
+    nodeId: context.attempt.nodeId,
+    attemptId: context.attempt.id,
+    eventType: "review.replan_required",
+    payload: {
+      reasonCode: context.reasonCode,
+      parentTaskId: parent.id,
+      parentOldRevision: oldRevision,
+      parentNewRevision: newRevision,
+      findingId: context.findingId,
+    },
+    postTaskRevision: context.child.revision + 1,
+    actorInstanceId: context.actor,
+    host: context.attempt.host,
+    occurredAt: context.now,
+  });
+  insertEvent(database, {
+    taskId: parent.id,
+    lifecycleRevision: newRevision,
+    nodeId: null,
+    attemptId: null,
+    eventType: "l3.replan_from_child",
+    payload: {
+      sourceChildTaskId: context.child.id,
+      sourceReviewAttemptId: context.attempt.id,
+      oldRevision,
+      newRevision,
+    },
+    postTaskRevision: parent.revision + 1,
+    actorInstanceId: context.actor,
+    host: context.attempt.host,
+    occurredAt: context.now,
+  });
+  bumpRevision(database, context.child, context.now);
+  bumpRevision(database, parent, context.now);
+
+  return {
+    ...commandData(database, parent.id, snapshotOf(database, parent.id)),
+    reviewAttemptId: context.attempt.id,
+    reviewedAttemptId: context.reviewedAttemptId,
+    findingId: context.findingId,
+    newRevision,
+  };
+}
+
+function recordSupersededChildren(
+  database: TaskcraftDatabase,
+  taskId: string,
+  oldRevision: number,
+  newRevision: number,
+  postTaskRevision: number,
+  actor: string,
+  now: string,
+): void {
+  const previous = getTaskRelations(
+    database,
+    taskId,
+    oldRevision,
+  ).children.filter((child) => child.requirementStatus === "required");
+  const insert = database.prepare(
+    `INSERT INTO lifecycle_child_requirements (
+       parent_task_id, parent_lifecycle_revision, module_key, child_task_id,
+       requirement_status, order_index, source_plan_attempt_id
+     ) VALUES (?, ?, ?, ?, 'not_required', ?, ?)`,
+  );
+
+  for (const child of previous) {
+    insert.run(
+      taskId,
+      newRevision,
+      child.moduleKey,
+      child.childTaskId,
+      child.orderIndex,
+      child.sourcePlanAttemptId,
+    );
+    insertEvent(database, {
+      taskId,
+      lifecycleRevision: newRevision,
+      nodeId: null,
+      attemptId: null,
+      eventType: "l3.child_requirement_replaced",
+      payload: {
+        childTaskId: child.childTaskId,
+        moduleKey: child.moduleKey,
+        oldRevision,
+        newRevision,
+        requirementStatus: "not_required",
+      },
+      postTaskRevision,
+      actorInstanceId: actor,
+      host: null,
+      occurredAt: now,
+    });
+  }
 }

@@ -123,6 +123,20 @@ export function reviewStart(
       });
     }
 
+    const latestReviewableAttemptId = resolveDefaultReviewedAttempt(
+      taskId,
+      attempts,
+      graph,
+      input.purpose,
+    );
+    if (reviewed.id !== latestReviewableAttemptId) {
+      throw reviewRefError(
+        taskId,
+        `Attempt ${reviewed.id} is not the latest finished/success ${expectedKind} attempt`,
+        `Review the current attempt instead: ${latestReviewableAttemptId}`,
+      );
+    }
+
     validateIndependence(input);
 
     const actor = input.actorInstanceId ?? L1_DEFAULT_ACTOR;

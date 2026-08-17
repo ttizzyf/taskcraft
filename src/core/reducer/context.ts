@@ -173,6 +173,13 @@ export interface ReviewResultData extends CommandData {
   findingId?: string;
   successorAttemptId?: string;
   newRevision?: number;
+  l3Mode?: "modules" | "single";
+  materializedChildren?: Array<{
+    moduleKey: string;
+    taskId: string;
+    level: 1 | 2;
+    reused: boolean;
+  }>;
 }
 
 /** CAS guard: an explicit expectedRevision must match, an omitted one passes

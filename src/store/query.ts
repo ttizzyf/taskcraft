@@ -9,6 +9,18 @@ import type { TaskSnapshot } from "./revision-guard.js";
 // file under the line limit; the re-export keeps one query-model entry point.
 export { getTaskFacts } from "./task-facts.js";
 export type { TaskFactRow } from "./task-facts.js";
+export { getLastEventSeq } from "./event-query.js";
+export { getInheritedPlanning, getTaskRelations } from "./task-relations.js";
+export type {
+  AcceptanceAnchorRow,
+  AnchorCoverageRow,
+  ChildRequirementRow,
+  ExecutionSourceRow,
+  InheritedPlanningRow,
+  TaskDependencyRow,
+  TaskRelations,
+  ValidationAssignmentRow,
+} from "./task-relations.js";
 
 export type NodeKind =
   "frame" | "plan" | "execute" | "review" | "integrate" | "record";
@@ -427,17 +439,4 @@ export function getAgentRuns(
            ORDER BY rowid`,
         )
         .all(taskId) as AgentRunRow[]);
-}
-
-export function getLastEventSeq(
-  database: TaskcraftDatabase,
-  taskId: string,
-): number {
-  const row = database
-    .prepare(
-      "SELECT COALESCE(MAX(task_seq), 0) AS lastSeq FROM events WHERE task_id = ?",
-    )
-    .get(taskId) as { lastSeq: number };
-
-  return row.lastSeq;
 }

@@ -3,10 +3,11 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { runDoctorChecks, type DoctorCheck } from "../../src/core/doctor.js";
-import { taskNew } from "../../src/core/reducer.js";
+import { reviewStart, taskNew } from "../../src/core/reducer.js";
 import { openDatabase } from "../../src/store/database.js";
 import type { TaskcraftDatabase } from "../../src/store/database.js";
 import { createMigratedDatabase } from "../store/helpers.js";
+import { passReview, reviewInput, setupL3ToFeasibility } from "./l3-utils.js";
 
 const MIGRATIONS_DIRECTORY = resolve("migrations");
 const FIXED_TIMESTAMP = "2026-08-13T00:00:00.000Z";
@@ -23,13 +24,13 @@ function checkOf(database: TaskcraftDatabase, name: string): DoctorCheck {
 }
 
 describe("runDoctorChecks", () => {
-  it("passes all seven checks on a migrated empty store", () => {
+  it("passes all eight checks on a migrated empty store", () => {
     const database = createMigratedDatabase();
 
     try {
       const checks = checksOf(database);
 
-      expect(checks).toHaveLength(7);
+      expect(checks).toHaveLength(8);
       for (const check of checks) {
         expect(check.ok, check.name).toBe(true);
         expect(check.error).toBeUndefined();
@@ -39,7 +40,7 @@ describe("runDoctorChecks", () => {
     }
   });
 
-  it("passes all seven checks on L1/L2/L3 tasks created through the reducer", () => {
+  it("passes all eight checks on L1/L2/L3 tasks created through the reducer", () => {
     const database = createMigratedDatabase();
 
     try {
@@ -161,6 +162,17 @@ describe("runDoctorChecks", () => {
       taskNew(database, { title: "Broken projection", level: 3, reason: "r" });
       database
         .prepare(
+          `INSERT INTO lifecycle_nodes (
+             task_id, lifecycle_revision, id, kind, title, objective,
+             procedure_ref, scope_json, entry_gate_json, exit_gate_json,
+             retry_policy_json, input_schema_json, output_schema_json
+           ) VALUES ('T-1', 1, 'integrate-1', 'integrate', 'Integrate',
+             'Broken projection', 'test:integrate', '{}', '{}', '{}', '{}',
+             '{}', '{}')`,
+        )
+        .run();
+      database
+        .prepare(
           `INSERT INTO node_attempts (
              id, task_id, lifecycle_revision, node_id, attempt_number,
              actor_instance_id, host, status, outcome, result_json,
@@ -205,7 +217,84 @@ describe("runDoctorChecks", () => {
       database.close();
     }
   });
+
+  it.each([
+    {
+      name: "an L3 child",
+      corrupt(database: TaskcraftDatabase) {
+        database.prepare("UPDATE tasks SET level = 3 WHERE id = 'T-2'").run();
+      },
+      problem: "L3 child",
+    },
+    {
+      name: "missing required anchor coverage",
+      corrupt(database: TaskcraftDatabase) {
+        database.exec(
+          "DROP TRIGGER lifecycle_anchor_coverage_immutable_delete",
+        );
+        database
+          .prepare(
+            `DELETE FROM lifecycle_anchor_coverage
+             WHERE parent_task_id = 'T-1' AND anchor_id = 'A-01'`,
+          )
+          .run();
+      },
+      problem: "uncovered anchor A-01",
+    },
+    {
+      name: "a dependency cycle",
+      corrupt(database: TaskcraftDatabase) {
+        database
+          .prepare(
+            `INSERT INTO lifecycle_task_dependencies (
+               parent_task_id, parent_lifecycle_revision, task_id,
+               depends_on_task_id
+             ) VALUES ('T-1', 2, 'T-2', 'T-3')`,
+          )
+          .run();
+      },
+      problem: "dependency cycle",
+    },
+    {
+      name: "missing inherited planning provenance",
+      corrupt(database: TaskcraftDatabase) {
+        database.exec(
+          "DROP TRIGGER lifecycle_inherited_planning_immutable_delete",
+        );
+        database
+          .prepare(
+            "DELETE FROM lifecycle_inherited_planning WHERE child_task_id = 'T-2'",
+          )
+          .run();
+      },
+      problem: "invalid child provenance T-2",
+    },
+  ])("flags $name in L3 relations", ({ corrupt, problem }) => {
+    const database = createMigratedDatabase();
+
+    try {
+      acceptL3Modules(database);
+      corrupt(database);
+
+      const check = checkOf(database, "l3-relations");
+      expect(check.ok).toBe(false);
+      expect(check.error?.code).toBe("TC_STORE_INTEGRITY_FAILED");
+      expect(check.error?.problem).toContain(problem);
+    } finally {
+      database.close();
+    }
+  });
 });
+
+function acceptL3Modules(database: TaskcraftDatabase): void {
+  const { taskId, planAttemptId } = setupL3ToFeasibility(database);
+  const review = reviewStart(
+    database,
+    taskId,
+    reviewInput(taskId, "review-plan-1", planAttemptId, "feasibility"),
+  );
+  passReview(database, taskId, review.reviewAttemptId, planAttemptId);
+}
 
 function insertEvent(
   database: TaskcraftDatabase,

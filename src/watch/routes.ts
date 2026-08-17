@@ -58,6 +58,8 @@ export interface TaskCard {
   host: string | null;
   lastActivity: string;
   next: string | null;
+  parentTaskId: string | null;
+  childProgress: { done: number; total: number } | null;
   /** Open blocker that puts the task in waiting (null when not waiting). */
   blocker: TaskCardBlocker | null;
 }
@@ -124,6 +126,20 @@ function buildCard(
     host: latest?.host ?? null,
     lastActivity,
     next: projection.next,
+    parentTaskId: snapshot.parentTaskId,
+    childProgress:
+      projection.children.length === 0
+        ? null
+        : {
+            done: projection.children.filter(
+              (child) =>
+                child.requirementStatus === "required" &&
+                child.status === "done",
+            ).length,
+            total: projection.children.filter(
+              (child) => child.requirementStatus === "required",
+            ).length,
+          },
     blocker:
       blocker === null
         ? null
@@ -182,6 +198,14 @@ export interface WatchTaskDetail {
     doneObligations: number;
     totalObligations: number;
     breadcrumb: Projection["breadcrumb"];
+    runnableWorkItems: Projection["runnableWorkItems"];
+    children: Projection["children"];
+    anchors: Projection["anchors"];
+    coverage: Projection["coverage"];
+    dependencies: Projection["dependencies"];
+    validations: Projection["validations"];
+    executionSource: Projection["executionSource"];
+    inheritedPlanning: Projection["inheritedPlanning"];
   };
   graph: LifecycleGraph;
   attempts: AttemptRow[];
@@ -244,6 +268,14 @@ export function buildTaskDetail(
       doneObligations: projection.doneObligations,
       totalObligations: projection.totalObligations,
       breadcrumb: projection.breadcrumb,
+      runnableWorkItems: projection.runnableWorkItems,
+      children: projection.children,
+      anchors: projection.anchors,
+      coverage: projection.coverage,
+      dependencies: projection.dependencies,
+      validations: projection.validations,
+      executionSource: projection.executionSource,
+      inheritedPlanning: projection.inheritedPlanning,
     },
     graph: getLifecycle(database, taskId, snapshot.currentLifecycleRevision),
     attempts: getAttempts(database, taskId),

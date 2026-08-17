@@ -35,6 +35,7 @@ export function register(task: Command): void {
             waitingReason: projection.waitingReason,
             next: projection.next,
             nodes: projection.nodeStatuses,
+            runnableWorkItems: projection.runnableWorkItems,
           };
 
           if (json) {

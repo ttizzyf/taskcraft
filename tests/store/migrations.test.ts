@@ -36,8 +36,20 @@ describe("applyMigrations", () => {
     applyMigrations(database, migrationDirectory);
     applyMigrations(database, migrationDirectory);
 
-    expect(readLedgerCount(database)).toBe(1);
+    expect(readLedgerCount(database)).toBe(2);
     expect(database.pragma("foreign_key_check")).toEqual([]);
+
+    for (const table of [
+      "lifecycle_acceptance_anchors",
+      "lifecycle_execution_sources",
+      "lifecycle_child_requirements",
+      "lifecycle_anchor_coverage",
+      "lifecycle_task_dependencies",
+      "lifecycle_validation_assignments",
+      "lifecycle_inherited_planning",
+    ]) {
+      expect(hasTable(database, table)).toBe(true);
+    }
 
     const contractDatabase = openDatabase(":memory:");
 
@@ -152,7 +164,7 @@ function hasTable(database: TaskcraftDatabase, name: string): boolean {
 }
 
 function readSchema(database: TaskcraftDatabase): SchemaRow[] {
-  return database
+  const rows = database
     .prepare(
       `SELECT type, name, tbl_name AS tableName, sql
        FROM sqlite_schema
@@ -161,4 +173,16 @@ function readSchema(database: TaskcraftDatabase): SchemaRow[] {
        ORDER BY type, name`,
     )
     .all() as SchemaRow[];
+
+  // SQLite preserves source whitespace in sqlite_schema. The executable
+  // contract cares about the same objects and SQL tokens, not whether the
+  // consolidated snapshot wraps a foreign key on one line or three.
+  return rows.map((row) => ({
+    ...row,
+    sql:
+      row.sql
+        ?.replace(/\s+/g, " ")
+        .replace(/\s*([(),])\s*/g, "$1")
+        .trim() ?? null,
+  }));
 }

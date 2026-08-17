@@ -28,7 +28,10 @@ import {
   setupL3ToFeasibility,
 } from "./l3-utils.js";
 
-describe("projector L3 fixtures", () => {
+// These JSON snapshots intentionally exercise read compatibility for the
+// historical tc-l3/1 single-task graph. Current tc-l3/2 modular facts are
+// generated through reducer tests so relation tables cannot drift by hand.
+describe("projector legacy tc-l3/1 fixtures", () => {
   it("projects l3-pass as done with all eight nodes satisfied", () => {
     const db = createMigratedDatabase();
 
@@ -361,15 +364,17 @@ describe("projector L3 fixtures", () => {
 
       expect(replan.newRevision).toBe(2);
       const graph = getLifecycle(db, taskId, 2);
-      expect(graph.nodes).toHaveLength(8);
-      expect(graph.edges).toHaveLength(7);
-      expect(graph.obligations).toHaveLength(9);
+      expect(graph.nodes).toHaveLength(3);
+      expect(graph.edges).toHaveLength(2);
+      expect(graph.obligations).toHaveLength(3);
 
       const projection = project(db, taskId);
       expect(projection.next).toBe(`tc run ${taskId} --node frame-1`);
-      expect(projection.nodeStatuses).toContainEqual(
-        expect.objectContaining({ nodeId: "execute-1", status: "blocked" }),
-      );
+      expect(projection.nodeStatuses.map((node) => node.nodeId)).toEqual([
+        "frame-1",
+        "plan-1",
+        "review-plan-1",
+      ]);
 
       // The new revision replays the whole L3 sequence: frame, plan, and a
       // fresh feasibility review before execute opens again.
@@ -382,7 +387,10 @@ describe("projector L3 fixtures", () => {
         `tc review start ${taskId} --node review-plan-1 --purpose feasibility --reviewed-attempt att-${taskId}-plan-1-2`,
       );
       expect(project(db, taskId).nodeStatuses).toContainEqual(
-        expect.objectContaining({ nodeId: "execute-1", status: "blocked" }),
+        expect.objectContaining({
+          nodeId: "review-plan-1",
+          status: "runnable",
+        }),
       );
     } finally {
       db.close();

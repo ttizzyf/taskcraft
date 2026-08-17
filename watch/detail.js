@@ -138,6 +138,52 @@ function renderTaskCard(detail) {
   );
 }
 
+function renderChildren(detail) {
+  const rows = (detail.projection.children ?? [])
+    .map(
+      (child) =>
+        `<tr data-child-task="${escapeHtml(child.taskId)}">` +
+        `<td><code>${escapeHtml(child.taskId)}</code></td>` +
+        `<td>${escapeHtml(child.moduleKey)}</td>` +
+        `<td>L${child.level}</td><td>${escapeHtml(child.requirementStatus)}</td>` +
+        `<td>${escapeHtml(child.status)}</td>` +
+        `<td><code>${escapeHtml(child.next ?? "—")}</code></td></tr>`,
+    )
+    .join("");
+  const body =
+    rows === ""
+      ? `<p class="empty">No child tasks</p>`
+      : `<div class="table-wrap"><table data-testid="children-table"><thead><tr>` +
+        `<th>Task</th><th>Module</th><th>Level</th><th>Requirement</th><th>Status</th><th>Next</th>` +
+        `</tr></thead><tbody>${rows}</tbody></table></div>`;
+  return section("Children", body);
+}
+
+function renderAnchors(detail) {
+  const rows = (detail.projection.anchors ?? [])
+    .map((anchor) => {
+      const children = (detail.projection.coverage ?? [])
+        .filter((coverage) => coverage.anchorId === anchor.anchorId)
+        .map((coverage) => coverage.childTaskId)
+        .join(", ");
+      return (
+        `<tr data-anchor="${escapeHtml(anchor.anchorId)}">` +
+        `<td><code>${escapeHtml(anchor.anchorId)}</code></td>` +
+        `<td>${escapeHtml(anchor.text)}</td>` +
+        `<td>${escapeHtml(anchor.disposition)}</td>` +
+        `<td>${escapeHtml(children || "—")}</td></tr>`
+      );
+    })
+    .join("");
+  const body =
+    rows === ""
+      ? `<p class="empty">No acceptance anchors</p>`
+      : `<div class="table-wrap"><table data-testid="anchors-table"><thead><tr>` +
+        `<th>Anchor</th><th>Outcome</th><th>Disposition</th><th>Children</th>` +
+        `</tr></thead><tbody>${rows}</tbody></table></div>`;
+  return section("Acceptance anchors", body);
+}
+
 // --- lifecycle graph ----------------------------------------------------------
 
 function renderGraph(detail) {
@@ -378,6 +424,8 @@ export function renderTaskDetail(detail) {
     `<div class="detail-grid">` +
     `<div class="detail-main">` +
     renderTaskCard(detail) +
+    renderChildren(detail) +
+    renderAnchors(detail) +
     renderGraph(detail) +
     renderObligations(detail) +
     `</div>` +

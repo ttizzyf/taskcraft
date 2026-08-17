@@ -112,6 +112,7 @@ function buildTaskShowData(
     status: projection.status,
     taskRevision: snapshot.revision,
     lifecycleRevision: snapshot.currentLifecycleRevision,
+    parentTaskId: snapshot.parentTaskId,
     objective: snapshot.objectiveMd,
     scope: JSON.parse(snapshot.scopeJson) as unknown,
     acceptance: JSON.parse(snapshot.acceptanceJson) as unknown[],
@@ -123,5 +124,12 @@ function buildTaskShowData(
     facts,
     findings,
     breadcrumb: projection.breadcrumb,
+    children: projection.children,
+    anchors: projection.anchors,
+    coverage: projection.coverage,
+    dependencies: projection.dependencies,
+    validations: projection.validations,
+    executionSource: projection.executionSource,
+    inheritedPlanning: projection.inheritedPlanning,
   };
 }

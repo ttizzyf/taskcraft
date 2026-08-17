@@ -3,9 +3,11 @@
 // audit event. Re-cancelling a cancelled task is rejected.
 
 import type { TaskcraftDatabase } from "../../store/database.js";
-import { getAttempts } from "../../store/query.js";
+import { getAttempts, getTaskRelations } from "../../store/query.js";
 import { withTransaction } from "../../store/transaction.js";
 import { L1_DEFAULT_ACTOR } from "../lifecycle/l1.js";
+import { ERROR_CODES, TaskcraftError } from "../errors.js";
+import { project } from "../projector.js";
 import type { CancelInput, CommandData } from "./context.js";
 import {
   assertNotCancelled,
@@ -23,6 +25,11 @@ export function cancel(
   return withTransaction(database, () => {
     const snapshot = resolveSnapshot(database, taskId, input.expectedRevision);
     assertNotCancelled(snapshot);
+    assertRequiredChildrenResolved(
+      database,
+      snapshot.id,
+      snapshot.currentLifecycleRevision,
+    );
     const now = nowIso();
 
     database
@@ -61,5 +68,28 @@ export function cancel(
     bumpRevision(database, snapshot, now);
 
     return commandData(database, taskId, snapshotOf(database, taskId));
+  });
+}
+
+function assertRequiredChildrenResolved(
+  database: TaskcraftDatabase,
+  taskId: string,
+  revision: number,
+): void {
+  const unresolved = getTaskRelations(database, taskId, revision)
+    .children.filter((child) => child.requirementStatus === "required")
+    .filter((child) => {
+      const status = project(database, child.childTaskId).status;
+      return status === "queued" || status === "active" || status === "waiting";
+    });
+
+  if (unresolved.length === 0) return;
+  const childIds = unresolved.map((child) => child.childTaskId).join(", ");
+  throw new TaskcraftError(ERROR_CODES.TC_TASK_CHILDREN_UNRESOLVED, {
+    problem: `Parent task ${taskId} still requires unfinished children: ${childIds}`,
+    impact: "The parent was not cancelled and no child facts were changed",
+    remediation:
+      "Stop any host runs yourself, then complete or cancel each listed child, or accept a parent replan that marks it not required",
+    context: { taskId, unresolvedChildCount: unresolved.length },
   });
 }

@@ -8,7 +8,13 @@ import type {
   NodeBrief,
   ReviewResultData,
 } from "../core/reducer.js";
-import type { NodeProjection, ProjectStatus } from "../core/projector.js";
+import type {
+  ChildProjection,
+  NodeProjection,
+  ProjectStatus,
+  Projection,
+  RunnableWorkItem,
+} from "../core/projector.js";
 import type {
   AttemptOutcome,
   AttemptStatus,
@@ -17,10 +23,12 @@ import type {
   ReviewIndependenceStatus,
   ReviewPurpose,
 } from "../store/query.js";
+import { renderL3TaskShowSections } from "./render-l3.js";
 
 /** Data shapes shared by the command actions; the renderers only read these. */
 export interface TaskNextData extends CommandData {
   nodes: NodeProjection[];
+  runnableWorkItems: RunnableWorkItem[];
 }
 
 export interface AttemptSummary {
@@ -68,6 +76,7 @@ export interface TaskShowData {
   status: ProjectStatus;
   taskRevision: number;
   lifecycleRevision: number;
+  parentTaskId: string | null;
   objective: string;
   scope: unknown;
   acceptance: unknown[];
@@ -79,6 +88,13 @@ export interface TaskShowData {
   facts: FactSummary[];
   findings: FindingSummary[];
   breadcrumb: BreadcrumbV1;
+  children: ChildProjection[];
+  anchors: Projection["anchors"];
+  coverage: Projection["coverage"];
+  dependencies: Projection["dependencies"];
+  validations: Projection["validations"];
+  executionSource: Projection["executionSource"];
+  inheritedPlanning: Projection["inheritedPlanning"];
 }
 
 export interface StatusDetailData {
@@ -113,6 +129,7 @@ export interface TaskListEntry {
   level: 1 | 2 | 3;
   status: ProjectStatus;
   taskRevision: number;
+  parentTaskId: string | null;
   waitingReason: BlockerWaitingReason | null;
   next: string | null;
 }
@@ -171,6 +188,7 @@ export function renderTaskShowData(data: TaskShowData): string {
     `Level: ${data.level}`,
     `Status: ${data.status}`,
     `Revision: ${data.taskRevision}`,
+    `Parent: ${data.parentTaskId ?? "(none)"}`,
     `Objective: ${data.objective}`,
     `Scope: ${JSON.stringify(data.scope)}`,
     `Acceptance: ${JSON.stringify(data.acceptance)}`,
@@ -182,6 +200,7 @@ export function renderTaskShowData(data: TaskShowData): string {
   }
 
   lines.push(`Next: ${data.next ?? "(none)"}`);
+  lines.push(...renderL3TaskShowSections(data));
   lines.push("Attempts:");
 
   if (data.attempts.length === 0) {
@@ -273,6 +292,11 @@ export function renderTaskNextData(data: TaskNextData): string {
     );
   }
 
+  lines.push("Runnable work:");
+  for (const item of data.runnableWorkItems) {
+    lines.push(`  ${item.taskId}  ${item.command}  ${item.reason}`);
+  }
+
   return lines.join("\n");
 }
 
@@ -322,6 +346,16 @@ export function renderReviewData(data: ReviewRenderData): string {
     lines.push(`New revision: ${data.newRevision}`);
   }
 
+  if (data.l3Mode !== undefined) {
+    lines.push(`L3 mode: ${data.l3Mode}`);
+  }
+
+  for (const child of data.materializedChildren ?? []) {
+    lines.push(
+      `Child: ${child.taskId}  L${child.level}  ${child.moduleKey}${child.reused ? "  reused" : ""}`,
+    );
+  }
+
   return lines.join("\n");
 }
 
@@ -357,6 +391,7 @@ export function renderTaskListEntries(entries: TaskListEntry[]): string {
   for (const entry of entries) {
     lines.push(
       `  ${entry.taskId}  ${entry.status}  L${entry.level}  ${entry.title}` +
+        (entry.parentTaskId === null ? "" : `  parent: ${entry.parentTaskId}`) +
         (entry.waitingReason === null
           ? ""
           : `  waiting: ${entry.waitingReason}`) +

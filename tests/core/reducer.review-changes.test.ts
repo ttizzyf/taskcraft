@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { ERROR_CODES } from "../../src/core/errors.js";
-import { reviewChanges, reviewStart } from "../../src/core/reducer.js";
+import {
+  reviewChanges,
+  reviewStart,
+  runComplete,
+} from "../../src/core/reducer.js";
 import {
   getAttempts,
   getLastEventSeq,
@@ -14,6 +18,7 @@ import {
 } from "../store/helpers.js";
 import {
   countAttempts,
+  L2_EXECUTE_RESULT,
   queryEvents,
   reviewStartInput,
   setupL2ToReview,
@@ -110,6 +115,11 @@ describe("reducer reviewChanges", () => {
 
       // Complete execute-1-2, start a second review of it, then request
       // changes again: the new successor is execute-1-3.
+      runComplete(database, taskId, {
+        nodeId: "execute-1",
+        attemptId: `att-${taskId}-execute-1-2`,
+        result: L2_EXECUTE_RESULT,
+      });
       const second = reviewStart(database, taskId, {
         ...reviewStartInput(taskId, `att-${taskId}-execute-1-2`),
       });

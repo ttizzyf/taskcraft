@@ -10,6 +10,7 @@ import { getLifecycle } from "../../store/query.js";
 import { withTransaction } from "../../store/transaction.js";
 import { ERROR_CODES, TaskcraftError } from "../errors.js";
 import { L1_DEFAULT_ACTOR } from "../lifecycle/l1.js";
+import { L3_COMPILER_VERSION } from "../lifecycle/l3.js";
 import type { ReviewPassInput, ReviewResultData } from "./context.js";
 import {
   assertNotCancelled,
@@ -29,6 +30,7 @@ import {
   nextFindingId,
   resolveActiveReview,
 } from "./review-shared.js";
+import { acceptL3Plan, type AcceptedL3Plan } from "./l3-accept-plan.js";
 
 const REVIEW_EVIDENCE_TYPES = ["validation", "test", "artifact", "note"];
 
@@ -144,6 +146,29 @@ export function reviewPass(
       host: attempt.host,
       occurredAt: now,
     });
+    let acceptedPlan: AcceptedL3Plan | undefined;
+    const compiler = database
+      .prepare(
+        `SELECT compiler_version AS compilerVersion
+         FROM lifecycle_revisions WHERE task_id = ? AND revision = ?`,
+      )
+      .get(taskId, snapshot.currentLifecycleRevision) as {
+      compilerVersion: string;
+    };
+    if (
+      snapshot.level === 3 &&
+      link.reviewPurpose === "feasibility" &&
+      compiler.compilerVersion === L3_COMPILER_VERSION
+    ) {
+      acceptedPlan = acceptL3Plan(
+        database,
+        snapshot,
+        attempt,
+        link.reviewedAttemptId,
+        actor,
+        now,
+      );
+    }
     bumpRevision(database, snapshot, now);
 
     return {
@@ -151,6 +176,13 @@ export function reviewPass(
       reviewAttemptId: attempt.id,
       reviewedAttemptId: link.reviewedAttemptId,
       ...(findingId === undefined ? {} : { findingId }),
+      ...(acceptedPlan === undefined
+        ? {}
+        : {
+            newRevision: acceptedPlan.newRevision,
+            l3Mode: acceptedPlan.mode,
+            materializedChildren: acceptedPlan.materializedChildren,
+          }),
     };
   });
 }

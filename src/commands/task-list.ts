@@ -69,6 +69,7 @@ function buildTaskListEntries(database: TaskcraftDatabase): TaskListEntry[] {
       level: snapshot.level,
       status: projection.status,
       taskRevision: snapshot.revision,
+      parentTaskId: snapshot.parentTaskId,
       waitingReason: projection.waitingReason,
       next: projection.next,
     };

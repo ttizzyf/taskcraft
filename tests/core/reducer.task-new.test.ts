@@ -108,7 +108,7 @@ describe("reducer taskNew", () => {
     }
   });
 
-  it("materializes the L3 graph for level 3 (covered in detail by projector.l3)", () => {
+  it("materializes the L3 planning revision for level 3", () => {
     const database = createMigratedDatabase();
 
     try {
@@ -123,27 +123,16 @@ describe("reducer taskNew", () => {
       expect(l3.next).toBe("tc run T-1 --node frame-1");
 
       const graph = getLifecycle(database, "T-1", 1);
-      expect(graph.nodes).toHaveLength(8);
+      expect(graph.nodes).toHaveLength(3);
       expect(graph.nodes.map((node) => node.kind)).toEqual([
         "frame",
         "plan",
         "review",
-        "execute",
-        "review",
-        "integrate",
-        "review",
-        "record",
       ]);
-      expect(graph.obligations).toHaveLength(9);
+      expect(graph.obligations).toHaveLength(3);
       expect(graph.obligations.map((obligation) => obligation.id)).toEqual([
-        "minimum-validation-recorded",
-        "requested-outcome-produced",
         "frame-completed",
-        "integration-completed",
         "plan-completed",
-        "result-and-scope-retained",
-        "delivery-completed",
-        "integration-review-completed",
         "feasibility-completed",
       ]);
     } finally {

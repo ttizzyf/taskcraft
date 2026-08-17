@@ -13,6 +13,7 @@ import {
   validateAppliedHistory,
 } from "../store/migrations.js";
 import { listTasks } from "../store/query.js";
+import { checkL3Relations } from "./doctor-l3.js";
 import { ERROR_CODES } from "./errors.js";
 import type { TaskcraftErrorCode } from "./errors.js";
 import { L1_FACTS_DIGEST, L1_POLICY_DIGEST } from "./lifecycle/l1.js";
@@ -39,6 +40,14 @@ const PROJECTION_FIELDS = [
   "nodeStatuses",
   "runnableNodes",
   "runningNode",
+  "runnableWorkItems",
+  "children",
+  "anchors",
+  "coverage",
+  "dependencies",
+  "validations",
+  "executionSource",
+  "inheritedPlanning",
   "doneObligations",
   "totalObligations",
   "next",
@@ -62,6 +71,7 @@ export function runDoctorChecks(
     checkOrphanReferences(database),
     checkEventContinuity(database),
     checkDefinitionDigest(database),
+    checkL3Relations(database),
     checkProjectionRebuild(database),
     checkBreadcrumbSchema(database),
   ];

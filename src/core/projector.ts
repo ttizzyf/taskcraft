@@ -1,66 +1,75 @@
-// Single projector: derives the five public statuses, runnable/running
-// nodes, waiting reason, obligation completion and the unique next command
-// from the query model snapshot. It never writes to the database and never
-// reads agent_runs: observations cannot drive task completion.
+// Single projector for task lifecycle and one-level L3 child aggregation. It
+// reads normalized facts only, never agent_runs, and never schedules hosts.
 
-import { ERROR_CODES, TaskcraftError } from "./errors.js";
 import { buildBreadcrumb } from "./breadcrumb.js";
-import type { BreadcrumbV1 } from "./breadcrumb.js";
-import type {
-  AttemptRow,
-  BlockerWaitingReason,
-  EdgeRow,
-  NodeKind,
-  ReviewLinkRow,
-  ReviewPurpose,
-} from "../store/query.js";
-import type { TaskcraftDatabase } from "../store/database.js";
-import {
-  getAttempts,
-  getLifecycle,
-  getObligationResults,
-  getOpenBlockers,
-  getReviewLinks,
-  getTask,
-} from "../store/query.js";
+import { ERROR_CODES, TaskcraftError } from "./errors.js";
 import { L1_EXECUTE_NODE_ID, L1_RECORD_NODE_ID } from "./lifecycle/l1.js";
 import { L2_FRAME_NODE_ID } from "./lifecycle/l2.js";
 import {
   L3_INTEGRATE_NODE_ID,
   L3_REVIEW_INTEGRATE_NODE_ID,
 } from "./lifecycle/l3.js";
-
-export type ProjectStatus =
-  "queued" | "active" | "waiting" | "done" | "cancelled";
-
-export type NodeProjectionStatus =
-  "satisfied" | "running" | "runnable" | "blocked";
-
-export interface NodeProjection {
-  nodeId: string;
-  kind: NodeKind;
-  status: NodeProjectionStatus;
-  attemptId: string | null;
-}
-
-export interface Projection {
-  status: ProjectStatus;
-  waitingReason: BlockerWaitingReason | null;
-  nodeStatuses: NodeProjection[];
-  runnableNodes: string[];
-  runningNode: string | null;
-  doneObligations: number;
-  totalObligations: number;
-  next: string | null;
-  breadcrumb: BreadcrumbV1;
-}
+import type { TaskcraftDatabase } from "../store/database.js";
+import type { BlockerWaitingReason } from "../store/query.js";
+import {
+  getAttempts,
+  getInheritedPlanning,
+  getLifecycle,
+  getObligationResults,
+  getOpenBlockers,
+  getReviewLinks,
+  getTask,
+  getTaskRelations,
+} from "../store/query.js";
+import {
+  projectChildWork,
+  projectOwnWorkItems,
+  projectUnsatisfiedParentDependencies,
+} from "./projector-children.js";
+import {
+  REVIEW_PURPOSE_BY_KIND,
+  reviewPassCommand,
+  reviewStartCommand,
+} from "./projector-review-commands.js";
+import type {
+  NodeProjectionStatus,
+  ProjectStatus,
+  Projection,
+} from "./projector-types.js";
+export type {
+  ChildProjection,
+  NodeProjection,
+  NodeProjectionStatus,
+  ProjectStatus,
+  Projection,
+  RunnableWorkItem,
+} from "./projector-types.js";
 
 export function project(
   database: TaskcraftDatabase,
   taskId: string,
 ): Projection {
-  const snapshot = getTask(database, taskId);
+  return projectTask(database, taskId, new Set(), new Map());
+}
 
+function projectTask(
+  database: TaskcraftDatabase,
+  taskId: string,
+  ancestors: Set<string>,
+  cache: Map<string, Projection>,
+): Projection {
+  if (ancestors.has(taskId)) {
+    throw new TaskcraftError(ERROR_CODES.TC_STORE_PROJECTION_FAILED, {
+      problem: `Task hierarchy cycle reached ${taskId}`,
+      impact: "The task projection cannot choose runnable work safely",
+      remediation: "Run tc doctor and repair the invalid parent/child facts",
+      context: { taskId },
+    });
+  }
+  const cached = cache.get(taskId);
+  if (cached !== undefined) return cached;
+
+  const snapshot = getTask(database, taskId);
   if (snapshot === null) {
     throw new TaskcraftError(ERROR_CODES.TC_TASK_NOT_FOUND, {
       problem: `Task ${taskId} does not exist`,
@@ -70,6 +79,7 @@ export function project(
     });
   }
 
+  const nextAncestors = new Set(ancestors).add(taskId);
   const revision = snapshot.currentLifecycleRevision;
   const graph = getLifecycle(database, taskId, revision);
   const attempts = getAttempts(database, taskId).filter(
@@ -80,6 +90,31 @@ export function project(
   );
   const blockers = getOpenBlockers(database, taskId);
   const reviewLinks = getReviewLinks(database, taskId);
+  const relations = getTaskRelations(database, taskId, revision);
+  const inheritedPlanning = getInheritedPlanning(database, taskId, revision);
+  const unsatisfiedParentDependencies = projectUnsatisfiedParentDependencies(
+    database,
+    snapshot,
+    nextAncestors,
+    (dependencyTaskId, dependencyAncestors) =>
+      projectTask(database, dependencyTaskId, dependencyAncestors, cache),
+  );
+
+  const {
+    children,
+    requiredChildren,
+    modulesMode,
+    childWorkItems,
+    allRequiredChildrenDone,
+  } = projectChildWork(
+    database,
+    taskId,
+    revision,
+    relations,
+    nextAncestors,
+    (childTaskId, ancestors) =>
+      projectTask(database, childTaskId, ancestors, cache),
+  );
 
   const requiredObligations = graph.obligations.filter(
     (obligation) => obligation.duty === "required",
@@ -89,53 +124,26 @@ export function project(
       .filter((result) => result.status === "satisfied")
       .map((result) => result.obligationId),
   );
-
   const nodeKindById = new Map(graph.nodes.map((node) => [node.id, node.kind]));
 
-  /** A review is satisfied only by a passed attempt whose link purpose
-   * matches the reviewed node kind (feasibility->plan, delivery->execute,
-   * integration->integrate) and whose reviewed attempt is the latest
-   * finished attempt of that node. The latest-finished rule keeps the
-   * Feasibility gate and the multi-branch delivery gate closed while a newer
-   * plan/execute attempt awaits its own review (lifecycle spec 9.1). */
   const isNodeSatisfied = (nodeId: string): boolean =>
     attempts.some((attempt) => {
-      if (attempt.nodeId !== nodeId || attempt.status !== "finished") {
+      if (attempt.nodeId !== nodeId || attempt.status !== "finished")
         return false;
-      }
-
       const kind = nodeKindById.get(nodeId);
-
-      if (kind !== "review") {
-        return attempt.outcome === "success";
-      }
-
-      if (attempt.outcome !== "passed") {
-        return false;
-      }
-
+      if (kind !== "review") return attempt.outcome === "success";
+      if (attempt.outcome !== "passed") return false;
       const link = reviewLinks.find(
         (candidate) => candidate.reviewAttemptId === attempt.id,
       );
-
-      if (link === undefined) {
-        return false;
-      }
-
+      if (link === undefined) return false;
       const reviewed = attempts.find(
         (candidate) => candidate.id === link.reviewedAttemptId,
       );
-
-      if (reviewed === undefined) {
-        return false;
-      }
-
+      if (reviewed === undefined) return false;
       const reviewedKind = nodeKindById.get(reviewed.nodeId);
-
-      if (link.reviewPurpose !== REVIEW_PURPOSE_BY_KIND[reviewedKind ?? ""]) {
+      if (link.reviewPurpose !== REVIEW_PURPOSE_BY_KIND[reviewedKind ?? ""])
         return false;
-      }
-
       const latestFinished = attempts
         .filter(
           (candidate) =>
@@ -143,13 +151,9 @@ export function project(
             candidate.status === "finished",
         )
         .at(-1);
-
       return reviewed.id === latestFinished?.id;
     });
 
-  // The integration review is on-demand (lifecycle spec 9.2): when the
-  // integrate result did not modify deliverables, review-integrate-1 is
-  // skipped and record-1 gates directly on integrate-1.
   const latestIntegrateAttempt = [...attempts]
     .filter(
       (attempt) =>
@@ -158,33 +162,24 @@ export function project(
         attempt.outcome === "success",
     )
     .at(-1);
-  let modifiedDeliverables = false;
-
-  if (latestIntegrateAttempt?.resultJson !== null) {
-    modifiedDeliverables =
-      (
-        JSON.parse(latestIntegrateAttempt?.resultJson ?? "{}") as {
-          modifiedDeliverables?: unknown;
-        }
-      ).modifiedDeliverables === true;
-  }
-
+  const modifiedDeliverables =
+    latestIntegrateAttempt?.resultJson === null ||
+    latestIntegrateAttempt === undefined
+      ? false
+      : (
+          JSON.parse(latestIntegrateAttempt.resultJson) as {
+            modifiedDeliverables?: unknown;
+          }
+        ).modifiedDeliverables === true;
   const integrationReviewBypassed =
     latestIntegrateAttempt !== undefined && !modifiedDeliverables;
-
   if (integrationReviewBypassed) {
-    // The skipped on-demand integration review leaves its obligations
-    // vacuous: count them as satisfied so a record can close the task.
     for (const obligation of graph.obligations) {
       if (obligation.nodeId === L3_REVIEW_INTEGRATE_NODE_ID) {
         satisfiedObligationIds.add(obligation.id);
       }
     }
   }
-
-  const satisfiedRequired = requiredObligations.filter((obligation) =>
-    satisfiedObligationIds.has(obligation.id),
-  );
 
   const nodeStates = graph.nodes.map((node) => {
     const nodeAttempts = attempts.filter(
@@ -199,26 +194,29 @@ export function project(
     const blockedByBlocker = blockers.some(
       (blocker) => blocker.nodeId === node.id,
     );
+    const blockedByChildren =
+      modulesMode &&
+      node.id === L3_INTEGRATE_NODE_ID &&
+      !allRequiredChildrenDone;
+    const blockedByParentDependency = unsatisfiedParentDependencies.length > 0;
     const predecessorSatisfied = (nodeId: string): boolean =>
       (integrationReviewBypassed && nodeId === L3_REVIEW_INTEGRATE_NODE_ID) ||
       isNodeSatisfied(nodeId);
 
     let status: NodeProjectionStatus = "blocked";
     if (runningAttempt !== undefined) {
-      // A created/running attempt wins over a historical satisfied one: a
-      // changes_requested successor execute attempt is in flight even though
-      // the previous attempt already passed.
       status = "running";
     } else if (isNodeSatisfied(node.id)) {
       status = "satisfied";
     } else if (
       !blockedByBlocker &&
-      predecessors.every((id) => predecessorSatisfied(id)) &&
+      !blockedByChildren &&
+      !blockedByParentDependency &&
+      predecessors.every(predecessorSatisfied) &&
       !(integrationReviewBypassed && node.id === L3_REVIEW_INTEGRATE_NODE_ID)
     ) {
       status = "runnable";
     }
-
     return {
       nodeId: node.id,
       kind: node.kind,
@@ -232,7 +230,9 @@ export function project(
     .map((node) => node.nodeId);
   const runningNode =
     nodeStates.find((node) => node.status === "running")?.nodeId ?? null;
-
+  const satisfiedRequired = requiredObligations.filter((obligation) =>
+    satisfiedObligationIds.has(obligation.id),
+  );
   const recordObligationSatisfied = graph.obligations.some(
     (obligation) =>
       obligation.nodeId === L1_RECORD_NODE_ID &&
@@ -245,10 +245,17 @@ export function project(
   let status: ProjectStatus;
   let waitingReason: BlockerWaitingReason | null = null;
   let next: string | null = null;
+  const cancelledRequiredChild = requiredChildren.find(
+    ({ projection }) => projection.status === "cancelled",
+  );
 
   if (snapshot.cancelledAt !== null) {
     status = "cancelled";
     next = `tc task show ${taskId}`;
+  } else if (unsatisfiedParentDependencies.length > 0 && runningNode === null) {
+    status = snapshot.activatedAt === null ? "queued" : "waiting";
+    waitingReason = snapshot.activatedAt === null ? null : "blocked_dependency";
+    next = null;
   } else if (snapshot.activatedAt === null) {
     status = "queued";
     next = graph.nodes.some((node) => node.kind === "frame")
@@ -256,6 +263,20 @@ export function project(
       : `tc run ${taskId}`;
   } else if (recordObligationSatisfied && allRequiredSatisfied) {
     status = "done";
+  } else if (modulesMode && cancelledRequiredChild !== undefined) {
+    status = "waiting";
+    waitingReason = "needs_decision";
+    next = `tc task show ${taskId}`;
+  } else if (modulesMode && childWorkItems.length > 0) {
+    status = "active";
+    next = childWorkItems[0]!.command;
+  } else if (modulesMode && !allRequiredChildrenDone) {
+    status = "waiting";
+    const waitingChild = requiredChildren.find(
+      ({ projection }) => projection.status === "waiting",
+    );
+    waitingReason = waitingChild?.projection.waitingReason ?? "needs_decision";
+    next = waitingChild?.projection.next ?? `tc task show ${taskId}`;
   } else if (
     blockers.length > 0 &&
     runnableNodes.length === 0 &&
@@ -266,12 +287,10 @@ export function project(
     next = blockers[0]!.remediationCommand;
   } else {
     status = "active";
-
     if (runningNode !== null) {
       const runningState = nodeStates.find(
         (node) => node.nodeId === runningNode,
       );
-
       next =
         runningState?.kind === "review"
           ? reviewPassCommand(taskId, runningState, attempts, reviewLinks)
@@ -282,7 +301,6 @@ export function project(
       const runnableState = nodeStates.find(
         (node) => node.nodeId === runnableNodes[0],
       );
-
       next =
         runnableState?.kind === "review"
           ? reviewStartCommand(
@@ -293,21 +311,39 @@ export function project(
               nodeKindById,
             )
           : `tc run ${taskId} --node ${runnableNodes[0]!}`;
-    } else {
-      next = null;
     }
   }
 
   const nodeForAnchor =
     nodeStates.find((node) => node.nodeId === runningNode) ??
     nodeStates.find((node) => node.nodeId === runnableNodes[0]);
+  const ownWorkItems = projectOwnWorkItems({
+    taskId,
+    parentTaskId: snapshot.parentTaskId,
+    status,
+    next,
+    childWorkItems,
+    nodeForAnchor,
+  });
+  const propagatedBlocked = requiredChildren.flatMap(({ projection }) =>
+    projection.waitingReason === null ? [] : [projection.waitingReason],
+  );
 
-  return {
+  const projection: Projection = {
     status,
     waitingReason,
     nodeStatuses: nodeStates,
     runnableNodes,
     runningNode,
+    runnableWorkItems:
+      childWorkItems.length > 0 ? childWorkItems : ownWorkItems,
+    children,
+    anchors: relations.anchors,
+    coverage: relations.coverage,
+    dependencies: relations.dependencies,
+    validations: relations.validations,
+    executionSource: relations.executionSource,
+    inheritedPlanning,
     doneObligations: satisfiedRequired.length,
     totalObligations: requiredObligations.length,
     next,
@@ -323,75 +359,15 @@ export function project(
         nodeKind: nodeForAnchor?.kind ?? null,
       },
       nextCommand: next,
-      blocked: blockers.map((blocker) => blocker.waitingReason),
+      blocked: [
+        ...blockers.map((blocker) => blocker.waitingReason),
+        ...propagatedBlocked,
+        ...(unsatisfiedParentDependencies.length > 0
+          ? (["blocked_dependency"] as const)
+          : []),
+      ],
     }),
   };
+  cache.set(taskId, projection);
+  return projection;
 }
-
-/** A review attempt that is created/running is completed with review pass,
- * naming both the review attempt and the reviewed execute attempt. */
-function reviewPassCommand(
-  taskId: string,
-  node: NodeProjection,
-  attempts: AttemptRow[],
-  links: ReviewLinkRow[],
-): string {
-  const reviewAttempt = attempts.find(
-    (attempt) =>
-      attempt.nodeId === node.nodeId &&
-      (attempt.status === "created" || attempt.status === "running"),
-  );
-  const link = links.find(
-    (candidate) => candidate.reviewAttemptId === reviewAttempt?.id,
-  );
-
-  if (reviewAttempt === undefined || link === undefined) {
-    // A running review node without its link cannot be passed; fall back to
-    // the task card instead of throwing.
-    return `tc task show ${taskId}`;
-  }
-
-  return `tc review pass ${taskId} --attempt ${reviewAttempt.id} --reviewed-attempt ${link.reviewedAttemptId}`;
-}
-
-/** A runnable review node (reviewed node satisfied, no open review attempt)
- * is started with review start against the latest finished/success attempt
- * of the node it audits; the purpose follows the audited kind. */
-function reviewStartCommand(
-  taskId: string,
-  node: NodeProjection,
-  attempts: AttemptRow[],
-  edges: EdgeRow[],
-  nodeKindById: Map<string, NodeKind>,
-): string {
-  const reviewedNodeId = edges.find(
-    (edge) => edge.toNodeId === node.nodeId,
-  )?.fromNodeId;
-  const reviewedAttempt = [...attempts]
-    .filter(
-      (attempt) =>
-        attempt.nodeId === reviewedNodeId &&
-        attempt.status === "finished" &&
-        attempt.outcome === "success",
-    )
-    .at(-1);
-
-  if (reviewedAttempt === undefined) {
-    // A runnable review node without a finished reviewed attempt cannot be
-    // started with a named attempt; fall back to the task card.
-    return `tc task show ${taskId}`;
-  }
-
-  const purpose =
-    REVIEW_PURPOSE_BY_KIND[nodeKindById.get(reviewedNodeId ?? "") ?? ""] ??
-    "delivery";
-
-  return `tc review start ${taskId} --node ${node.nodeId} --purpose ${purpose} --reviewed-attempt ${reviewedAttempt.id}`;
-}
-
-/** Review purpose by the audited node kind (lifecycle spec 9.1/9.2). */
-const REVIEW_PURPOSE_BY_KIND: Readonly<Record<string, ReviewPurpose>> = {
-  plan: "feasibility",
-  execute: "delivery",
-  integrate: "integration",
-};

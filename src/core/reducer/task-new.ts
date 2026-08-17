@@ -27,6 +27,7 @@ import { commandData, snapshotOf } from "./context.js";
 import { materializeL2Graph } from "./l2-materialize.js";
 import { materializeL3Graph } from "./l3-materialize.js";
 import { insertEvent, isUniqueConstraint, nowIso } from "./shared.js";
+import { allocateTaskId, insertTaskRow } from "./task-row.js";
 
 export function taskNew(
   database: TaskcraftDatabase,
@@ -36,17 +37,17 @@ export function taskNew(
     validateTaskNewInput(input);
     const actor = input.actorInstanceId ?? L1_DEFAULT_ACTOR;
     const now = nowIso();
-    let taskId = nextTaskId(database);
+    let taskId = allocateTaskId(database);
 
     try {
-      insertTaskRow(database, taskId, input, now);
+      insertPublicTaskRow(database, taskId, input, now);
     } catch (cause) {
       if (!isUniqueConstraint(cause)) {
         throw cause;
       }
 
-      taskId = nextTaskId(database);
-      insertTaskRow(database, taskId, input, now);
+      taskId = allocateTaskId(database);
+      insertPublicTaskRow(database, taskId, input, now);
     }
 
     if (input.level === 3) {
@@ -132,39 +133,26 @@ function validateTaskNewInput(input: TaskNewInput): void {
   }
 }
 
-function nextTaskId(database: TaskcraftDatabase): string {
-  const row = database.prepare("SELECT COUNT(*) AS count FROM tasks").get() as {
-    count: number;
-  };
-
-  return `T-${row.count + 1}`;
-}
-
-function insertTaskRow(
+function insertPublicTaskRow(
   database: TaskcraftDatabase,
   taskId: string,
   input: TaskNewInput,
   now: string,
 ): void {
-  database
-    .prepare(
-      `INSERT INTO tasks (
-         id, title, level, objective_md, scope_json, acceptance_json,
-         non_goals_json, classification_facts_json, classification_reasons_json,
-         parent_task_id, activated_at, cancelled_at, cancel_reason,
-         current_lifecycle_revision, revision, created_at, updated_at
-       ) VALUES (?, ?, ?, ?, '{}', '[]', '[]', ?, '[]', NULL, NULL, NULL,
-         NULL, 1, 1, ?, ?)`,
-    )
-    .run(
-      taskId,
-      input.title,
-      input.level,
-      input.objectiveMd ?? input.title,
-      JSON.stringify(input.classificationFacts ?? {}),
-      now,
-      now,
-    );
+  insertTaskRow(
+    database,
+    taskId,
+    {
+      title: input.title,
+      level: input.level as 1 | 2 | 3,
+      objectiveMd: input.objectiveMd ?? input.title,
+      scope: {},
+      acceptance: [],
+      nonGoals: [],
+      classificationFacts: input.classificationFacts,
+    },
+    now,
+  );
 }
 
 function materializeL1Lifecycle(

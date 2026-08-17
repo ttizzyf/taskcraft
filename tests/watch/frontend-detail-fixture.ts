@@ -43,6 +43,14 @@ const DETAIL: WatchTaskDetail = {
     updatedAt: TIMESTAMP,
   },
   projection: {
+    runnableWorkItems: [],
+    children: [],
+    anchors: [],
+    coverage: [],
+    dependencies: [],
+    validations: [],
+    executionSource: null,
+    inheritedPlanning: null,
     nodeStatuses: [
       {
         nodeId: "frame-1",

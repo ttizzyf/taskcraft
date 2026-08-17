@@ -31,6 +31,8 @@ const BASE_CARD: TaskCard = {
   host: "host-1",
   lastActivity: TIMESTAMP,
   next: "tc run complete T-1",
+  parentTaskId: null,
+  childProgress: null,
   blocker: null,
 };
 

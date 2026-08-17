@@ -47,6 +47,7 @@ import {
   resolveTargetAttempt,
 } from "./run-complete-nodes.js";
 import { validateFrameResult } from "./l2-materialize.js";
+import { validateL3FrameResult } from "./l3-materialize.js";
 
 export function runComplete(
   database: TaskcraftDatabase,
@@ -189,7 +190,7 @@ function completeExecuteNode(
   return commandData(database, taskId, snapshotOf(database, taskId));
 }
 
-/** Frame completion (L2): validates the frame result, generates the note
+/** Frame completion (L2/L3): validates the level-specific frame result, generates the note
  * evidence bound to the frame attempt, closes the attempt and satisfies the
  * frame-completed obligation. */
 function completeFrameNode(
@@ -200,12 +201,19 @@ function completeFrameNode(
 ): CommandData {
   const result = input.result as { objective: string };
 
-  if (!validateFrameResult(result)) {
+  const valid =
+    snapshot.level === 3
+      ? validateL3FrameResult(result)
+      : validateFrameResult(result);
+
+  if (!valid) {
     throw new TaskcraftError(ERROR_CODES.TC_LIFECYCLE_RESULT_INVALID, {
       problem: `Result for ${L2_FRAME_NODE_ID} failed the node result schema`,
       impact: "No facts were written; the task keeps its current state",
       remediation:
-        "Resubmit a result matching the frame-1 result schema (objective, scope, acceptance)",
+        snapshot.level === 3
+          ? "Resubmit a result matching the L3 frame schema (objective, scope, acceptanceAnchors, nonGoals)"
+          : "Resubmit a result matching the frame-1 result schema (objective, scope, acceptance)",
       context: { taskId },
     });
   }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ERROR_CODES } from "../../src/core/errors.js";
 import {
+  reviewChanges,
   run,
   runComplete,
   reviewStart,
@@ -20,6 +21,7 @@ import {
 import {
   countAttempts,
   L2_FRAME_RESULT,
+  L2_EXECUTE_RESULT,
   queryEvents,
   reviewStartInput,
   setupL2ToReview,
@@ -127,6 +129,50 @@ describe("reducer reviewStart", () => {
       expect(countAttempts(database)).toBe(attemptsBefore);
       expect(getReviewLinks(database, taskId)).toHaveLength(0);
       expect(getTask(database, taskId)!.revision).toBe(5);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("rejects an explicit stale execute attempt when a newer success exists", () => {
+    const database = createMigratedDatabase();
+
+    try {
+      const { taskId, executeAttemptId } = setupL2ToReview(database);
+      const firstReview = reviewStart(database, taskId, {
+        ...reviewStartInput(taskId, executeAttemptId),
+      });
+      const changed = reviewChanges(database, taskId, {
+        taskId,
+        attemptId: firstReview.reviewAttemptId,
+        reviewedAttemptId: executeAttemptId,
+        finding: "A newer execute attempt is required",
+      });
+      if (changed.successorAttemptId === undefined) {
+        throw new Error("review changes did not create a successor attempt");
+      }
+      runComplete(database, taskId, {
+        nodeId: "execute-1",
+        attemptId: changed.successorAttemptId,
+        result: L2_EXECUTE_RESULT,
+      });
+
+      const error = captureTaskcraftError(() =>
+        reviewStart(database, taskId, {
+          ...reviewStartInput(taskId, executeAttemptId),
+        }),
+      );
+
+      expect(error.code).toBe(ERROR_CODES.TC_REVIEW_REF_INVALID);
+      expect(error.problem).toContain(
+        "latest finished/success execute attempt",
+      );
+      expect(error.remediation).toContain(`att-${taskId}-execute-1-2`);
+      expect(
+        getAttempts(database, taskId).filter(
+          (attempt) => attempt.nodeId === "review-1",
+        ),
+      ).toHaveLength(1);
     } finally {
       database.close();
     }

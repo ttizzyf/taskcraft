@@ -147,6 +147,11 @@ function renderCard(card) {
   const next = card.next
     ? `<div><dt>Next</dt><dd><code>${escapeHtml(card.next)}</code></dd></div>`
     : "";
+  const hierarchy = card.parentTaskId
+    ? `<div><dt>Parent</dt><dd>${escapeHtml(card.parentTaskId)}</dd></div>`
+    : card.childProgress === null
+      ? ""
+      : `<div><dt>Children</dt><dd>${card.childProgress.done}/${card.childProgress.total}</dd></div>`;
 
   return (
     `<a class="card" href="#/task/${encodeURIComponent(card.id)}" ` +
@@ -160,6 +165,7 @@ function renderCard(card) {
     `<dl class="card-meta">` +
     `<div><dt>Node</dt><dd>${escapeHtml(card.node ?? "—")}</dd></div>` +
     `<div><dt>Required</dt><dd>${required}</dd></div>` +
+    hierarchy +
     `<div><dt>Host</dt><dd>${escapeHtml(card.host ?? "—")}</dd></div>` +
     `<div><dt>Last act.</dt><dd>${escapeHtml(
       formatTime(card.lastActivity),

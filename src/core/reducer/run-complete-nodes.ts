@@ -13,9 +13,15 @@
 // projector opens the on-demand integration review.
 
 import type { TaskcraftDatabase } from "../../store/database.js";
-import { getAttempts } from "../../store/query.js";
+import {
+  getAttempts,
+  getEvidence,
+  getTask,
+  getTaskRelations,
+} from "../../store/query.js";
 import type { TaskSnapshot } from "../../store/revision-guard.js";
 import { ERROR_CODES, TaskcraftError } from "../errors.js";
+import { project } from "../projector.js";
 import { L1_DEFAULT_ACTOR } from "../lifecycle/l1.js";
 import {
   L3_INTEGRATE_NODE_ID,
@@ -112,7 +118,7 @@ export function completePlanNode(
       problem: `Result for ${L3_PLAN_NODE_ID} failed the node result schema`,
       impact: "No facts were written; the task keeps its current state",
       remediation:
-        "Resubmit a plan result with objectiveCoverage, children, dependencies, validationOwners and integrationPath",
+        "Resubmit a plan result with decomposition, modules, coverage, dependencies, sharedValidations and integrationPath",
       context: { taskId },
     });
   }
@@ -181,6 +187,8 @@ export function completeIntegrateNode(
       context: { taskId },
     });
   }
+
+  validateIntegrateReferences(database, taskId, snapshot, result);
 
   const attempt = resolveTargetAttempt(
     database,
@@ -272,7 +280,11 @@ function insertNoteEvidence(
 
 /** The shape accepted by the integrate-1 result schema (after Ajv passed). */
 interface IntegrateResultShape {
-  childrenResults: Array<{ childId: string; status: string }>;
+  childrenResults: Array<{
+    taskId: string;
+    taskRevision: number;
+    evidenceRefs: string[];
+  }>;
   integrationEvidence: Array<{
     type: "validation" | "test" | "artifact" | "note";
     reference: string;
@@ -280,4 +292,75 @@ interface IntegrateResultShape {
     digest?: string;
   }>;
   modifiedDeliverables?: boolean;
+}
+
+function validateIntegrateReferences(
+  database: TaskcraftDatabase,
+  taskId: string,
+  snapshot: TaskSnapshot,
+  result: IntegrateResultShape,
+): void {
+  const relations = getTaskRelations(
+    database,
+    taskId,
+    snapshot.currentLifecycleRevision,
+  );
+  const requiredChildren = relations.children.filter(
+    (child) => child.requirementStatus === "required",
+  );
+  const submitted = new Map(
+    result.childrenResults.map((child) => [child.taskId, child]),
+  );
+  const invalid = (problem: string): never => {
+    throw new TaskcraftError(ERROR_CODES.TC_LIFECYCLE_RESULT_INVALID, {
+      problem,
+      impact: "No integration facts were written; the attempt remains open",
+      remediation:
+        "Re-read tc task show <task-id> --json and reference each current required child revision and evidence",
+      context: { taskId },
+    });
+  };
+
+  if (relations.executionSource?.mode === "single") {
+    if (result.childrenResults.length > 0) {
+      invalid("A single L3 integration cannot claim child results");
+    }
+    return;
+  }
+
+  if (
+    relations.executionSource?.mode === "modules" &&
+    (result.childrenResults.length !== requiredChildren.length ||
+      submitted.size !== requiredChildren.length ||
+      requiredChildren.some((child) => !submitted.has(child.childTaskId)))
+  ) {
+    invalid(
+      "Integration must reference every current required child exactly once",
+    );
+  }
+
+  for (const requirement of requiredChildren) {
+    const reference = submitted.get(requirement.childTaskId)!;
+    const child =
+      getTask(database, requirement.childTaskId) ??
+      invalid(`Child ${requirement.childTaskId} does not exist`);
+    if (
+      child.revision !== reference.taskRevision ||
+      project(database, child.id).status !== "done"
+    ) {
+      invalid(
+        `Child ${requirement.childTaskId} is not done at the referenced revision`,
+      );
+    }
+    const evidenceIds = new Set(
+      getEvidence(database, child.id).map((row) => row.id),
+    );
+    if (
+      reference.evidenceRefs.some((evidenceId) => !evidenceIds.has(evidenceId))
+    ) {
+      invalid(
+        `Child ${child.id} integration evidence does not belong to that child`,
+      );
+    }
+  }
 }

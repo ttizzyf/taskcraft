@@ -9,6 +9,8 @@ import type {
   EvidenceRow,
   LifecycleGraph,
   ObligationResultRow,
+  InheritedPlanningRow,
+  TaskRelations,
 } from "../../src/store/query.js";
 import type { TaskSnapshot } from "../../src/store/revision-guard.js";
 import {
@@ -154,6 +156,7 @@ describe("query model", () => {
       "getAgentRuns",
       "getAttempts",
       "getEvidence",
+      "getInheritedPlanning",
       "getLastEventSeq",
       "getLifecycle",
       "getObligationResults",
@@ -162,6 +165,7 @@ describe("query model", () => {
       "getReviewLinks",
       "getTask",
       "getTaskFacts",
+      "getTaskRelations",
       "listTasks",
     ]);
   });
@@ -183,5 +187,15 @@ type ReadOnlyQueryModel = {
   ): ObligationResultRow[];
   getOpenBlockers(database: TaskcraftDatabase, taskId: string): BlockerRow[];
   getLastEventSeq(database: TaskcraftDatabase, taskId: string): number;
+  getInheritedPlanning(
+    database: TaskcraftDatabase,
+    taskId: string,
+    revision: number,
+  ): InheritedPlanningRow | null;
+  getTaskRelations(
+    database: TaskcraftDatabase,
+    taskId: string,
+    revision: number,
+  ): TaskRelations;
   listTasks(database: TaskcraftDatabase): TaskSnapshot[];
 };

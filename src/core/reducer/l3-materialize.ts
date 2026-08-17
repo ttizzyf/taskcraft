@@ -1,8 +1,5 @@
-// Materializes the L3 lifecycle graph into the four definition tables for a
-// given revision. Used by taskNew (revision 1) and reviewReplan (new
-// revision); the node ids stay stable across revisions so old facts remain
-// queryable and the projector only looks at the current revision. Also hosts
-// the plan/integrate result validators shared by run complete.
+// L3 lifecycle compiler and result-contract validators. Planning, modules
+// execution and single execution graphs are separate immutable revisions.
 
 import {
   Ajv2020,
@@ -12,12 +9,23 @@ import {
 
 import type { TaskcraftDatabase } from "../../store/database.js";
 import {
-  L3_EDGES,
+  L3_FRAME_RESULT_SCHEMA,
   L3_INTEGRATE_RESULT_SCHEMA,
-  L3_NODES,
-  L3_OBLIGATIONS,
+  L3_MODULES_EXECUTION_EDGES,
+  L3_MODULES_EXECUTION_NODES,
+  L3_MODULES_EXECUTION_OBLIGATIONS,
   L3_PLAN_RESULT_SCHEMA,
+  L3_PLANNING_EDGES,
+  L3_PLANNING_NODES,
+  L3_PLANNING_OBLIGATIONS,
+  L3_SINGLE_EXECUTION_EDGES,
+  L3_SINGLE_EXECUTION_NODES,
+  L3_SINGLE_EXECUTION_OBLIGATIONS,
+  type L3NodeDefinition,
+  type L3ObligationDefinition,
 } from "../lifecycle/l3.js";
+
+export type L3GraphKind = "planning" | "modules" | "single";
 
 export interface L3GraphInput {
   taskId: string;
@@ -31,12 +39,15 @@ export interface L3GraphInput {
   objective: string;
   actor: string;
   now: string;
+  kind?: L3GraphKind;
 }
 
 export function materializeL3Graph(
   database: TaskcraftDatabase,
   input: L3GraphInput,
 ): void {
+  const definition = graphDefinition(input.kind ?? "planning");
+
   database
     .prepare(
       `INSERT INTO lifecycle_revisions (
@@ -53,11 +64,52 @@ export function materializeL3Graph(
       input.compilerVersion,
       input.factsDigest,
       input.policyDigest,
-      JSON.stringify(input.changeSummary),
+      JSON.stringify({ ...input.changeSummary, l3GraphKind: definition.kind }),
       input.actor,
       input.now,
     );
 
+  insertNodes(database, input, definition.nodes);
+  insertEdges(database, input, definition.edges);
+  insertObligations(database, input, definition.obligations);
+}
+
+function graphDefinition(kind: L3GraphKind): {
+  kind: L3GraphKind;
+  nodes: readonly L3NodeDefinition[];
+  edges: readonly { fromNodeId: string; toNodeId: string }[];
+  obligations: readonly L3ObligationDefinition[];
+} {
+  switch (kind) {
+    case "planning":
+      return {
+        kind,
+        nodes: L3_PLANNING_NODES,
+        edges: L3_PLANNING_EDGES,
+        obligations: L3_PLANNING_OBLIGATIONS,
+      };
+    case "modules":
+      return {
+        kind,
+        nodes: L3_MODULES_EXECUTION_NODES,
+        edges: L3_MODULES_EXECUTION_EDGES,
+        obligations: L3_MODULES_EXECUTION_OBLIGATIONS,
+      };
+    case "single":
+      return {
+        kind,
+        nodes: L3_SINGLE_EXECUTION_NODES,
+        edges: L3_SINGLE_EXECUTION_EDGES,
+        obligations: L3_SINGLE_EXECUTION_OBLIGATIONS,
+      };
+  }
+}
+
+function insertNodes(
+  database: TaskcraftDatabase,
+  input: L3GraphInput,
+  nodes: readonly L3NodeDefinition[],
+): void {
   const insertNode = database.prepare(
     `INSERT INTO lifecycle_nodes (
        task_id, lifecycle_revision, id, kind, title, objective,
@@ -65,7 +117,8 @@ export function materializeL3Graph(
        retry_policy_json, input_schema_json, output_schema_json
      ) VALUES (?, ?, ?, ?, ?, ?, ?, '{}', '{}', '{}', ?, '{}', ?)`,
   );
-  for (const node of L3_NODES) {
+
+  for (const node of nodes) {
     insertNode.run(
       input.taskId,
       input.revision,
@@ -78,14 +131,21 @@ export function materializeL3Graph(
       node.outputSchemaJson,
     );
   }
+}
 
+function insertEdges(
+  database: TaskcraftDatabase,
+  input: L3GraphInput,
+  edges: readonly { fromNodeId: string; toNodeId: string }[],
+): void {
   const insertEdge = database.prepare(
     `INSERT INTO lifecycle_edges (
        task_id, lifecycle_revision, from_node_id, to_node_id,
        condition_json, label
      ) VALUES (?, ?, ?, ?, '{"kind":"always"}', NULL)`,
   );
-  for (const edge of L3_EDGES) {
+
+  for (const edge of edges) {
     insertEdge.run(
       input.taskId,
       input.revision,
@@ -93,13 +153,20 @@ export function materializeL3Graph(
       edge.toNodeId,
     );
   }
+}
 
+function insertObligations(
+  database: TaskcraftDatabase,
+  input: L3GraphInput,
+  obligations: readonly L3ObligationDefinition[],
+): void {
   const insertObligation = database.prepare(
     `INSERT INTO obligation_definitions (
        task_id, lifecycle_revision, node_id, id, duty, title, evaluator_json
      ) VALUES (?, ?, ?, ?, 'required', ?, ?)`,
   );
-  for (const obligation of L3_OBLIGATIONS) {
+
+  for (const obligation of obligations) {
     insertObligation.run(
       input.taskId,
       input.revision,
@@ -111,27 +178,25 @@ export function materializeL3Graph(
   }
 }
 
+let frameResultValidator: ValidateFunction | null = null;
 let planResultValidator: ValidateFunction | null = null;
 let integrateResultValidator: ValidateFunction | null = null;
 
-export function validatePlanResult(result: unknown): boolean {
-  if (planResultValidator === null) {
-    planResultValidator = new Ajv2020({
-      strict: true,
-      allErrors: true,
-    }).compile(L3_PLAN_RESULT_SCHEMA as AnySchema);
-  }
+export function validateL3FrameResult(result: unknown): boolean {
+  frameResultValidator ??= compile(L3_FRAME_RESULT_SCHEMA);
+  return frameResultValidator(result) === true;
+}
 
+export function validatePlanResult(result: unknown): boolean {
+  planResultValidator ??= compile(L3_PLAN_RESULT_SCHEMA);
   return planResultValidator(result) === true;
 }
 
 export function validateIntegrateResult(result: unknown): boolean {
-  if (integrateResultValidator === null) {
-    integrateResultValidator = new Ajv2020({
-      strict: true,
-      allErrors: true,
-    }).compile(L3_INTEGRATE_RESULT_SCHEMA as AnySchema);
-  }
-
+  integrateResultValidator ??= compile(L3_INTEGRATE_RESULT_SCHEMA);
   return integrateResultValidator(result) === true;
+}
+
+function compile(schema: AnySchema): ValidateFunction {
+  return new Ajv2020({ strict: true, allErrors: true }).compile(schema);
 }

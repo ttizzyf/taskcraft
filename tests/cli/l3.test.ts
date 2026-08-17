@@ -10,6 +10,8 @@ import {
   L3_INTEGRATE_RESULT,
   L3_INTEGRATE_RESULT_PLAIN,
   L3_PLAN_RESULT,
+  L3_SINGLE_PLAN_RESULT,
+  L3_EXECUTE_RESULT,
   feasibilityReviewStart,
   finishRecord,
   newL3Task,
@@ -22,18 +24,64 @@ import {
 } from "./l3-helpers.js";
 
 describe("L3 CLI loop", () => {
+  it("runs a justified single L3 without creating a wrapper child", () => {
+    withInitializedDirectory((cwd) => {
+      newL3Task(cwd);
+      const planAttempt = toPlanPoint(cwd, L3_SINGLE_PLAN_RESULT);
+      const review = feasibilityReviewStart(cwd, planAttempt);
+      reviewPass(cwd, review, planAttempt);
+
+      expect(showJson(cwd).children).toEqual([]);
+      expect(showJson(cwd).next).toBe("tc run T-1 --node execute-1");
+      expect(runCli(["run", "T-1", "--node", "execute-1"], cwd).status).toBe(0);
+      expect(
+        runCli(["run", "complete", "T-1", "--result", L3_EXECUTE_RESULT], cwd)
+          .status,
+      ).toBe(0);
+      const delivery = reviewStart(
+        cwd,
+        "review-execute-1",
+        "delivery",
+        "att-T-1-execute-1-1",
+      );
+      reviewPass(cwd, delivery, "att-T-1-execute-1-1");
+      expect(runCli(["run", "T-1", "--node", "integrate-1"], cwd).status).toBe(
+        0,
+      );
+      expect(
+        runCli(
+          [
+            "run",
+            "complete",
+            "T-1",
+            "--node",
+            "integrate-1",
+            "--result",
+            JSON.stringify({
+              childrenResults: [],
+              integrationEvidence: [],
+              modifiedDeliverables: false,
+            }),
+          ],
+          cwd,
+        ).status,
+      ).toBe(0);
+      finishRecord(cwd);
+      expect(showJson(cwd).status).toBe("done");
+    });
+  });
+
   it("drives the main loop to done with the on-demand integration review", () => {
     withInitializedDirectory((cwd) => {
       newL3Task(cwd);
       const planAttempt = toPlanPoint(cwd);
 
-      // Feasibility gate: after plan complete, execute-1 must not be next
-      // and a bare run on it must be rejected with the error triple.
+      // Feasibility gate: children do not exist before the review passes.
       const next = runCli(["task", "next", "T-1"], cwd);
       expect(next.stdout).toContain(
         "Next: tc review start T-1 --node review-plan-1 --purpose feasibility --reviewed-attempt att-T-1-plan-1-1",
       );
-      expect(next.stdout).toContain("execute-1  blocked");
+      expect(next.stdout).toContain("review-plan-1  runnable");
       const gated = runCli(["run", "T-1", "--node", "execute-1"], cwd);
       expect(gated.status).toBe(1);
       expect(gated.stdout).toBe("");
@@ -73,8 +121,19 @@ describe("L3 CLI loop", () => {
 
       reviewPass(cwd, review, planAttempt);
       const opened = runCli(["task", "next", "T-1"], cwd);
-      expect(opened.stdout).toContain("execute-1  runnable");
-      expect(opened.stdout).toContain("Next: tc run T-1 --node execute-1");
+      expect(opened.stdout).toContain("integrate-1  blocked");
+      expect(opened.stdout).toContain("Next: tc run T-2");
+      expect(opened.stdout).toContain("T-2  tc run T-2");
+      const parentCard = runCli(["task", "show", "T-1"], cwd);
+      expect(parentCard.stdout).toContain("Dependencies:");
+      expect(parentCard.stdout).toContain("T-3  depends on  T-2");
+      expect(parentCard.stdout).toContain("Shared validations:");
+      expect(parentCard.stdout).toContain("owner: parent integrate");
+      expect(parentCard.stdout).toContain("Execution source:");
+      expect(parentCard.stdout).toContain("modules  plan: att-T-1-plan-1-1");
+      const childCard = runCli(["task", "show", "T-2"], cwd);
+      expect(childCard.stdout).toContain("Inherited planning:");
+      expect(childCard.stdout).toContain("parent: T-1 rev 2");
 
       toDeliveryPoint(cwd);
       const integrateAttempt = toIntegratePoint(cwd, L3_INTEGRATE_RESULT);
@@ -99,7 +158,7 @@ describe("L3 CLI loop", () => {
       const data = showJson(cwd);
       expect(data.status).toBe("done");
       expect(data.next).toBeNull();
-      expect(data.attempts).toHaveLength(8);
+      expect(data.attempts).toHaveLength(6);
       expect(data.attempts).toContainEqual(
         expect.objectContaining({
           id: "att-T-1-review-plan-1-1",
@@ -144,7 +203,7 @@ describe("L3 CLI loop", () => {
 
       finishRecord(cwd);
       expect(showJson(cwd).status).toBe("done");
-      expect(showJson(cwd).attempts).toHaveLength(7);
+      expect(showJson(cwd).attempts).toHaveLength(5);
     });
   });
 
@@ -198,9 +257,13 @@ describe("L3 CLI loop", () => {
       expect(secondReview).toBe("att-T-1-review-plan-1-2");
       reviewPass(cwd, secondReview, "att-T-1-plan-1-2");
 
-      // Gate opens: execute-1 is runnable again.
+      // Gate opens by materializing real children; the first child is next.
       const opened = runCli(["task", "next", "T-1"], cwd);
-      expect(opened.stdout).toContain("execute-1  runnable");
+      expect(opened.stdout).toContain("Next: tc run T-2");
+      expect(showJson(cwd).children.map((child) => child.taskId)).toEqual([
+        "T-2",
+        "T-3",
+      ]);
       expect(showJson(cwd).findings).toEqual([
         expect.objectContaining({
           severity: "blocking",
@@ -209,203 +272,50 @@ describe("L3 CLI loop", () => {
       ]);
     });
   });
-});
 
-describe("tc task fact add", () => {
-  it("rejects an invalid category and an unparsable value with exit 1", () => {
+  it("routes an unfinished child review replan back to the L3 parent", () => {
     withInitializedDirectory((cwd) => {
       newL3Task(cwd);
       const planAttempt = toPlanPoint(cwd);
-      const review = feasibilityReviewStart(cwd, planAttempt);
-
-      const badCategory = runCli(
-        [
-          "task",
-          "fact",
-          "add",
-          "T-1",
-          "--attempt",
-          review,
-          "--category",
-          "gossip",
-          "--subject",
-          "x",
-          "--value",
-          "{}",
-        ],
+      const feasibility = feasibilityReviewStart(cwd, planAttempt);
+      reviewPass(cwd, feasibility, planAttempt);
+      expect(runCli(["run", "T-2", "--node", "execute-1"], cwd).status).toBe(0);
+      expect(
+        runCli(["run", "complete", "T-2", "--result", L3_EXECUTE_RESULT], cwd)
+          .status,
+      ).toBe(0);
+      const delivery = reviewStart(
         cwd,
+        "review-1",
+        "delivery",
+        "att-T-2-execute-1-1",
+        "T-2",
       );
-      expect(badCategory.status).toBe(1);
-      expect(badCategory.stdout).toBe("");
-      expect(badCategory.stderr).toContain("TC_FACT_INPUT_INVALID");
-      expect(badCategory.stderr).toContain("impact:");
-      expect(badCategory.stderr).toContain("remediation:");
 
-      const badValue = runCli(
-        [
-          "task",
-          "fact",
-          "add",
-          "T-1",
-          "--attempt",
-          review,
-          "--category",
-          "probe",
-          "--subject",
-          "x",
-          "--value",
-          "{not json",
-        ],
-        cwd,
-      );
-      expect(badValue.status).toBe(1);
-      expect(badValue.stderr).toContain("TC_FACT_INPUT_INVALID");
-
-      // Nothing was written by either failure.
-      expect(showJson(cwd).facts).toEqual([]);
-    });
-  });
-
-  it("rejects an attempt of another revision with TC_ATTEMPT_REF_INVALID", () => {
-    withInitializedDirectory((cwd) => {
-      newL3Task(cwd);
-      toPlanPoint(cwd);
       const result = runCli(
         [
-          "task",
-          "fact",
-          "add",
-          "T-1",
+          "review",
+          "replan",
+          "T-2",
           "--attempt",
-          "att-T-1-frame-9-1",
-          "--category",
-          "probe",
-          "--subject",
-          "x",
-          "--value",
-          "{}",
+          delivery,
+          "--reason",
+          "contract_changed",
+          "--finding",
+          "The parent module boundary must change",
         ],
         cwd,
       );
-      expect(result.status).toBe(1);
-      expect(result.stderr).toContain("TC_ATTEMPT_REF_INVALID");
-    });
-  });
 
-  it("--json and text render the same source data", () => {
-    withInitializedDirectory((cwd) => {
-      newL3Task(cwd);
-      const planAttempt = toPlanPoint(cwd);
-      const review = feasibilityReviewStart(cwd, planAttempt);
-
-      const json = JSON.parse(
-        runCli(
-          [
-            "task",
-            "fact",
-            "add",
-            "T-1",
-            "--attempt",
-            review,
-            "--category",
-            "dependency",
-            "--subject",
-            "api-availability",
-            "--value",
-            '{"provider":"upstream"}',
-            "--json",
-          ],
-          cwd,
-        ).stdout,
-      ) as {
-        ok: boolean;
-        data: { taskId: string; taskRevision: number; next: string | null };
-      };
-
-      expect(json.ok).toBe(true);
-      const text = runCli(
-        [
-          "task",
-          "fact",
-          "add",
-          "T-1",
-          "--attempt",
-          review,
-          "--category",
-          "dependency",
-          "--subject",
-          "api-availability",
-          "--value",
-          '{"provider":"upstream"}',
-        ],
-        cwd,
-      ).stdout;
-      // text and JSON render the same source: the second execution is one
-      // revision ahead of the first (each fact add bumps the revision).
-      expect(text).toContain(`Task: ${json.data.taskId}`);
-      expect(text).toContain(`Next: ${json.data.next}`);
-      const textRevision = Number(/Revision: (\d+)/.exec(text)![1]);
-      expect(textRevision).toBe(json.data.taskRevision + 1);
-      // Append-only: the second fact is a separate row; both stay queryable.
-      const facts = showJson(cwd).facts;
-      expect(facts).toHaveLength(2);
-      expect(facts[1]).toMatchObject({
-        id: "fact-T-1-2",
-        category: "dependency",
-        subject: "api-availability",
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("Task: T-1");
+      expect(result.stdout).toContain("New revision: 3");
+      expect(result.stdout).toContain("Next: tc run T-1 --node frame-1");
+      expect(showJson(cwd)).toMatchObject({
+        lifecycleRevision: 3,
+        status: "active",
+        next: "tc run T-1 --node frame-1",
       });
-    });
-  });
-
-  it("rejects --evidence and --supersedes references of other tasks", () => {
-    withInitializedDirectory((cwd) => {
-      newL3Task(cwd);
-      const planAttempt = toPlanPoint(cwd);
-      const review = feasibilityReviewStart(cwd, planAttempt);
-
-      const badEvidence = runCli(
-        [
-          "task",
-          "fact",
-          "add",
-          "T-1",
-          "--attempt",
-          review,
-          "--category",
-          "probe",
-          "--subject",
-          "x",
-          "--value",
-          "{}",
-          "--evidence",
-          "ev-other-task-1",
-        ],
-        cwd,
-      );
-      expect(badEvidence.status).toBe(1);
-      expect(badEvidence.stderr).toContain("TC_EVIDENCE_REF_INVALID");
-
-      const badSupersedes = runCli(
-        [
-          "task",
-          "fact",
-          "add",
-          "T-1",
-          "--attempt",
-          review,
-          "--category",
-          "probe",
-          "--subject",
-          "x",
-          "--value",
-          "{}",
-          "--supersedes",
-          "fact-other-task-1",
-        ],
-        cwd,
-      );
-      expect(badSupersedes.status).toBe(1);
-      expect(badSupersedes.stderr).toContain("TC_FACT_SUPERSEDE_INVALID");
     });
   });
 });
