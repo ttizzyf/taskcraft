@@ -492,3 +492,26 @@ Removed Codex/Claude Stop Hook and forced continuation; adopted Entry-only recov
 ### Status
 
 [OK] **Completed**
+
+
+## Session 22: Complete modular L3 task decomposition
+
+**Date**: 2026-08-17
+**Task**: Complete modular L3 task decomposition
+**Branch**: `main`
+
+### Summary
+
+Implemented one-level L1/L2 modular L3 tasks with inherited planning, explicit dependencies, replan/reuse, parent integration, CLI/Watch/doctor coverage, and verified Codex Entry registration. pnpm check passed 54 files/396 tests and Watch smoke passed 6/6; Claude Entry remains pending and Stop Hook remains removed.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `914b048` | (see git log) |
+| `f4ff255` | (see git log) |
+| `8c8726b` | (see git log) |
+
+### Status
+
+[OK] **Completed**
