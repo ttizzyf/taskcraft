@@ -7,6 +7,7 @@ import {
   createContractValidators,
   loadJsonFile,
   loadL2TaskFixture,
+  loadSpecRegistryFixture,
 } from "../../src/contracts/schemas.js";
 import { createTemporaryDirectory } from "../helpers/temp-directory.js";
 
@@ -50,13 +51,16 @@ const validBreadcrumb = {
 };
 
 describe("Taskcraft JSON contracts", () => {
-  it("compiles both Draft 2020-12 schemas in strict mode", () => {
+  it("compiles all Draft 2020-12 schemas in strict mode", () => {
     const validators = createContractValidators();
+    const specRegistry = loadSpecRegistryFixture();
 
     expect(validators.lifecycle(validLifecycle)).toBe(true);
     expect(validators.lifecycle.errors).toBeNull();
     expect(validators.breadcrumb(validBreadcrumb)).toBe(true);
     expect(validators.breadcrumb.errors).toBeNull();
+    expect(validators.specRegistry(specRegistry)).toBe(true);
+    expect(validators.specRegistry.errors).toBeNull();
   });
 
   it("exposes validation failures for invalid instances", () => {
@@ -66,11 +70,26 @@ describe("Taskcraft JSON contracts", () => {
       ...validBreadcrumb,
       task: { ...validBreadcrumb.task, level: 4 },
     };
+    const invalidSpecRegistry = {
+      schemaVersion: "tc-spec-registry/v1",
+      specs: [
+        {
+          id: "domain.refunds",
+          kind: "domain",
+          path: "docs/refunds.md",
+          summary: "Refund rules",
+          appliesTo: ["src/refunds/**"],
+          status: "active",
+        },
+      ],
+    };
 
     expect(validators.lifecycle(invalidLifecycle)).toBe(false);
     expect(validators.lifecycle.errors).not.toBeNull();
     expect(validators.breadcrumb(invalidBreadcrumb)).toBe(false);
     expect(validators.breadcrumb.errors).not.toBeNull();
+    expect(validators.specRegistry(invalidSpecRegistry)).toBe(false);
+    expect(validators.specRegistry.errors).not.toBeNull();
   });
 
   it("parses the L2 task fixture without applying an unrelated schema", () => {

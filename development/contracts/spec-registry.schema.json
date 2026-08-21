@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://taskcraft.dev/contracts/spec-registry.schema.json",
+  "title": "Taskcraft Spec Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "specs"],
+  "properties": {
+    "schemaVersion": {
+      "const": "tc-spec-registry/v1"
+    },
+    "specs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/spec"
+      }
+    }
+  },
+  "$defs": {
+    "nonBlankString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "path", "summary", "appliesTo", "status"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+        },
+        "kind": {
+          "enum": ["engineering", "domain"]
+        },
+        "path": {
+          "$ref": "#/$defs/nonBlankString"
+        },
+        "summary": {
+          "$ref": "#/$defs/nonBlankString"
+        },
+        "appliesTo": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonBlankString"
+          }
+        },
+        "status": {
+          "enum": ["active", "deprecated"]
+        },
+        "authority": {
+          "$ref": "#/$defs/nonBlankString"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "domain"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "authority": {
+                "$ref": "#/$defs/nonBlankString"
+              }
+            },
+            "required": ["authority"]
+          }
+        }
+      ]
+    }
+  }
+}

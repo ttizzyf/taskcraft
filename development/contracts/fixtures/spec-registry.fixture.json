@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "tc-spec-registry/v1",
+  "specs": [
+    {
+      "id": "engineering.payment",
+      "kind": "engineering",
+      "path": "development/specs/payment.md",
+      "summary": "Payment integration contracts",
+      "appliesTo": ["src/payment/**"],
+      "status": "active"
+    },
+    {
+      "id": "domain.refunds",
+      "kind": "domain",
+      "path": ".taskcraft/spec/refunds.md",
+      "summary": "Refund eligibility rules",
+      "appliesTo": ["src/refunds/**"],
+      "status": "deprecated",
+      "authority": "Product owner approval recorded in ADR-42"
+    }
+  ]
+}

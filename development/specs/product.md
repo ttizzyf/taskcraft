@@ -48,7 +48,10 @@ tc agent test-entry-hook
 tc enable ask
 ```
 
-`init` 创建 `.taskcraft/config.json`、`.taskcraft/taskcraft.db`、极薄 entry block 和宿主 hook。
+`init` 创建 `.taskcraft/taskcraft.db` 和空的
+`.taskcraft/spec/index.json`；Registry 已存在时原样保留。`--agent` 另外安装极薄
+entry block 和宿主 hook，`enable` 首次写接管配置。Spec Markdown 继续由 Git 管理，
+可以登记 `.taskcraft/spec/` 下的文件，也可以直接引用仓库内已有文档，不复制正文。
 Codex 的项目注册位于 `.codex/hooks.json`，Claude 的项目注册位于
 `.claude/settings.json`；已有宿主注册文件不会被静默覆盖。
 

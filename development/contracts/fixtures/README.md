@@ -1,5 +1,9 @@
 # Fixture 版本说明
 
+`spec-registry.fixture.json` 是 `tc-spec-registry/v1` 的 Schema 合同样本，只验证
+Registry 元数据形状；其中的 Markdown 路径不表示 fixture loader 会读取或复制正文。
+正文安全解析、project realpath containment 和 SHA-256 合同由 `tests/spec/` 覆盖。
+
 本目录中的 `l3-pass`、`l3-feasibility-blocked`、`l3-single-child`、
 `l3-waiting-decision`、`l3-conflict`、`l3-stale` 与 L3 fact fixtures 保存的是
 历史 `tc-l3/1` 单任务图，用于证明 migration 0002 之后旧 revision 仍可读取、投影
@@ -18,4 +22,3 @@ tables。当前可执行样本由 reducer/CLI 在迁移后的真实 SQLite 中�
 
 在 fixture loader 能原样导入 0002 的 relation tables 前，不要手写一个只包含部分
 relation 的“v2 fixture”；那会制造比 reducer 生成事实更弱的第二合同。
-

@@ -5,6 +5,8 @@ Taskcraft 的 TypeScript 生产实现位于 `src/`，测试位于 `tests/`。本
 
 ## 已记录合同
 
+- [Spec Registry 实现合同](spec-registry-contract.md)：Registry Schema、单一解析入口、
+  安全文件读取、候选解析、`tc init` / `tc spec` 和稳定错误合同。
 - [Entry Hook 跨层合同](entry-hook-contract.md)：Adapter、CLI、配置持久化、
   Watch Runtime/Diagnostics 的 Entry-only 数据流。
 - [L3 模块化跨层实现合同](l3-modular-contract.md)：accepted Plan 事务、真实 child、
@@ -13,15 +15,19 @@ Taskcraft 的 TypeScript 生产实现位于 `src/`，测试位于 `tests/`。本
 ## Pre-Development Checklist
 
 1. 阅读 [`Taskcraft 规范来源索引`](../taskcraft.md) 和任务涉及的权威产品规范。
-2. 修改 Hook、Adapter、`tc agent` 或 Watch Hook 状态时，阅读
+2. 修改 Registry、`src/spec/`、`tc init`、`tc spec` 或新增 Spec 消费者时，阅读
+   [Spec Registry 实现合同](spec-registry-contract.md)。
+3. 修改 Hook、Adapter、`tc agent` 或 Watch Hook 状态时，阅读
    [Entry Hook 跨层合同](entry-hook-contract.md)。
-3. 修改 L3 lifecycle、父子关系、Projector、replan/cancel、L3 CLI/Watch 或 doctor
+4. 修改 L3 lifecycle、父子关系、Projector、replan/cancel、L3 CLI/Watch 或 doctor
    时，阅读 [L3 模块化跨层实现合同](l3-modular-contract.md)。
-4. 先搜索命令名、配置字段和诊断码的全部生产与测试消费者。
+5. 先搜索命令名、配置字段和诊断码的全部生产与测试消费者。
 
 ## Quality Check
 
 - CLI、Adapter、配置和 Watch 是否仍使用同一个 Entry Hook 结果合同。
+- Registry、CLI 和后续消费者是否仍复用同一个 `src/spec/` 解析结果，且候选没有被
+  自动提升为 binding。
 - 新安装是否只产生 `entry.sh`/SessionStart，且没有 Stop 兼容壳或第二套 schema。
 - 失败是否保持非零退出和稳定诊断；真实宿主证据是否与自动测试分开报告。
 

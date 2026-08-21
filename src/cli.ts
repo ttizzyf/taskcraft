@@ -20,6 +20,7 @@ import { register as registerReview } from "./commands/review.js";
 import { register as registerRun } from "./commands/run.js";
 import { register as registerState } from "./commands/state.js";
 import { register as registerStatus } from "./commands/status.js";
+import { register as registerSpec } from "./commands/spec.js";
 import { register as registerTaskCancel } from "./commands/task-cancel.js";
 import { register as registerTaskFact } from "./commands/task-fact-add.js";
 import { register as registerTaskList } from "./commands/task-list.js";
@@ -113,6 +114,7 @@ registerInit(program);
 registerEnable(program);
 registerAgent(program);
 registerDoctor(program);
+registerSpec(program);
 
 const task = program.command("task").description("task management");
 registerTaskNew(task);

@@ -11,6 +11,10 @@ import { join } from "node:path";
 import type { Command } from "commander";
 
 import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
+import {
+  initializeSpecRegistry,
+  SPEC_REGISTRY_RELATIVE_PATH,
+} from "../spec/index.js";
 import { resolveAgentAdapter } from "./agent.js";
 import type { AgentId } from "./agent.js";
 import {
@@ -80,6 +84,8 @@ export function register(program: Command): void {
         const directory = join(process.cwd(), TASKCRAFT_DIRECTORY_NAME);
         const databaseFile = join(directory, TASKCRAFT_DATABASE_FILE);
         const alreadyInitialized = existsSync(databaseFile);
+        const registryCreated = initializeSpecRegistry(process.cwd());
+        const registryFile = join(process.cwd(), SPEC_REGISTRY_RELATIVE_PATH);
         const database = openTaskcraftDatabase(false);
         database.close();
 
@@ -87,6 +93,8 @@ export function register(program: Command): void {
           directory,
           databaseFile,
           alreadyInitialized,
+          registryFile,
+          registryCreated,
         };
         const installed =
           options.agent === undefined
@@ -115,6 +123,12 @@ export function register(program: Command): void {
         );
         console.log(`Directory: ${directory}`);
         console.log(`Database: ${databaseFile}`);
+        console.log(`Spec Registry: ${registryFile}`);
+        console.log(
+          registryCreated
+            ? "Created empty Spec Registry"
+            : "Preserved existing Spec Registry",
+        );
 
         if (installed !== null) {
           console.log(`Installed hooks for agent: ${installed.agent}`);

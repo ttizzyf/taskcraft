@@ -12,6 +12,11 @@ SQLite 是 Taskcraft 唯一可写的 Task Store，Command service 是唯一写�
 
 `tc watch`、`tc task show`、CLI JSON、Markdown export 和 breadcrumb 都是只读投影。删除这些投影后，Command service 可以从 SQLite 重建相同结果。
 
+项目工程与领域规范是另一类 Git-owned 输入，不是 Task Store 事实。固定入口
+`.taskcraft/spec/index.json` 只登记稳定 id、分类、正文路径、摘要、适用路径、状态和
+可选 authority；正文仍是仓库内的 Markdown。Registry service 是发现这类输入的
+唯一文件系统边界，SQLite 不保存或修改 Registry 与正文。
+
 ## 2. 逻辑架构
 
 本节是用户沟通入口、Agent 编排职责、Taskcraft 工具边界与 Adapter 职责的唯一规则源。
@@ -38,6 +43,8 @@ flowchart TB
     X[Codex / Claude Entry adapters] --> A
     X --> O[Runtime observations]
     O --> S
+    G[Git-owned Spec Registry + Markdown] --> V[Spec Registry service]
+    V --> A
 ```
 
 Codex 与 Claude Code 是首版用户沟通和任务执行主体，负责使用自身工具完成工作，
@@ -77,6 +84,21 @@ nodes、下一步和用户视图；Adapter 负责 Entry Hook 安装、节点执�
 ### 3.3 Observations
 
 `agent_runs.observation_status` 的枚举为 `pending`、`running`、`stale`、`finished`、`failed`、`unsupported`。`tc run attach` 是 `agent_runs` 的唯一生产写路径，并通过 `runAttach` reducer、CAS、事务和审计事件提交；Adapter 的 `observe` 仅把已存储行映射为宿主观察视图。Projector 将 observation 用于诊断；需要改变任务事实时，Agent 或控制面提交显式 reducer command。
+
+### 3.4 Git-owned Spec 输入
+
+`.taskcraft/spec/index.json` 使用 `tc-spec-registry/v1` 合同。`src/spec/` 接收显式
+project directory，以项目 realpath 为边界校验 Registry 和每个正文：绝对路径、
+`..`、realpath/symlink 越界、目录、缺失或不可读文件均显式失败。通过校验的正文
+通过单一文件描述符读取，打开后复核 realpath/inode，并按原始 bytes 计算 SHA-256；
+读取前后可观察到的文件替换或内容变化会显式失败。Node 不提供 `openat(2)` 级目录
+句柄 API，也不能阻止本机进程原地修改已打开 inode 后伪造回元数据，因此这是一条
+可信工作区文件边界，不是对抗同机恶意进程的 sandbox。Registry DTO、
+`tc spec list|check|resolve` 和后续命令服务消费者必须复用这一个解析结果，不得各自
+读取或解释 Registry。
+
+`appliesTo` glob 只发现 active 候选，不形成 Task binding，也不写
+`taskcraft.db`。domain Spec 必须提供明确 authority；代码观察不能自行制造业务真相。
 
 ## 4. 数据模型
 

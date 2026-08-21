@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -17,6 +17,12 @@ describe("tc init", () => {
 
       const databaseFile = join(cwd, ".taskcraft", "taskcraft.db");
       expect(existsSync(databaseFile)).toBe(true);
+      const registryFile = join(cwd, ".taskcraft", "spec", "index.json");
+      expect(JSON.parse(readFileSync(registryFile, "utf8"))).toEqual({
+        schemaVersion: "tc-spec-registry/v1",
+        specs: [],
+      });
+      expect(runCli(["spec", "check"], cwd).status).toBe(0);
 
       const database = openDatabase(databaseFile);
       const ledger = database
@@ -38,6 +44,9 @@ describe("tc init", () => {
       database.prepare("INSERT INTO probe (id) VALUES (?)").run(1);
       database.close();
       writeFileSync(join(cwd, ".taskcraft", "user-file.txt"), "keep me");
+      const registryFile = join(cwd, ".taskcraft", "spec", "index.json");
+      const registryContent = "user-owned Registry bytes stay untouched\n";
+      writeFileSync(registryFile, registryContent, "utf8");
 
       const again = runCli(["init"], cwd);
       expect(again.status).toBe(0);
@@ -47,11 +56,28 @@ describe("tc init", () => {
       expect(
         readFileSync(join(cwd, ".taskcraft", "user-file.txt"), "utf8"),
       ).toBe("keep me");
+      expect(readFileSync(registryFile, "utf8")).toBe(registryContent);
 
       const reopened = openDatabase(databaseFile);
       const row = reopened.prepare("SELECT id FROM probe").get();
       expect(row).toEqual({ id: 1 });
       reopened.close();
+    });
+  });
+
+  it("rejects an escaping .taskcraft symlink before writing the Store or Registry", () => {
+    withTemporaryDirectory((cwd) => {
+      withTemporaryDirectory((outside) => {
+        symlinkSync(outside, join(cwd, ".taskcraft"), "dir");
+
+        const result = runCli(["init"], cwd);
+
+        expect(result.status).toBe(1);
+        expect(result.stdout).toBe("");
+        expect(result.stderr).toContain("TC_SPEC_PATH_INVALID");
+        expect(existsSync(join(outside, "taskcraft.db"))).toBe(false);
+        expect(existsSync(join(outside, "spec"))).toBe(false);
+      });
     });
   });
 

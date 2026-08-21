@@ -18,6 +18,7 @@
 tc init
 tc enable <off|ask|always>
 tc status
+tc spec [...]
 tc task [...]
 tc run [...]
 tc review [...]
@@ -60,6 +61,25 @@ Entry Hook，返回测试时间和失败原因，并把结果写入 `config.entr
 `hooks.SessionStart = [{ command = ... }]`。若该文件已存在，命令不得覆盖用户内容，
 而应明确失败并要求人工合并。首次安装或 Hook 定义变化后，用户还需在 Codex
 `/hooks` 中审核该 Hook；`tc agent test-entry-hook --agent codex` 不绕过这道信任门。
+
+`tc init` 还会 write-if-absent 创建 Schema 合法的空
+`.taskcraft/spec/index.json`。已有 Registry 不解析、不覆盖；后续显式使用
+`tc spec check` 报告其中的问题。
+
+### 3.1 Spec Registry
+
+```bash
+tc spec list [--json]
+tc spec check [--json]
+tc spec resolve --path src/payment/card.ts [--path README.md] [--json]
+```
+
+三个命令读取同一个 `src/spec/` DTO，均不打开或修改 Task Store。`list` 显示全部
+active/deprecated 条目和当前正文 SHA-256；`check` 完整验证 Registry Schema、唯一
+id/path、domain authority、正文存在性、可读性和 project realpath containment；
+`resolve` 只按调用方给出的 canonical repo-relative path 返回 active 候选，匹配
+不会自动选择或绑定 Spec。Registry 或正文失败使用稳定的
+`TC_SPEC_REGISTRY_INVALID|TC_SPEC_NOT_FOUND|TC_SPEC_PATH_INVALID`，不回退为空列表。
 
 ## 4. Task
 
@@ -273,6 +293,7 @@ Node Brief 告诉 Agent 应提交的 JSON 结构和登记命令。Taskcraft 在�
 | `TC_ADAPTER_*` | host capability、Hook、run |
 | `TC_STORE_*` | SQLite、迁移、事务、完整性 |
 | `TC_POLICY_*` | 项目策略拒绝 |
+| `TC_SPEC_*` | Git-owned Spec Registry、正文路径和后续绑定/影响合同 |
 
 错误 remediation 只引用 CLI、adapter 或用户输入动作；Task Store、Board、breadcrumb 和 Watch 由同一 command service 产生。
 

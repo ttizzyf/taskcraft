@@ -21,7 +21,7 @@
 | 分类 | 内容 |
 | --- | --- |
 | [`specs/`](specs/) | [产品](specs/product.md)、[生命周期](specs/lifecycle.md)、[架构](specs/architecture.md)、[CLI](specs/cli.md) |
-| [`contracts/`](contracts/) | [SQLite 合同](contracts/storage.sql)、[Lifecycle Schema](contracts/lifecycle.schema.json)、[Breadcrumb Schema](contracts/breadcrumb.schema.json)、[fixtures](contracts/fixtures/) |
+| [`contracts/`](contracts/) | [SQLite 合同](contracts/storage.sql)、[Lifecycle Schema](contracts/lifecycle.schema.json)、[Breadcrumb Schema](contracts/breadcrumb.schema.json)、[Spec Registry Schema](contracts/spec-registry.schema.json)、[fixtures](contracts/fixtures/) |
 | [`decisions/`](decisions/) | [Task 00 架构决策索引](decisions/README.md) |
 | [`plans/`](plans/) | [路线图](plans/roadmap.md)与 Task 00–07；当前复核与返工入口为 [Task 07](plans/task-07-mvp-readiness-remediation.md) |
 | [`runbooks/`](runbooks/) | [Trellis 开发手册](runbooks/trellis.md)与 [Trellis → Taskcraft 迁移手册](runbooks/trellis-to-taskcraft.md) |

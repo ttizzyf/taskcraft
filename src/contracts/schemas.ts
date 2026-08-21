@@ -20,9 +20,21 @@ export const contractPaths = Object.freeze({
       import.meta.url,
     ),
   ),
+  specRegistrySchema: fileURLToPath(
+    new URL(
+      "../../development/contracts/spec-registry.schema.json",
+      import.meta.url,
+    ),
+  ),
   l2TaskFixture: fileURLToPath(
     new URL(
       "../../development/contracts/fixtures/l2-task.fixture.json",
+      import.meta.url,
+    ),
+  ),
+  specRegistryFixture: fileURLToPath(
+    new URL(
+      "../../development/contracts/fixtures/spec-registry.fixture.json",
       import.meta.url,
     ),
   ),
@@ -31,6 +43,7 @@ export const contractPaths = Object.freeze({
 export interface ContractValidators {
   lifecycle: ValidateFunction;
   breadcrumb: ValidateFunction;
+  specRegistry: ValidateFunction;
 }
 
 export function loadJsonFile(filename: string): unknown {
@@ -43,6 +56,7 @@ export function createContractValidators(): ContractValidators {
   return {
     lifecycle: ajv.compile(loadSchema(contractPaths.lifecycleSchema)),
     breadcrumb: ajv.compile(loadSchema(contractPaths.breadcrumbSchema)),
+    specRegistry: ajv.compile(loadSchema(contractPaths.specRegistrySchema)),
   };
 }
 
@@ -52,4 +66,8 @@ function loadSchema(filename: string): AnySchema {
 
 export function loadL2TaskFixture(): unknown {
   return loadJsonFile(contractPaths.l2TaskFixture);
+}
+
+export function loadSpecRegistryFixture(): unknown {
+  return loadJsonFile(contractPaths.specRegistryFixture);
 }
