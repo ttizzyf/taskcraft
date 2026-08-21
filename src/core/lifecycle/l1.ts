@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 
 import type { EvidenceRow } from "../../store/query.js";
 
-export const L1_COMPILER_VERSION = "tc-l1/1";
+export const L1_COMPILER_VERSION = "tc-l1/2";
 export const L1_REASON_CODE = "initial";
 export const L1_REASON = "initial L1 lifecycle";
 export const L1_DEFAULT_ACTOR = "cli";

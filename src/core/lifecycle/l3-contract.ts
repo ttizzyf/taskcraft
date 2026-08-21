@@ -1,3 +1,5 @@
+import type { SpecSelection } from "../../spec/bindings.js";
+
 // Typed accepted-plan contract and semantic validation. JSON Schema owns the
 // payload shape; this module owns relationships that JSON Schema cannot prove.
 
@@ -20,6 +22,7 @@ export interface L3ModuleProposal {
   nonGoals: string[];
   covers: string[];
   reviewFocus: string[];
+  specBindings: SpecSelection[];
 }
 
 export interface L3PlanResult {
@@ -43,6 +46,7 @@ export interface L3PlanResult {
     owner: string;
   }>;
   integrationPath: string;
+  executionSpecs: SpecSelection[];
 }
 
 export interface L3ContractValidation {
@@ -67,12 +71,38 @@ export function validateL3PlanContract(
   );
 
   validateMode(plan, problems);
+  validateSpecSelections(plan, problems);
   validateReuse(plan, problems);
   validateCoverage(frame, plan, anchorIds, moduleKeys, problems);
   validateDependencies(plan, moduleKeys, problems);
   validateValidations(plan, moduleKeys, problems);
 
   return { valid: problems.length === 0, problems };
+}
+
+function validateSpecSelections(plan: L3PlanResult, problems: string[]): void {
+  validateUniqueSpecSet(plan.executionSpecs, "parent execution", problems);
+  for (const module of plan.modules) {
+    validateUniqueSpecSet(
+      module.specBindings,
+      `module ${module.key}`,
+      problems,
+    );
+  }
+}
+
+function validateUniqueSpecSet(
+  selections: SpecSelection[],
+  label: string,
+  problems: string[],
+): void {
+  const seen = new Set<string>();
+  for (const selection of selections) {
+    if (seen.has(selection.id)) {
+      problems.push(`${label} Spec ${selection.id} is duplicated`);
+    }
+    seen.add(selection.id);
+  }
 }
 
 function validateReuse(plan: L3PlanResult, problems: string[]): void {

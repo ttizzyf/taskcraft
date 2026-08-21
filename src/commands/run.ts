@@ -21,6 +21,7 @@ import { registerRunComplete } from "./run-complete.js";
 import { register as registerRunFail } from "./run-fail.js";
 import { register as registerRunRetry } from "./run-retry.js";
 import { register as registerRunStatus } from "./run-status.js";
+import { assertRunAttemptSpecBindings } from "./spec-bindings.js";
 
 export function register(program: Command): void {
   const runCommand = program
@@ -37,16 +38,23 @@ export function register(program: Command): void {
         const database = openTaskcraftDatabase(true);
 
         try {
+          const nodeId = options.node ?? "execute-1";
+          const expectedRevision = parseExpectedRevision(
+            options.expectedRevision,
+          );
+          const bindingCheck = assertRunAttemptSpecBindings(
+            database,
+            taskId,
+            nodeId,
+            expectedRevision,
+          );
           const input: RunInput = {
             nodeId: options.node,
             host: options.host,
           };
-          const expectedRevision = parseExpectedRevision(
-            options.expectedRevision,
-          );
-
-          if (expectedRevision !== undefined) {
-            input.expectedRevision = expectedRevision;
+          const checkedRevision = expectedRevision ?? bindingCheck.taskRevision;
+          if (checkedRevision !== undefined) {
+            input.expectedRevision = checkedRevision;
           }
 
           const data = run(database, taskId, input);

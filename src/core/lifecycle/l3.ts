@@ -23,8 +23,17 @@ export {
   L3_PLAN_RESULT_SCHEMA,
 } from "./l3-schemas.js";
 
-export const L3_COMPILER_VERSION = "tc-l3/2";
-export const L3_CHILD_COMPILER_VERSION = "tc-l3-child/1";
+export const L3_COMPILER_VERSION = "tc-l3/3";
+export const L3_CHILD_COMPILER_VERSION = "tc-l3-child/2";
+export const L3_LEGACY_MODULAR_COMPILER_VERSION = "tc-l3/2";
+export const L3_LEGACY_CHILD_COMPILER_VERSION = "tc-l3-child/1";
+
+export function isModularL3CompilerVersion(version: string): boolean {
+  return (
+    version === L3_COMPILER_VERSION ||
+    version === L3_LEGACY_MODULAR_COMPILER_VERSION
+  );
+}
 export const L3_FACTS_DIGEST = L1_FACTS_DIGEST;
 export const L3_POLICY_DIGEST = L1_POLICY_DIGEST;
 

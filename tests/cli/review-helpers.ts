@@ -10,6 +10,7 @@ export const FRAME_RESULT = JSON.stringify({
   objective: "Frame the retry policy",
   scope: { modules: ["core"] },
   acceptance: ["Retry policy is configurable per adapter"],
+  specBindings: [],
 });
 
 export const EXECUTE_RESULT = JSON.stringify({

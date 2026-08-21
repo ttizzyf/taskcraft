@@ -9,6 +9,11 @@ import type { Command } from "commander";
 import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
 import { taskNew } from "../core/reducer.js";
 import {
+  loadSpecRegistry,
+  parseSpecSelections,
+  resolveSpecSelections,
+} from "../spec/index.js";
+import {
   execute,
   isJsonMode,
   openTaskcraftDatabase,
@@ -25,6 +30,10 @@ export function register(task: Command): void {
     .requiredOption("--level <level>", "task level (1, 2 or 3)")
     .requiredOption("--reason <reason>", "creation judgment")
     .option("--facts <facts>", "classification facts: JSON, @path or @-")
+    .option(
+      "--specs <specs>",
+      "confirmed Spec bindings: [{id,duty}], @path or @-",
+    )
     .action(async (options, command) => {
       const json = isJsonMode(command);
 
@@ -38,6 +47,24 @@ export function register(task: Command): void {
                 ERROR_CODES.TC_TASK_INPUT_INVALID,
                 "Facts",
               );
+        const specSelections =
+          options.specs === undefined
+            ? []
+            : parseSpecSelections(
+                parseJsonInput(
+                  options.specs,
+                  ERROR_CODES.TC_SPEC_BINDING_INVALID,
+                  "Specs",
+                ),
+                "Specs",
+              );
+        const initialSpecBindings =
+          specSelections.length === 0
+            ? []
+            : resolveSpecSelections(
+                loadSpecRegistry(process.cwd()),
+                specSelections,
+              );
         const database = openTaskcraftDatabase(true);
 
         try {
@@ -46,6 +73,7 @@ export function register(task: Command): void {
             level,
             reason: options.reason,
             classificationFacts,
+            initialSpecBindings,
           });
 
           if (json) {

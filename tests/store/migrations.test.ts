@@ -12,6 +12,7 @@ import {
   createTemporaryDirectory,
   type TemporaryDirectory,
 } from "../helpers/temp-directory.js";
+import { insertNode, insertTask } from "./helpers.js";
 
 interface SchemaRow {
   type: string;
@@ -36,7 +37,7 @@ describe("applyMigrations", () => {
     applyMigrations(database, migrationDirectory);
     applyMigrations(database, migrationDirectory);
 
-    expect(readLedgerCount(database)).toBe(2);
+    expect(readLedgerCount(database)).toBe(3);
     expect(database.pragma("foreign_key_check")).toEqual([]);
 
     for (const table of [
@@ -47,6 +48,8 @@ describe("applyMigrations", () => {
       "lifecycle_task_dependencies",
       "lifecycle_validation_assignments",
       "lifecycle_inherited_planning",
+      "lifecycle_spec_bindings",
+      "spec_impact_results",
     ]) {
       expect(hasTable(database, table)).toBe(true);
     }
@@ -61,6 +64,43 @@ describe("applyMigrations", () => {
     } finally {
       contractDatabase.close();
     }
+  });
+
+  it("upgrades 0001 -> 0002 -> 0003 without backfilling historical tasks", () => {
+    temporaryDirectory = createTemporaryDirectory();
+    database = openDatabase(":memory:");
+    for (const filename of ["0001_initial.sql", "0002_l3_modular_tasks.sql"]) {
+      writeMigration(
+        filename,
+        readFileSync(join("migrations", filename), "utf8"),
+      );
+    }
+    applyMigrations(database, temporaryDirectory.path);
+    insertTask(database, { id: "legacy-task", level: 1 });
+    insertNode(database, "legacy-task", "execute-1", "execute");
+
+    writeMigration(
+      "0003_spec_system.sql",
+      readFileSync("migrations/0003_spec_system.sql", "utf8"),
+    );
+    applyMigrations(database, temporaryDirectory.path);
+
+    expect(readLedgerCount(database)).toBe(3);
+    expect(
+      database
+        .prepare(
+          "SELECT COUNT(*) AS count FROM lifecycle_spec_bindings WHERE task_id = 'legacy-task'",
+        )
+        .get(),
+    ).toEqual({ count: 0 });
+    expect(
+      database
+        .prepare(
+          "SELECT COUNT(*) AS count FROM spec_impact_results WHERE task_id = 'legacy-task'",
+        )
+        .get(),
+    ).toEqual({ count: 0 });
+    expect(database.pragma("foreign_key_check")).toEqual([]);
   });
 
   it("rejects an invalid migration filename before changing the database", () => {

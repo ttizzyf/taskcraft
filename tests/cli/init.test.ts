@@ -28,7 +28,7 @@ describe("tc init", () => {
       const ledger = database
         .prepare("SELECT COUNT(*) AS count FROM schema_migrations")
         .get() as { count: number };
-      expect(ledger.count).toBe(2);
+      expect(ledger.count).toBe(3);
       database.close();
     });
   });

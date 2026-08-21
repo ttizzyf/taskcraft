@@ -12,11 +12,14 @@ import {
   validateL3PlanContract,
 } from "../lifecycle/l3-contract.js";
 import {
-  L3_COMPILER_VERSION,
   L3_FACTS_DIGEST,
   L3_FRAME_NODE_ID,
+  L3_LEGACY_CHILD_COMPILER_VERSION,
+  L3_LEGACY_MODULAR_COMPILER_VERSION,
   L3_POLICY_DIGEST,
 } from "../lifecycle/l3.js";
+import type { ResolvedSpecBinding } from "../../spec/bindings.js";
+import { insertLifecycleSpecBindings } from "../../store/spec-facts.js";
 import { materializeInheritedChildLifecycle } from "./l3-child-materialize.js";
 import {
   insertAcceptedRelations,
@@ -28,6 +31,11 @@ import {
 import { materializeL3Graph } from "./l3-materialize.js";
 import { insertEvent } from "./shared.js";
 import { allocateTaskId, insertTaskRow } from "./task-row.js";
+import {
+  insertAcceptedPlanSpecBindings,
+  normalizePlanSpecSelections,
+  validateAcceptedSpecBindings,
+} from "./l3-spec-bindings.js";
 
 export interface AcceptedL3Plan {
   newRevision: number;
@@ -42,6 +50,13 @@ export function acceptL3Plan(
   planAttemptId: string,
   actor: string,
   now: string,
+  acceptedSpecBindings:
+    | {
+        execution: ResolvedSpecBinding[];
+        modules: Record<string, ResolvedSpecBinding[]>;
+      }
+    | undefined,
+  planningCompilerVersion: string,
 ): AcceptedL3Plan {
   if (snapshot.level !== 3) {
     throw invalidL3Plan(snapshot.id, [
@@ -75,16 +90,27 @@ export function acceptL3Plan(
   }
 
   const frame = JSON.parse(frameAttempt.resultJson) as L3FrameResult;
-  const plan = JSON.parse(planAttempt.resultJson) as L3PlanResult;
+  const plan = normalizePlanSpecSelections(
+    JSON.parse(planAttempt.resultJson) as L3PlanResult,
+    planningCompilerVersion,
+  );
   const validation = validateL3PlanContract(frame, plan);
   if (!validation.valid) {
     throw invalidL3Plan(snapshot.id, validation.problems);
   }
 
+  const resolvedSpecBindings = validateAcceptedSpecBindings(
+    snapshot.id,
+    plan,
+    acceptedSpecBindings,
+    planningCompilerVersion,
+  );
+
   const reusableChildren = resolveReusableChildren(
     database,
     snapshot,
     plan.modules,
+    resolvedSpecBindings.modules,
   );
 
   const newRevision = snapshot.currentLifecycleRevision + 1;
@@ -93,7 +119,7 @@ export function acceptL3Plan(
     revision: newRevision,
     reasonCode: "contract_changed",
     reason: `accepted L3 ${plan.decomposition.mode} plan`,
-    compilerVersion: L3_COMPILER_VERSION,
+    compilerVersion: planningCompilerVersion,
     factsDigest: L3_FACTS_DIGEST,
     policyDigest: L3_POLICY_DIGEST,
     changeSummary: {
@@ -125,6 +151,16 @@ export function acceptL3Plan(
       reviewAttempt.id,
     );
 
+  insertAcceptedPlanSpecBindings(database, {
+    taskId: snapshot.id,
+    lifecycleRevision: newRevision,
+    mode: plan.decomposition.mode,
+    planAttemptId: planAttempt.id,
+    bindings: resolvedSpecBindings.execution,
+    actor,
+    now,
+  });
+
   insertAnchors(database, snapshot.id, newRevision, frame, plan);
   const children =
     plan.decomposition.mode === "modules"
@@ -135,8 +171,10 @@ export function acceptL3Plan(
           planAttempt.id,
           plan.modules,
           reusableChildren,
+          resolvedSpecBindings.modules,
           actor,
           now,
+          planningCompilerVersion,
         )
       : [];
 
@@ -224,8 +262,10 @@ function materializeChildren(
   planAttemptId: string,
   modules: L3ModuleProposal[],
   reusableChildren: Map<string, TaskSnapshot>,
+  moduleSpecBindings: Record<string, ResolvedSpecBinding[]>,
   actor: string,
   now: string,
+  planningCompilerVersion: string,
 ): AcceptedL3Plan["materializedChildren"] {
   const children: AcceptedL3Plan["materializedChildren"] = [];
 
@@ -306,6 +346,9 @@ function materializeChildren(
       policyDigest: L3_POLICY_DIGEST,
       actor,
       now,
+      ...(planningCompilerVersion === L3_LEGACY_MODULAR_COMPILER_VERSION
+        ? { compilerVersion: L3_LEGACY_CHILD_COMPILER_VERSION }
+        : {}),
     });
     database
       .prepare(
@@ -331,6 +374,22 @@ function materializeChildren(
          ) VALUES (?, 1, ?, ?, ?, ?)`,
       )
       .run(taskId, parent.id, parentRevision, module.key, planAttemptId);
+    insertLifecycleSpecBindings(database, {
+      taskId,
+      lifecycleRevision: 1,
+      nodeIds:
+        module.level === 1
+          ? ["execute-1", "record-1"]
+          : ["execute-1", "review-1", "record-1"],
+      bindings: moduleSpecBindings[module.key] ?? [],
+      source: {
+        kind: "inherited_plan",
+        taskId: parent.id,
+        attemptId: planAttemptId,
+      },
+      actor,
+      now,
+    });
     insertEvent(database, {
       taskId,
       lifecycleRevision: 1,

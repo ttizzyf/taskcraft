@@ -18,6 +18,13 @@ import {
 } from "./helpers.js";
 import type { ReviewRenderData } from "./render.js";
 import { renderReviewData } from "./render.js";
+import { getAttempts } from "../store/query.js";
+import {
+  loadSpecRegistry,
+  parseSpecSelections,
+  resolveSpecSelections,
+  type ResolvedSpecBinding,
+} from "../spec/index.js";
 
 const EVIDENCE_TYPES = ["validation", "test", "artifact", "note"] as const;
 
@@ -62,6 +69,14 @@ export function register(review: Command): void {
         const database = openTaskcraftDatabase(true);
 
         try {
+          const acceptedPlanSpecBindings = resolveAcceptedPlanSpecBindings(
+            database,
+            taskId,
+            options.reviewedAttempt,
+          );
+          if (acceptedPlanSpecBindings !== undefined) {
+            input.acceptedPlanSpecBindings = acceptedPlanSpecBindings;
+          }
           const result = reviewPass(database, taskId, input);
           const data: ReviewRenderData = {
             ...result,
@@ -81,6 +96,84 @@ export function register(review: Command): void {
         }
       }, json);
     });
+}
+
+function resolveAcceptedPlanSpecBindings(
+  database: Parameters<typeof getAttempts>[0],
+  taskId: string,
+  reviewedAttemptId: string,
+): ReviewPassInput["acceptedPlanSpecBindings"] | undefined {
+  const attempt = getAttempts(database, taskId).find(
+    (candidate) => candidate.id === reviewedAttemptId,
+  );
+  if (attempt?.nodeId !== "plan-1" || attempt.resultJson === null) {
+    return undefined;
+  }
+  const plan = JSON.parse(attempt.resultJson) as Record<string, unknown>;
+  if (!("executionSpecs" in plan)) return undefined;
+  const executionSelections = parseSpecSelections(
+    plan.executionSpecs,
+    "L3 executionSpecs",
+  );
+  if (!Array.isArray(plan.modules)) {
+    throw new TaskcraftError(ERROR_CODES.TC_SPEC_BINDING_INVALID, {
+      problem: "L3 Plan modules are unavailable for Spec resolution",
+      impact: "No review or accepted Plan facts were written",
+      remediation: "Resubmit the Plan result before passing Feasibility Review",
+      context: { taskId },
+    });
+  }
+  const moduleSelections = plan.modules.map((module, index) => {
+    if (
+      typeof module !== "object" ||
+      module === null ||
+      Array.isArray(module)
+    ) {
+      throw planBindingShapeError(taskId, index, "is not a Plan module object");
+    }
+    const key = (module as { key?: unknown }).key;
+    if (typeof key !== "string" || key.trim() === "") {
+      throw planBindingShapeError(taskId, index, "has no module key");
+    }
+    return {
+      key,
+      selections: parseSpecSelections(
+        (module as { specBindings?: unknown }).specBindings,
+        `L3 module ${key} specBindings`,
+      ),
+    };
+  });
+  const needsRegistry =
+    executionSelections.length > 0 ||
+    moduleSelections.some((module) => module.selections.length > 0);
+  const registry = needsRegistry ? loadSpecRegistry(process.cwd()) : null;
+  const resolve = (
+    selections: ReturnType<typeof parseSpecSelections>,
+  ): ResolvedSpecBinding[] =>
+    registry === null ? [] : resolveSpecSelections(registry, selections);
+  return {
+    execution: resolve(executionSelections),
+    modules: Object.fromEntries(
+      moduleSelections.map((module) => [
+        module.key,
+        resolve(module.selections),
+      ]),
+    ),
+  };
+}
+
+function planBindingShapeError(
+  taskId: string,
+  index: number,
+  detail: string,
+): TaskcraftError {
+  return new TaskcraftError(ERROR_CODES.TC_SPEC_BINDING_INVALID, {
+    problem: `L3 Plan module ${index + 1} ${detail}`,
+    impact: "No review or accepted Plan facts were written",
+    remediation:
+      "Resubmit a schema-valid Plan before passing Feasibility Review",
+    context: { taskId },
+  });
 }
 
 /** Normalizes the evidence input (single object or array) into the reducer's

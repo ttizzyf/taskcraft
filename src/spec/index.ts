@@ -18,3 +18,19 @@ export type {
   SpecResolutionResult,
   SpecStatus,
 } from "./types.js";
+export {
+  assertResolvedBindings,
+  assertResolvedSpecSelections,
+  evaluateSpecBindingDrift,
+  parseSpecSelections,
+  resolveSpecSelections,
+  selectionsFromBindingRows,
+  staleRequiredBindingsError,
+} from "./bindings.js";
+export type {
+  ResolvedSpecBinding,
+  SpecBindingDrift,
+  SpecBindingDriftReason,
+  SpecDuty,
+  SpecSelection,
+} from "./bindings.js";

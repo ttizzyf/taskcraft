@@ -9,6 +9,12 @@ import type { Command } from "commander";
 import { ERROR_CODES } from "../core/errors.js";
 import { runComplete } from "../core/reducer.js";
 import type { RunCompleteInput } from "../core/reducer.js";
+import { getTask } from "../store/query.js";
+import {
+  loadSpecRegistry,
+  parseSpecSelections,
+  resolveSpecSelections,
+} from "../spec/index.js";
 import {
   execute,
   isJsonMode,
@@ -45,6 +51,26 @@ export function registerRunComplete(run: Command): void {
             result,
             nodeId: command.optsWithGlobals().node,
           };
+          const snapshot = getTask(database, taskId);
+          if (
+            input.nodeId === "frame-1" &&
+            snapshot?.level === 2 &&
+            typeof result === "object" &&
+            result !== null &&
+            "specBindings" in result
+          ) {
+            const selections = parseSpecSelections(
+              (result as { specBindings: unknown }).specBindings,
+              "Frame specBindings",
+            );
+            input.resolvedSpecBindings =
+              selections.length === 0
+                ? []
+                : resolveSpecSelections(
+                    loadSpecRegistry(process.cwd()),
+                    selections,
+                  );
+          }
           // --expected-revision is declared on the parent `run` command
           // (Commander resolves same-named options to the parent); read it
           // through the merged globals here.

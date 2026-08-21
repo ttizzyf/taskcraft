@@ -3,6 +3,10 @@
 // 400 effective-line limit; this barrel keeps the consumer interface stable.
 
 export { taskNew } from "./reducer/task-new.js";
+export {
+  getTaskSpecRefreshSelections,
+  taskSpecRefresh,
+} from "./reducer/task-spec-refresh.js";
 export { taskFactAdd, TASK_FACT_CATEGORIES } from "./reducer/task-fact-add.js";
 export type {
   TaskFactAddInput,
@@ -35,6 +39,8 @@ export type {
   RunInput,
   RunRetryInput,
   TaskNewInput,
+  TaskSpecRefreshData,
+  TaskSpecRefreshInput,
   TaskResumeInput,
   TaskWaitInput,
   WaitingReasonCode,

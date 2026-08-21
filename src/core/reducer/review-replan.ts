@@ -11,16 +11,6 @@ import type { TaskSnapshot } from "../../store/revision-guard.js";
 import { withTransaction } from "../../store/transaction.js";
 import { ERROR_CODES, TaskcraftError } from "../errors.js";
 import { L1_DEFAULT_ACTOR } from "../lifecycle/l1.js";
-import {
-  L2_COMPILER_VERSION,
-  L2_FACTS_DIGEST,
-  L2_POLICY_DIGEST,
-} from "../lifecycle/l2.js";
-import {
-  L3_COMPILER_VERSION,
-  L3_FACTS_DIGEST,
-  L3_POLICY_DIGEST,
-} from "../lifecycle/l3.js";
 import type { ReviewReplanInput, ReviewResultData } from "./context.js";
 import {
   assertNotCancelled,
@@ -28,8 +18,8 @@ import {
   resolveSnapshot,
   snapshotOf,
 } from "./context.js";
-import { materializeL2Graph } from "./l2-materialize.js";
-import { materializeL3Graph } from "./l3-materialize.js";
+import { materializePlanningRevision } from "./revision-materialize.js";
+import { recordReplacedChildren } from "./l3-replan.js";
 import { bumpRevision, insertEvent, nowIso } from "./shared.js";
 import {
   insertFinding,
@@ -114,9 +104,9 @@ export function reviewReplan(
     // A replan rebuilds the graph of the task's own level: an L3 replan
     // re-compiles the L3 graph, so the new Plan goes through the Feasibility
     // Review again (lifecycle spec 9.1/9.2).
-    const graphInput = {
-      taskId,
-      revision: newRevision,
+    materializePlanningRevision(database, {
+      snapshot,
+      newRevision,
       reasonCode: input.reasonCode,
       reason: input.finding,
       changeSummary: {
@@ -125,19 +115,11 @@ export function reviewReplan(
         reasonCode: input.reasonCode,
         reviewedAttemptId: link.reviewedAttemptId,
       },
-      objective: snapshot.objectiveMd,
       actor,
       now,
-    };
-
+    });
     if (snapshot.level === 3) {
-      materializeL3Graph(database, {
-        ...graphInput,
-        compilerVersion: L3_COMPILER_VERSION,
-        factsDigest: L3_FACTS_DIGEST,
-        policyDigest: L3_POLICY_DIGEST,
-      });
-      recordSupersededChildren(
+      recordReplacedChildren(
         database,
         taskId,
         oldRevision,
@@ -146,13 +128,6 @@ export function reviewReplan(
         actor,
         now,
       );
-    } else {
-      materializeL2Graph(database, {
-        ...graphInput,
-        compilerVersion: L2_COMPILER_VERSION,
-        factsDigest: L2_FACTS_DIGEST,
-        policyDigest: L2_POLICY_DIGEST,
-      });
     }
 
     database
@@ -242,14 +217,11 @@ function replanParentFromChildReview(
   }
 
   const newRevision = oldRevision + 1;
-  materializeL3Graph(database, {
-    taskId: parent.id,
-    revision: newRevision,
+  materializePlanningRevision(database, {
+    snapshot: parent,
+    newRevision,
     reasonCode: context.reasonCode,
     reason: context.finding,
-    compilerVersion: L3_COMPILER_VERSION,
-    factsDigest: L3_FACTS_DIGEST,
-    policyDigest: L3_POLICY_DIGEST,
     changeSummary: {
       oldRevision,
       newRevision,
@@ -257,11 +229,10 @@ function replanParentFromChildReview(
       sourceChildTaskId: context.child.id,
       reviewedAttemptId: context.reviewedAttemptId,
     },
-    objective: parent.objectiveMd,
     actor: context.actor,
     now: context.now,
   });
-  recordSupersededChildren(
+  recordReplacedChildren(
     database,
     parent.id,
     oldRevision,
@@ -332,55 +303,4 @@ function replanParentFromChildReview(
     findingId: context.findingId,
     newRevision,
   };
-}
-
-function recordSupersededChildren(
-  database: TaskcraftDatabase,
-  taskId: string,
-  oldRevision: number,
-  newRevision: number,
-  postTaskRevision: number,
-  actor: string,
-  now: string,
-): void {
-  const previous = getTaskRelations(
-    database,
-    taskId,
-    oldRevision,
-  ).children.filter((child) => child.requirementStatus === "required");
-  const insert = database.prepare(
-    `INSERT INTO lifecycle_child_requirements (
-       parent_task_id, parent_lifecycle_revision, module_key, child_task_id,
-       requirement_status, order_index, source_plan_attempt_id
-     ) VALUES (?, ?, ?, ?, 'not_required', ?, ?)`,
-  );
-
-  for (const child of previous) {
-    insert.run(
-      taskId,
-      newRevision,
-      child.moduleKey,
-      child.childTaskId,
-      child.orderIndex,
-      child.sourcePlanAttemptId,
-    );
-    insertEvent(database, {
-      taskId,
-      lifecycleRevision: newRevision,
-      nodeId: null,
-      attemptId: null,
-      eventType: "l3.child_requirement_replaced",
-      payload: {
-        childTaskId: child.childTaskId,
-        moduleKey: child.moduleKey,
-        oldRevision,
-        newRevision,
-        requirementStatus: "not_required",
-      },
-      postTaskRevision,
-      actorInstanceId: actor,
-      host: null,
-      occurredAt: now,
-    });
-  }
 }

@@ -18,6 +18,7 @@ import {
 } from "./helpers.js";
 import type { ReviewRenderData } from "./render.js";
 import { renderReviewData } from "./render.js";
+import { assertReviewAttemptSpecBindings } from "./spec-bindings.js";
 
 const PURPOSES = ["feasibility", "delivery", "integration"] as const;
 const CAPABILITIES = [
@@ -102,6 +103,18 @@ export function register(review: Command): void {
         const database = openTaskcraftDatabase(true);
 
         try {
+          const bindingCheck = assertReviewAttemptSpecBindings(
+            database,
+            taskId,
+            options.node,
+            expectedRevision,
+          );
+          if (
+            input.expectedRevision === undefined &&
+            bindingCheck.taskRevision !== undefined
+          ) {
+            input.expectedRevision = bindingCheck.taskRevision;
+          }
           const result = reviewStart(database, taskId, input);
           const data: ReviewRenderData = {
             ...result,

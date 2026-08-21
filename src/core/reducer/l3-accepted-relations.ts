@@ -1,5 +1,7 @@
 import type { TaskcraftDatabase } from "../../store/database.js";
-import { getTask } from "../../store/query.js";
+import { getLifecycleSpecBindings, getTask } from "../../store/query.js";
+import type { LifecycleSpecBindingRow } from "../../store/query.js";
+import type { ResolvedSpecBinding } from "../../spec/bindings.js";
 import type { TaskSnapshot } from "../../store/revision-guard.js";
 import { ERROR_CODES, TaskcraftError } from "../errors.js";
 import type {
@@ -18,6 +20,7 @@ export function resolveReusableChildren(
   database: TaskcraftDatabase,
   parent: TaskSnapshot,
   modules: L3ModuleProposal[],
+  moduleSpecBindings: Record<string, ResolvedSpecBinding[]>,
 ): Map<string, TaskSnapshot> {
   const result = new Map<string, TaskSnapshot>();
   const problems: string[] = [];
@@ -50,6 +53,19 @@ export function resolveReusableChildren(
     }
 
     const mismatches = moduleContractMismatches(child, module);
+    const storedBindings = getLifecycleSpecBindings(
+      database,
+      child.id,
+      child.currentLifecycleRevision,
+    );
+    if (
+      !sameBindingSnapshots(
+        storedBindings,
+        moduleSpecBindings[module.key] ?? [],
+      )
+    ) {
+      mismatches.push("specBindings");
+    }
     if (mismatches.length > 0) {
       problems.push(
         `module ${module.key} cannot reuse ${child.id}: ${mismatches.join(", ")} changed`,
@@ -62,6 +78,42 @@ export function resolveReusableChildren(
 
   if (problems.length > 0) throw invalidL3Plan(parent.id, problems);
   return result;
+}
+
+function sameBindingSnapshots(
+  storedRows: LifecycleSpecBindingRow[],
+  resolved: ResolvedSpecBinding[],
+): boolean {
+  const stored = new Map<string, string>();
+  for (const row of storedRows) {
+    const snapshot = bindingSnapshotKey({
+      specId: row.specId,
+      kind: row.specKind,
+      path: row.specPath,
+      digest: row.specDigest,
+      duty: row.duty,
+    });
+    const previous = stored.get(row.specId);
+    if (previous !== undefined && previous !== snapshot) return false;
+    stored.set(row.specId, snapshot);
+  }
+  const expected = new Map(
+    resolved.map((binding) => [binding.specId, bindingSnapshotKey(binding)]),
+  );
+  return (
+    stored.size === expected.size &&
+    [...stored].every(([id, snapshot]) => expected.get(id) === snapshot)
+  );
+}
+
+function bindingSnapshotKey(binding: ResolvedSpecBinding): string {
+  return [
+    binding.specId,
+    binding.kind,
+    binding.path,
+    binding.digest,
+    binding.duty,
+  ].join("\u0000");
 }
 
 function moduleContractMismatches(

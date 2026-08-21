@@ -42,6 +42,7 @@ export const L3_PLAN_RESULT = {
       nonGoals: ["No UI work"],
       covers: ["A-01"],
       reviewFocus: ["foreign keys"],
+      specBindings: [],
     },
     {
       key: "projection",
@@ -54,6 +55,7 @@ export const L3_PLAN_RESULT = {
       nonGoals: ["No scheduling"],
       covers: ["A-02"],
       reviewFocus: ["status precedence"],
+      specBindings: [],
     },
   ],
   coverage: [
@@ -74,6 +76,7 @@ export const L3_PLAN_RESULT = {
     { id: "full-check", reference: "pnpm check", owner: "parent-integrate" },
   ],
   integrationPath: "integrate://deliverables",
+  executionSpecs: [],
 };
 
 export const L3_SINGLE_PLAN_RESULT = {
@@ -99,6 +102,7 @@ export const L3_SINGLE_PLAN_RESULT = {
     { id: "full-check", reference: "pnpm check", owner: "parent-integrate" },
   ],
   integrationPath: "integrate://single-deliverable",
+  executionSpecs: [],
 };
 
 export const L3_EXECUTE_RESULT = {

@@ -30,10 +30,8 @@ import {
 } from "../lifecycle/l3.js";
 import type { CommandData, RunCompleteInput } from "./context.js";
 import { commandData, snapshotOf } from "./context.js";
-import {
-  validateIntegrateResult,
-  validatePlanResult,
-} from "./l3-materialize.js";
+import { validateIntegrateResult } from "./l3-materialize.js";
+import { validateStoredNodeResult } from "./lifecycle-result.js";
 import {
   bumpRevision,
   finishAttempt,
@@ -113,7 +111,15 @@ export function completePlanNode(
 ): CommandData {
   const result = input.result as { integrationPath?: string };
 
-  if (!validatePlanResult(result)) {
+  if (
+    !validateStoredNodeResult(
+      database,
+      taskId,
+      snapshot.currentLifecycleRevision,
+      L3_PLAN_NODE_ID,
+      result,
+    )
+  ) {
     throw new TaskcraftError(ERROR_CODES.TC_LIFECYCLE_RESULT_INVALID, {
       problem: `Result for ${L3_PLAN_NODE_ID} failed the node result schema`,
       impact: "No facts were written; the task keeps its current state",

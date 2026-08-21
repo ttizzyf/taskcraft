@@ -62,7 +62,7 @@ describe("reducer reviewReplan", () => {
       expect(revisionRow.reason).toBe(
         "Retry policy must cover adapters outside core",
       );
-      expect(revisionRow.compilerVersion).toBe("tc-l2/1");
+      expect(revisionRow.compilerVersion).toBe("tc-l2/2");
       expect(JSON.parse(revisionRow.changeSummary)).toMatchObject({
         oldRevision: 1,
         newRevision: 2,

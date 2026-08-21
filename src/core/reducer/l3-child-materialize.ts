@@ -18,6 +18,7 @@ export interface InheritedChildGraphInput {
   policyDigest: string;
   actor: string;
   now: string;
+  compilerVersion?: string;
 }
 
 export function materializeInheritedChildLifecycle(
@@ -47,7 +48,7 @@ export function materializeInheritedChildLifecycle(
     )
     .run(
       input.taskId,
-      L3_CHILD_COMPILER_VERSION,
+      input.compilerVersion ?? L3_CHILD_COMPILER_VERSION,
       input.factsDigest,
       input.policyDigest,
       JSON.stringify({

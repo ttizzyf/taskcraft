@@ -13,8 +13,9 @@ import {
   L1_POLICY_DIGEST,
   L1_RECORD_RESULT_SCHEMA,
 } from "./l1.js";
+import { SPEC_SELECTION_ARRAY_SCHEMA } from "./spec-schemas.js";
 
-export const L2_COMPILER_VERSION = "tc-l2/1";
+export const L2_COMPILER_VERSION = "tc-l2/2";
 
 /** L2 revisions carry the same empty facts/policy set at compile time; the
  * digests are stable for every L2 revision until facts change. */
@@ -35,7 +36,7 @@ export const L2_OBLIGATION_IDS = Object.freeze({
 export const L2_FRAME_RESULT_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["objective", "scope", "acceptance"],
+  required: ["objective", "scope", "acceptance", "specBindings"],
   properties: {
     objective: { type: "string", minLength: 1 },
     scope: { type: "object" },
@@ -43,6 +44,7 @@ export const L2_FRAME_RESULT_SCHEMA = {
       type: "array",
       items: { type: "string", minLength: 1 },
     },
+    specBindings: SPEC_SELECTION_ARRAY_SCHEMA,
   },
 } as const;
 

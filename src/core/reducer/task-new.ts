@@ -7,14 +7,8 @@ import { withTransaction } from "../../store/transaction.js";
 import { ERROR_CODES, TaskcraftError } from "../errors.js";
 import {
   L1_DEFAULT_ACTOR,
-  L1_EXECUTE_NODE_ID,
-  L1_EXECUTE_RESULT_SCHEMA,
   L1_FACTS_DIGEST,
-  L1_OBLIGATIONS,
   L1_POLICY_DIGEST,
-  L1_RECORD_NODE_ID,
-  L1_RECORD_RESULT_SCHEMA,
-  L1_RETRY_POLICY,
 } from "../lifecycle/l1.js";
 import { L2_COMPILER_VERSION } from "../lifecycle/l2.js";
 import {
@@ -26,6 +20,9 @@ import type { CommandData, TaskNewInput } from "./context.js";
 import { commandData, snapshotOf } from "./context.js";
 import { materializeL2Graph } from "./l2-materialize.js";
 import { materializeL3Graph } from "./l3-materialize.js";
+import { materializeL1Graph } from "./l1-materialize.js";
+import { insertLifecycleSpecBindings } from "../../store/spec-facts.js";
+import { assertResolvedBindings } from "../../spec/bindings.js";
 import { insertEvent, isUniqueConstraint, nowIso } from "./shared.js";
 import { allocateTaskId, insertTaskRow } from "./task-row.js";
 
@@ -79,8 +76,19 @@ export function taskNew(
         now,
       });
     } else {
-      materializeL1Lifecycle(database, taskId, input, actor, now);
+      materializeL1Graph(database, {
+        taskId,
+        revision: 1,
+        reasonCode: "initial",
+        reason: "initial L1 lifecycle",
+        changeSummary: {},
+        objective: input.objectiveMd ?? input.title,
+        actor,
+        now,
+      });
     }
+
+    insertInitialSpecBindings(database, taskId, input, actor, now);
 
     insertEvent(database, {
       taskId,
@@ -108,6 +116,11 @@ function validateTaskNewInput(input: TaskNewInput): void {
       context: { level: input.level },
     });
   }
+
+  assertResolvedBindings(
+    input.initialSpecBindings ?? [],
+    "Initial Spec bindings",
+  );
 
   if (input.title.trim() === "" || input.reason.trim() === "") {
     throw new TaskcraftError(ERROR_CODES.TC_TASK_INPUT_INVALID, {
@@ -155,74 +168,26 @@ function insertPublicTaskRow(
   );
 }
 
-function materializeL1Lifecycle(
+function insertInitialSpecBindings(
   database: TaskcraftDatabase,
   taskId: string,
   input: TaskNewInput,
   actor: string,
   now: string,
 ): void {
-  database
-    .prepare(
-      `INSERT INTO lifecycle_revisions (
-         task_id, revision, reason_code, reason, compiler_version,
-         facts_digest, policy_digest, change_summary_json, created_by,
-         created_at
-       ) VALUES (?, 1, 'initial', 'initial L1 lifecycle', 'tc-l1/1', ?, ?,
-         '{}', ?, ?)`,
-    )
-    .run(taskId, L1_FACTS_DIGEST, L1_POLICY_DIGEST, actor, now);
-
-  const objective = input.objectiveMd ?? input.title;
-  const insertNode = database.prepare(
-    `INSERT INTO lifecycle_nodes (
-       task_id, lifecycle_revision, id, kind, title, objective,
-       procedure_ref, scope_json, entry_gate_json, exit_gate_json,
-       retry_policy_json, input_schema_json, output_schema_json
-     ) VALUES (?, 1, ?, ?, ?, ?, ?, '{}', '{}', '{}', ?, '{}', ?)`,
-  );
-  insertNode.run(
+  const nodeIds =
+    input.level === 1
+      ? ["execute-1", "record-1"]
+      : input.level === 2
+        ? ["frame-1"]
+        : ["frame-1", "plan-1", "review-plan-1"];
+  insertLifecycleSpecBindings(database, {
     taskId,
-    L1_EXECUTE_NODE_ID,
-    "execute",
-    "Execute",
-    objective,
-    "l1:execute",
-    JSON.stringify(L1_RETRY_POLICY),
-    JSON.stringify(L1_EXECUTE_RESULT_SCHEMA),
-  );
-  insertNode.run(
-    taskId,
-    L1_RECORD_NODE_ID,
-    "record",
-    "Record",
-    objective,
-    "l1:record",
-    JSON.stringify(L1_RETRY_POLICY),
-    JSON.stringify(L1_RECORD_RESULT_SCHEMA),
-  );
-
-  database
-    .prepare(
-      `INSERT INTO lifecycle_edges (
-         task_id, lifecycle_revision, from_node_id, to_node_id,
-         condition_json, label
-       ) VALUES (?, 1, 'execute-1', 'record-1', '{"kind":"always"}', NULL)`,
-    )
-    .run(taskId);
-
-  const insertObligation = database.prepare(
-    `INSERT INTO obligation_definitions (
-       task_id, lifecycle_revision, node_id, id, duty, title, evaluator_json
-     ) VALUES (?, 1, ?, ?, 'required', ?, ?)`,
-  );
-  for (const obligation of L1_OBLIGATIONS) {
-    insertObligation.run(
-      taskId,
-      obligation.nodeId,
-      obligation.id,
-      obligation.title,
-      obligation.evaluatorJson,
-    );
-  }
+    lifecycleRevision: 1,
+    nodeIds,
+    bindings: input.initialSpecBindings ?? [],
+    source: { kind: "task_create" },
+    actor,
+    now,
+  });
 }

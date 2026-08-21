@@ -1,3 +1,5 @@
+import { SPEC_SELECTION_ARRAY_SCHEMA } from "./spec-schemas.js";
+
 const MODULE_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -12,6 +14,7 @@ const MODULE_SCHEMA = {
     "nonGoals",
     "covers",
     "reviewFocus",
+    "specBindings",
   ],
   properties: {
     key: { type: "string", minLength: 1 },
@@ -32,6 +35,7 @@ const MODULE_SCHEMA = {
       type: "array",
       items: { type: "string", minLength: 1 },
     },
+    specBindings: SPEC_SELECTION_ARRAY_SCHEMA,
   },
 } as const;
 
@@ -70,6 +74,7 @@ export const L3_PLAN_RESULT_SCHEMA = {
     "executionMode",
     "sharedValidations",
     "integrationPath",
+    "executionSpecs",
   ],
   properties: {
     decomposition: {
@@ -141,6 +146,7 @@ export const L3_PLAN_RESULT_SCHEMA = {
       },
     },
     integrationPath: { type: "string", minLength: 1 },
+    executionSpecs: SPEC_SELECTION_ARRAY_SCHEMA,
   },
 } as const;
 

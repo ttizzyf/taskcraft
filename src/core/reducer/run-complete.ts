@@ -46,8 +46,11 @@ import {
   insertAttemptFinishedEvent,
   resolveTargetAttempt,
 } from "./run-complete-nodes.js";
-import { validateFrameResult } from "./l2-materialize.js";
-import { validateL3FrameResult } from "./l3-materialize.js";
+import { L2_COMPILER_VERSION } from "../lifecycle/l2.js";
+import type { SpecSelection } from "../../spec/bindings.js";
+import { assertResolvedSpecSelections } from "../../spec/bindings.js";
+import { insertLifecycleSpecBindings } from "../../store/spec-facts.js";
+import { validateStoredNodeResult } from "./lifecycle-result.js";
 
 export function runComplete(
   database: TaskcraftDatabase,
@@ -199,12 +202,18 @@ function completeFrameNode(
   snapshot: TaskSnapshot,
   input: RunCompleteInput,
 ): CommandData {
-  const result = input.result as { objective: string };
+  const result = input.result as {
+    objective: string;
+    specBindings?: SpecSelection[];
+  };
 
-  const valid =
-    snapshot.level === 3
-      ? validateL3FrameResult(result)
-      : validateFrameResult(result);
+  const valid = validateStoredNodeResult(
+    database,
+    taskId,
+    snapshot.currentLifecycleRevision,
+    L2_FRAME_NODE_ID,
+    result,
+  );
 
   if (!valid) {
     throw new TaskcraftError(ERROR_CODES.TC_LIFECYCLE_RESULT_INVALID, {
@@ -228,6 +237,34 @@ function completeFrameNode(
   const actor = input.actorInstanceId ?? L1_DEFAULT_ACTOR;
   const now = nowIso();
   const evidenceId = `ev-${taskId}-${attempt.id}-1`;
+
+  const compiler = database
+    .prepare(
+      `SELECT compiler_version AS compilerVersion
+       FROM lifecycle_revisions WHERE task_id = ? AND revision = ?`,
+    )
+    .get(taskId, snapshot.currentLifecycleRevision) as {
+    compilerVersion: string;
+  };
+  if (
+    snapshot.level === 2 &&
+    compiler.compilerVersion === L2_COMPILER_VERSION
+  ) {
+    assertResolvedSpecSelections(
+      result.specBindings ?? [],
+      input.resolvedSpecBindings ?? [],
+      "L2 Frame Spec bindings",
+    );
+    insertLifecycleSpecBindings(database, {
+      taskId,
+      lifecycleRevision: snapshot.currentLifecycleRevision,
+      nodeIds: ["execute-1", "review-1", "record-1"],
+      bindings: input.resolvedSpecBindings ?? [],
+      source: { kind: "frame", taskId, attemptId: attempt.id },
+      actor,
+      now,
+    });
+  }
 
   insertEvidence(database, {
     id: evidenceId,

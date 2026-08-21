@@ -14,6 +14,7 @@ import { checkRevision } from "../../store/revision-guard.js";
 import type { TaskSnapshot } from "../../store/revision-guard.js";
 import { project } from "../projector.js";
 import type { ProjectStatus } from "../projector.js";
+import type { ResolvedSpecBinding } from "../../spec/bindings.js";
 
 export interface CommandData {
   taskId: string;
@@ -45,6 +46,8 @@ export interface TaskNewInput {
   /** Classification facts persisted verbatim as JSON (must be a plain
    * object); absent means an empty fact set. */
   classificationFacts?: unknown;
+  /** Registry-resolved snapshots. Reducers never read project files. */
+  initialSpecBindings?: ResolvedSpecBinding[];
   actorInstanceId?: string;
 }
 
@@ -63,6 +66,8 @@ export interface RunCompleteInput {
   attemptId?: string;
   expectedRevision?: number;
   actorInstanceId?: string;
+  /** Command-resolved L2 Frame selection for downstream nodes. */
+  resolvedSpecBindings?: ResolvedSpecBinding[];
 }
 
 export interface CancelInput {
@@ -108,6 +113,19 @@ export interface TaskResumeInput {
   actorInstanceId?: string;
 }
 
+export interface TaskSpecRefreshInput {
+  reason: string;
+  expectedRevision?: number;
+  resolvedSpecBindings: ResolvedSpecBinding[];
+  actorInstanceId?: string;
+}
+
+export interface TaskSpecRefreshData extends CommandData {
+  requestedTaskId: string;
+  refreshedTaskId: string;
+  newRevision: number;
+}
+
 export interface ReviewStartInput {
   taskId: string;
   expectedRevision?: number;
@@ -139,6 +157,10 @@ export interface ReviewPassInput {
   /** Optional advisory finding; empty means no finding is written. */
   finding?: string;
   actorInstanceId?: string;
+  acceptedPlanSpecBindings?: {
+    execution: ResolvedSpecBinding[];
+    modules: Record<string, ResolvedSpecBinding[]>;
+  };
 }
 
 export interface ReviewChangesInput {

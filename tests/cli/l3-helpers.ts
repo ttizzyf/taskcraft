@@ -34,6 +34,7 @@ export const L3_PLAN_RESULT = JSON.stringify({
       nonGoals: ["No UI"],
       covers: ["A-01"],
       reviewFocus: ["foreign keys"],
+      specBindings: [],
     },
     {
       key: "projection",
@@ -46,6 +47,7 @@ export const L3_PLAN_RESULT = JSON.stringify({
       nonGoals: ["No scheduling"],
       covers: ["A-02"],
       reviewFocus: ["status precedence"],
+      specBindings: [],
     },
   ],
   coverage: [
@@ -58,6 +60,7 @@ export const L3_PLAN_RESULT = JSON.stringify({
     { id: "full-check", reference: "pnpm check", owner: "parent-integrate" },
   ],
   integrationPath: "integrate://deliverables",
+  executionSpecs: [],
 });
 
 export const L3_SINGLE_PLAN_RESULT = JSON.stringify({
@@ -82,6 +85,7 @@ export const L3_SINGLE_PLAN_RESULT = JSON.stringify({
     { id: "full-check", reference: "pnpm check", owner: "parent-integrate" },
   ],
   integrationPath: "integrate://single",
+  executionSpecs: [],
 });
 
 export const L3_EXECUTE_RESULT = JSON.stringify({

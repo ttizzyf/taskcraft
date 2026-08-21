@@ -37,6 +37,10 @@ describe("query model", () => {
       expect(query.getObligationResults(database, "task-unknown")).toEqual([]);
       expect(query.getOpenBlockers(database, "task-unknown")).toEqual([]);
       expect(query.getLastEventSeq(database, "task-unknown")).toBe(0);
+      expect(query.getLifecycleSpecBindings(database, "task-unknown")).toEqual(
+        [],
+      );
+      expect(query.getSpecImpactResults(database, "task-unknown")).toEqual([]);
     } finally {
       database.close();
     }
@@ -159,10 +163,12 @@ describe("query model", () => {
       "getInheritedPlanning",
       "getLastEventSeq",
       "getLifecycle",
+      "getLifecycleSpecBindings",
       "getObligationResults",
       "getOpenBlockers",
       "getReviewFindings",
       "getReviewLinks",
+      "getSpecImpactResults",
       "getTask",
       "getTaskFacts",
       "getTaskRelations",
@@ -187,6 +193,17 @@ type ReadOnlyQueryModel = {
   ): ObligationResultRow[];
   getOpenBlockers(database: TaskcraftDatabase, taskId: string): BlockerRow[];
   getLastEventSeq(database: TaskcraftDatabase, taskId: string): number;
+  getLifecycleSpecBindings(
+    database: TaskcraftDatabase,
+    taskId: string,
+    revision?: number,
+    nodeId?: string,
+  ): query.LifecycleSpecBindingRow[];
+  getSpecImpactResults(
+    database: TaskcraftDatabase,
+    taskId: string,
+    revision?: number,
+  ): query.SpecImpactResultRow[];
   getInheritedPlanning(
     database: TaskcraftDatabase,
     taskId: string,

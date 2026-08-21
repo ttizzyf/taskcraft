@@ -7,6 +7,7 @@ import type { Command } from "commander";
 
 import { reviewChanges } from "../core/reducer.js";
 import type { ReviewChangesInput } from "../core/reducer.js";
+import { getAttempts } from "../store/query.js";
 import {
   execute,
   isJsonMode,
@@ -17,6 +18,7 @@ import {
 } from "./helpers.js";
 import type { ReviewRenderData } from "./render.js";
 import { renderReviewData } from "./render.js";
+import { assertNewAttemptSpecBindings } from "./spec-bindings.js";
 
 export function register(review: Command): void {
   review
@@ -55,6 +57,21 @@ export function register(review: Command): void {
             input.expectedRevision = expectedRevision;
           }
 
+          const reviewedNodeId = getAttempts(database, taskId).find(
+            (attempt) => attempt.id === reviewedAttemptId,
+          )?.nodeId;
+          const bindingCheck = assertNewAttemptSpecBindings(
+            database,
+            taskId,
+            reviewedNodeId ?? "",
+            expectedRevision,
+          );
+          if (
+            input.expectedRevision === undefined &&
+            bindingCheck.taskRevision !== undefined
+          ) {
+            input.expectedRevision = bindingCheck.taskRevision;
+          }
           const result = reviewChanges(database, taskId, input);
           const data: ReviewRenderData = {
             ...result,

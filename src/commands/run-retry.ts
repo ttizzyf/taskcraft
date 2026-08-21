@@ -7,6 +7,7 @@ import type { Command } from "commander";
 
 import { runRetry } from "../core/reducer.js";
 import type { RunRetryInput } from "../core/reducer.js";
+import { getAttempts } from "../store/query.js";
 import {
   execute,
   isJsonMode,
@@ -15,6 +16,7 @@ import {
   printCommandResult,
 } from "./helpers.js";
 import { renderRunData } from "./render.js";
+import { assertNewAttemptSpecBindings } from "./spec-bindings.js";
 
 export function register(runCommand: Command): void {
   runCommand
@@ -43,6 +45,21 @@ export function register(runCommand: Command): void {
         const database = openTaskcraftDatabase(true);
 
         try {
+          const retryNodeId = getAttempts(database, taskId).find(
+            (attempt) => attempt.id === options.attempt,
+          )?.nodeId;
+          const bindingCheck = assertNewAttemptSpecBindings(
+            database,
+            taskId,
+            retryNodeId ?? "",
+            expectedRevision,
+          );
+          if (
+            input.expectedRevision === undefined &&
+            bindingCheck.taskRevision !== undefined
+          ) {
+            input.expectedRevision = bindingCheck.taskRevision;
+          }
           const data = runRetry(database, taskId, input);
 
           if (json) {

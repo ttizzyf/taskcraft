@@ -10,7 +10,7 @@ import { getLifecycle } from "../../store/query.js";
 import { withTransaction } from "../../store/transaction.js";
 import { ERROR_CODES, TaskcraftError } from "../errors.js";
 import { L1_DEFAULT_ACTOR } from "../lifecycle/l1.js";
-import { L3_COMPILER_VERSION } from "../lifecycle/l3.js";
+import { isModularL3CompilerVersion } from "../lifecycle/l3.js";
 import type { ReviewPassInput, ReviewResultData } from "./context.js";
 import {
   assertNotCancelled,
@@ -158,7 +158,7 @@ export function reviewPass(
     if (
       snapshot.level === 3 &&
       link.reviewPurpose === "feasibility" &&
-      compiler.compilerVersion === L3_COMPILER_VERSION
+      isModularL3CompilerVersion(compiler.compilerVersion)
     ) {
       acceptedPlan = acceptL3Plan(
         database,
@@ -167,6 +167,8 @@ export function reviewPass(
         link.reviewedAttemptId,
         actor,
         now,
+        input.acceptedPlanSpecBindings,
+        compiler.compilerVersion,
       );
     }
     bumpRevision(database, snapshot, now);
