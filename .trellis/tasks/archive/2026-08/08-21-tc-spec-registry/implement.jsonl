@@ -1,0 +1,2 @@
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"文件系统、Schema、CLI 与后续 Store 消费者的边界"}
+{"file":".trellis/tasks/08-21-tc-spec-system/research/current-architecture.md","reason":"现有 init、command boundary 与 reducer 无文件 IO 的证据"}
