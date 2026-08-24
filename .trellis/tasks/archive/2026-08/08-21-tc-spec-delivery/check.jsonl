@@ -1,0 +1,3 @@
+{"file":".trellis/spec/backend/l3-modular-contract.md","reason":"检查 L3 delivery/doctor/Watch 没有第二套投影"}
+{"file":".trellis/spec/backend/entry-hook-contract.md","reason":"检查 Adapter/Entry 行为未被 Spec Node Brief 改动"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"检查 Store 到 Adapter、CLI、Watch 的完整 Spec 流"}
