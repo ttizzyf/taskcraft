@@ -129,7 +129,7 @@ channel:
 #
 # Keep contract-heavy bootstrap phases in the main Codex session.
 codex:
-  dispatch_mode: inline
+  dispatch_mode: auto
 
 #-------------------------------------------------------------------------------
 # Sub-agent context injection limits
