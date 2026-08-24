@@ -24,6 +24,8 @@ import type {
   ReviewPurpose,
 } from "../store/query.js";
 import { renderL3TaskShowSections } from "./render-l3.js";
+import type { SpecDeliveryView } from "../spec/index.js";
+import { renderSpecDelivery } from "./render-spec.js";
 
 /** Data shapes shared by the command actions; the renderers only read these. */
 export interface TaskNextData extends CommandData {
@@ -95,6 +97,7 @@ export interface TaskShowData {
   validations: Projection["validations"];
   executionSource: Projection["executionSource"];
   inheritedPlanning: Projection["inheritedPlanning"];
+  specs: SpecDeliveryView;
 }
 
 export interface StatusDetailData {
@@ -154,6 +157,8 @@ export function renderNodeBrief(brief: NodeBrief): string {
   const lines = [
     "Node Brief",
     `Task: ${brief.taskId} (${brief.taskTitle})`,
+    `Task revision: ${brief.taskRevision}`,
+    `Lifecycle revision: ${brief.lifecycleRevision}`,
     `Node: ${brief.nodeId} (${brief.nodeKind})`,
     `Attempt: ${brief.attemptId}`,
     `Objective: ${brief.objective}`,
@@ -163,10 +168,43 @@ export function renderNodeBrief(brief: NodeBrief): string {
       (obligation) =>
         `  - ${obligation.id} (${obligation.duty}): ${obligation.title}`,
     ),
+    "Specs:",
+    ...(brief.specs.length === 0
+      ? ["  (none)"]
+      : brief.specs.map((spec) => {
+          const drift =
+            spec.drift === null
+              ? "not checked"
+              : spec.drift.status === "current"
+                ? "current"
+                : `stale: ${spec.drift.reasons.join(", ")}`;
+          return `  - ${spec.id} (${spec.kind}, ${spec.duty})  ${spec.path}  sha256:${spec.digest}  ${drift}`;
+        })),
     "Result schema:",
     indent(JSON.stringify(schema, null, 2), "  "),
     `Complete command: ${brief.nextCommand}`,
   ];
+
+  if (brief.reviewContext !== null) {
+    lines.splice(
+      lines.indexOf("Result schema:"),
+      0,
+      "Reviewed attempt:",
+      `  Purpose: ${brief.reviewContext.purpose}`,
+      `  Attempt: ${brief.reviewContext.reviewedAttemptId}`,
+      `  Node: ${brief.reviewContext.reviewedNodeId} (${brief.reviewContext.reviewedNodeKind})`,
+      `  Outcome: ${brief.reviewContext.outcome}`,
+      `  Result: ${JSON.stringify(brief.reviewContext.result)}`,
+      "  Evidence:",
+      ...(brief.reviewContext.evidence.length === 0
+        ? ["    (none)"]
+        : brief.reviewContext.evidence.map(
+            (item) =>
+              `    ${item.id} (${item.type})  ${item.reference}  ${item.summary}` +
+              (item.digest === null ? "" : `  digest:${item.digest}`),
+          )),
+    );
+  }
 
   return lines.join("\n");
 }
@@ -200,6 +238,7 @@ export function renderTaskShowData(data: TaskShowData): string {
   }
 
   lines.push(`Next: ${data.next ?? "(none)"}`);
+  lines.push(...renderSpecDelivery(data.specs));
   lines.push(...renderL3TaskShowSections(data));
   lines.push("Attempts:");
 
@@ -354,6 +393,10 @@ export function renderReviewData(data: ReviewRenderData): string {
     lines.push(
       `Child: ${child.taskId}  L${child.level}  ${child.moduleKey}${child.reused ? "  reused" : ""}`,
     );
+  }
+
+  if (data.nodeBrief !== undefined) {
+    lines.push("", renderNodeBrief(data.nodeBrief));
   }
 
   return lines.join("\n");

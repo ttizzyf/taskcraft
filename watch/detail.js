@@ -3,6 +3,7 @@
 // text label without color emphasis (no exaggeration).
 
 import { escapeHtml, formatTime } from "./render.js";
+import { renderSpecsBody } from "./specs.js";
 
 const NODE_SYMBOL = {
   satisfied: "✓",
@@ -424,6 +425,7 @@ export function renderTaskDetail(detail) {
     `<div class="detail-grid">` +
     `<div class="detail-main">` +
     renderTaskCard(detail) +
+    section("Specs", renderSpecsBody(detail)) +
     renderChildren(detail) +
     renderAnchors(detail) +
     renderGraph(detail) +

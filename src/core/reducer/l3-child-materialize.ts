@@ -2,8 +2,20 @@
 // stored separately; no fake Frame/Plan host attempts are created.
 
 import type { TaskcraftDatabase } from "../../store/database.js";
-import { L1_EDGE, L1_NODES, L1_OBLIGATIONS } from "../lifecycle/l1.js";
-import { L2_EDGES, L2_NODES, L2_OBLIGATIONS } from "../lifecycle/l2.js";
+import {
+  L1_EDGE,
+  L1_NODES,
+  L1_OBLIGATIONS,
+  l1NodesForCompiler,
+  l1ObligationsForCompiler,
+} from "../lifecycle/l1.js";
+import {
+  L2_EDGES,
+  L2_NODES,
+  L2_OBLIGATIONS,
+  l2NodesForCompiler,
+  l2ObligationsForCompiler,
+} from "../lifecycle/l2.js";
 import { L3_CHILD_COMPILER_VERSION } from "../lifecycle/l3.js";
 
 export interface InheritedChildGraphInput {
@@ -25,18 +37,29 @@ export function materializeInheritedChildLifecycle(
   database: TaskcraftDatabase,
   input: InheritedChildGraphInput,
 ): void {
+  const compilerVersion = input.compilerVersion ?? L3_CHILD_COMPILER_VERSION;
+  const recordsSpecImpact = compilerVersion === L3_CHILD_COMPILER_VERSION;
   const nodes =
     input.level === 1
-      ? L1_NODES
-      : L2_NODES.filter((node) => node.kind !== "frame");
+      ? recordsSpecImpact
+        ? L1_NODES
+        : l1NodesForCompiler("legacy")
+      : (recordsSpecImpact ? L2_NODES : l2NodesForCompiler("legacy")).filter(
+          (node) => node.kind !== "frame",
+        );
   const edges =
     input.level === 1
       ? [L1_EDGE]
       : L2_EDGES.filter((edge) => edge.fromNodeId !== "frame-1");
   const obligations =
     input.level === 1
-      ? L1_OBLIGATIONS
-      : L2_OBLIGATIONS.filter((obligation) => obligation.nodeId !== "frame-1");
+      ? recordsSpecImpact
+        ? L1_OBLIGATIONS
+        : l1ObligationsForCompiler("legacy")
+      : (recordsSpecImpact
+          ? L2_OBLIGATIONS
+          : l2ObligationsForCompiler("legacy")
+        ).filter((obligation) => obligation.nodeId !== "frame-1");
 
   database
     .prepare(
@@ -48,7 +71,7 @@ export function materializeInheritedChildLifecycle(
     )
     .run(
       input.taskId,
-      input.compilerVersion ?? L3_CHILD_COMPILER_VERSION,
+      compilerVersion,
       input.factsDigest,
       input.policyDigest,
       JSON.stringify({

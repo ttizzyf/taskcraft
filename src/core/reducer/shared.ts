@@ -2,19 +2,9 @@
 // obligation results, audit events and the revision bump. All of these run
 // inside the withTransaction provided by the command entry points.
 
-import {
-  Ajv2020,
-  type AnySchema,
-  type ValidateFunction,
-} from "ajv/dist/2020.js";
-
 import type { TaskcraftDatabase } from "../../store/database.js";
 import { getLastEventSeq } from "../../store/query.js";
 import type { TaskSnapshot } from "../../store/revision-guard.js";
-import {
-  L1_EXECUTE_RESULT_SCHEMA,
-  L1_RECORD_RESULT_SCHEMA,
-} from "../lifecycle/l1.js";
 
 export interface EventInput {
   taskId: string;
@@ -231,31 +221,6 @@ export function satisfyObligation(
       evidenceId,
       now,
     );
-}
-
-let executeResultValidator: ValidateFunction | null = null;
-let recordResultValidator: ValidateFunction | null = null;
-
-export function validateExecuteResult(result: unknown): boolean {
-  if (executeResultValidator === null) {
-    executeResultValidator = new Ajv2020({
-      strict: true,
-      allErrors: true,
-    }).compile(L1_EXECUTE_RESULT_SCHEMA as AnySchema);
-  }
-
-  return executeResultValidator(result) === true;
-}
-
-export function validateRecordResult(result: unknown): boolean {
-  if (recordResultValidator === null) {
-    recordResultValidator = new Ajv2020({
-      strict: true,
-      allErrors: true,
-    }).compile(L1_RECORD_RESULT_SCHEMA as AnySchema);
-  }
-
-  return recordResultValidator(result) === true;
 }
 
 export function isUniqueConstraint(cause: unknown): boolean {

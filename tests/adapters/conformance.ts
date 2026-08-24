@@ -308,6 +308,8 @@ export function runConformance(
         brief: {
           taskId: "T-1",
           taskTitle: "Sample",
+          taskRevision: 2,
+          lifecycleRevision: 1,
           nodeId: "execute-1",
           nodeKind: "execute",
           attemptId: "attempt-1",
@@ -316,6 +318,17 @@ export function runConformance(
           obligations: [
             { id: "outcome", duty: "required", title: "Outcome produced" },
           ],
+          specs: [
+            {
+              id: "engineering.store",
+              kind: "engineering",
+              duty: "required",
+              path: "docs/store.md",
+              digest: "a".repeat(64),
+              drift: { status: "current", reasons: [] },
+            },
+          ],
+          reviewContext: null,
           resultSchemaJson: '{"type":"object"}',
           nextCommand: "tc run complete T-1",
         },

@@ -27,6 +27,7 @@ import type {
   TaskShowData,
 } from "./render.js";
 import { renderTaskShowData } from "./render.js";
+import { loadSpecDeliveryView } from "../spec/index.js";
 
 export function register(task: Command): void {
   task
@@ -54,9 +55,10 @@ export function register(task: Command): void {
     });
 }
 
-function buildTaskShowData(
+export function buildTaskShowData(
   database: TaskcraftDatabase,
   taskId: string,
+  projectDir = process.cwd(),
 ): TaskShowData {
   const projection = project(database, taskId);
   const snapshot = getTask(database, taskId)!;
@@ -131,5 +133,11 @@ function buildTaskShowData(
     validations: projection.validations,
     executionSource: projection.executionSource,
     inheritedPlanning: projection.inheritedPlanning,
+    specs: loadSpecDeliveryView(
+      projectDir,
+      database,
+      taskId,
+      snapshot.currentLifecycleRevision,
+    ),
   };
 }

@@ -5,7 +5,8 @@
 // stale/finished observations next to active/done tasks, deep links and
 // refresh persistence, and no-overflow / reachability checks.
 
-import { mkdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -54,6 +55,39 @@ test.beforeAll(async () => {
            '2026-08-11T00:00:00.000Z', 'completed', '{}')`,
       )
       .run();
+
+    const specBody = "# Watch delivery\n\nRender the shared DTO only.\n";
+    const specDigest = createHash("sha256").update(specBody).digest("hex");
+    mkdirSync(join(projectDir, "docs"), { recursive: true });
+    mkdirSync(join(projectDir, ".taskcraft", "spec"), { recursive: true });
+    writeFileSync(join(projectDir, "docs", "watch-delivery.md"), specBody);
+    writeFileSync(
+      join(projectDir, ".taskcraft", "spec", "index.json"),
+      JSON.stringify({
+        schemaVersion: "tc-spec-registry/v1",
+        specs: [
+          {
+            id: "engineering.watch-delivery",
+            kind: "engineering",
+            path: "docs/watch-delivery.md",
+            summary: "Watch delivery contract",
+            appliesTo: ["watch/**"],
+            status: "active",
+          },
+        ],
+      }),
+    );
+    const insertBinding = database.prepare(
+      `INSERT INTO lifecycle_spec_bindings (
+         task_id, lifecycle_revision, node_id, spec_id, spec_kind, spec_path,
+         spec_digest, duty, source_kind, source_task_id, source_attempt_id,
+         created_by, created_at
+       ) VALUES ('T-308', 1, ?, 'engineering.watch-delivery', 'engineering',
+         'docs/watch-delivery.md', ?, 'required', 'task_create', NULL, NULL,
+         'fixture', '2026-08-11T00:00:00.000Z')`,
+    );
+    insertBinding.run("execute-1", specDigest);
+    insertBinding.run("review-execute-1", specDigest);
   } finally {
     database.close();
   }
@@ -81,6 +115,22 @@ async function expectNoHorizontalOverflow(page: Page, viewportWidth: number) {
 
   expect(metrics.clientWidth).toBeLessThanOrEqual(viewportWidth);
   expect(metrics.scrollWidth).toBeLessThanOrEqual(viewportWidth);
+}
+
+async function expectDetailSectionsDoNotOverlap(page: Page) {
+  const boxes = await page
+    .locator(".detail-main > .section")
+    .evaluateAll((sections) =>
+      sections.map((section) => {
+        const rect = section.getBoundingClientRect();
+        return { top: rect.top, bottom: rect.bottom };
+      }),
+    );
+  for (let index = 1; index < boxes.length; index += 1) {
+    expect(boxes[index]!.top).toBeGreaterThanOrEqual(
+      boxes[index - 1]!.bottom - 1,
+    );
+  }
 }
 
 test.describe("desktop smoke", () => {
@@ -167,6 +217,13 @@ test.describe("desktop smoke", () => {
     await expect(page.getByTestId("review-table")).toContainText(
       "context-only",
     );
+    const specs = page.locator('[data-section="specs"]');
+    await expect(specs).toBeVisible();
+    await expect(specs).toContainText("engineering.watch-delivery");
+    await expect(specs).toContainText("docs/watch-delivery.md");
+    await expect(specs.locator(".status-tag.current")).toHaveCount(2);
+    await expectDetailSectionsDoNotOverlap(page);
+    await expectNoHorizontalOverflow(page, DESKTOP.width);
 
     // Unknown task shows an explicit error, not silence.
     await page.goto(`${baseUrl}/#/task/T-999`);
@@ -301,6 +358,11 @@ test.describe("mobile smoke (390x844)", () => {
     );
     await expect(page.locator('[data-section="timeline"]')).toBeVisible();
     await expect(page.locator('[data-section="evidence"]')).toBeVisible();
+    const specs = page.locator('[data-section="specs"]');
+    await expect(specs).toBeVisible();
+    await expect(specs).toContainText("engineering.watch-delivery");
+    await expect(specs.getByTestId("spec-binding-table")).toBeVisible();
+    await expectDetailSectionsDoNotOverlap(page);
 
     await page.goto(`${baseUrl}/#/board`);
     const waitingCard = page.locator('[data-task-id="T-503"]');

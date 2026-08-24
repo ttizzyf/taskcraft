@@ -2,7 +2,9 @@
 
 Taskcraft 是面向 Codex 与 Claude Code 的 agent-first 任务协议、状态工具与可视化记录方案。SQLite Task Store 是唯一可写事实源，Agent 通过 CLI 推进任务，用户通过 Watch 查看任务、节点、证据和运行状态。
 
-当前仓库处于开发准备阶段，包含产品规范、可执行合同、架构决策、开发任务和交互原型，尚未包含生产实现。Trellis `0.6.14` 已初始化；Bootstrap、Task 00 和 Task 01 已完成并归档。Taskcraft MVP 验收后将退出 Trellis 并开始狗粮化。
+当前仓库包含 Taskcraft CLI、SQLite Store、Reducer/Projector、Codex/Claude Adapter、
+Watch、产品规范和可执行合同。Trellis 仍负责当前开发任务；Taskcraft MVP 验收与双宿主
+Entry Hook 迁移门通过后才会退出 Trellis 并开始狗粮化。
 
 ## 入口
 
@@ -48,7 +50,7 @@ node dist/cli.js --version
 ```bash
 node dist/cli.js init
 node dist/cli.js task new --title "Fix typo" --level 1 --reason "Local reversible text change" [--facts '{"domain":"docs"}']
-node dist/cli.js run T-1 --node execute-1          # 输出 Node Brief（objective、obligations、result schema、登记命令）
+node dist/cli.js run T-1 --node execute-1          # 输出 Node Brief（objective、Specs、obligations、result schema、登记命令）
 node dist/cli.js run complete T-1 --result @result.json   # result 也可裸 JSON 或 @- 从 stdin
 node dist/cli.js status --json                     # done + breadcrumb
 ```
@@ -61,12 +63,31 @@ execute 与 record（result 的 `record` 段可让任务直达 done）。execute
 
 ```bash
 node dist/cli.js run T-1 --node record-1           # 输出 record 节点 Node Brief
-node dist/cli.js run complete T-1 --node record-1 --result '{"summary":"..."}'
+node dist/cli.js run complete T-1 --node record-1 --result '{"summary":"...","specImpact":{"outcome":"none","reason":"No reusable rule changed"}}'
 ```
 
 `tc` 无参数时在恰有一个 active task 的场景提供无 task id 的快捷 next。
 命令实现位于 `src/commands/`，text 与 JSON 渲染共用 projector/query model
 输出，无第二套推导。
+
+### 项目 Spec、Node Brief 与收口
+
+`tc init` write-if-absent 创建 `.taskcraft/spec/index.json`。Registry 只登记 Git 中的
+Markdown 路径；SQLite 保存任务实际采用的 id/path/digest，不复制正文：
+
+```bash
+node dist/cli.js spec check
+node dist/cli.js spec list
+node dist/cli.js spec resolve --path src/core/reducer.ts
+node dist/cli.js task new --title "Change reducer" --level 2 --reason "Shared contract" \
+  --specs '[{"id":"engineering.reducer","duty":"required"}]'
+```
+
+Execute 和 Review Node Brief 显示 exact Specs；required Spec 漂移会在创建 attempt 前
+失败，recommended 漂移只提示。新 compiler 的 Record result 必须提交
+`none|updated|candidate` Spec Impact：`updated` 需要 current Registry snapshot 与本
+Task evidence，`candidate` 不会自动改写 Registry。`task show` 和 Watch 显示同一组
+binding、drift 和 Impact；`tc doctor` 只读检查 Registry、provenance 与完整性。
 
 ### L2 Review CLI（含 review 回流）
 

@@ -34,6 +34,7 @@ import {
   nowIso,
 } from "./shared.js";
 import { insertReviewLink, reviewRefError } from "./review-shared.js";
+import { buildNodeBrief } from "./node-brief.js";
 
 const REVIEW_CAPABILITIES = ["context-only", "manual-attach", "host-observed"];
 const REVIEW_INDEPENDENCE_STATUSES = [
@@ -195,10 +196,22 @@ export function reviewStart(
     });
     bumpRevision(database, snapshot, now);
 
-    return {
-      ...commandData(database, taskId, snapshotOf(database, taskId)),
+    const currentSnapshot = snapshotOf(database, taskId);
+    const data = {
+      ...commandData(database, taskId, currentSnapshot),
       reviewAttemptId: reviewAttempt,
       reviewedAttemptId: reviewed.id,
+    };
+    return {
+      ...data,
+      nodeBrief: buildNodeBrief(
+        database,
+        taskId,
+        currentSnapshot,
+        reviewAttempt,
+        nodeId,
+        { attempt: reviewed, purpose: input.purpose },
+      ),
     };
   });
 }

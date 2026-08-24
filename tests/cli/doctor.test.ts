@@ -1,4 +1,10 @@
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -61,7 +67,7 @@ describe("tc doctor", () => {
 
       const text = runCli(["doctor"], cwd);
       expect(text.status).toBe(0);
-      expect(text.stdout).toContain("Doctor: 8 checks passed");
+      expect(text.stdout).toContain("Doctor: 11 checks passed");
       expect(text.stderr).toBe("");
 
       const result = runCli(["doctor", "--json"], cwd);
@@ -69,7 +75,7 @@ describe("tc doctor", () => {
       const json = parseJson<{ ok: boolean; data: DoctorData }>(result);
       expect(json.ok).toBe(true);
       expect(json.data.healthy).toBe(true);
-      expect(json.data.totalChecks).toBe(8);
+      expect(json.data.totalChecks).toBe(11);
       expect(json.data.failedChecks).toBe(0);
       expect(json.data.checks.every((check) => check.ok)).toBe(true);
     });
@@ -131,6 +137,78 @@ describe("tc doctor", () => {
       expect(json.errors[0]?.problem).toBeTruthy();
       expect(json.errors[0]?.impact).toBeTruthy();
       expect(json.errors[0]?.remediation).toBeTruthy();
+    });
+  });
+
+  it("reports an invalid Registry without changing Registry or Store bytes", () => {
+    withInitializedDirectory((cwd) => {
+      newTask(cwd, "1");
+      const registryFile = join(cwd, ".taskcraft", "spec", "index.json");
+      writeFileSync(registryFile, "not-json\n", "utf8");
+      const storeFile = databaseFile(cwd);
+      const beforeRegistry = readFileSync(registryFile);
+      const beforeStore = readFileSync(storeFile);
+
+      const result = runCli(["doctor"], cwd);
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain("TC_SPEC_REGISTRY_INVALID");
+      expect(readFileSync(registryFile)).toEqual(beforeRegistry);
+      expect(readFileSync(storeFile)).toEqual(beforeStore);
+    });
+  });
+
+  it("reports current binding drift without changing Registry or Store bytes", () => {
+    withInitializedDirectory((cwd) => {
+      mkdirSync(join(cwd, "docs"), { recursive: true });
+      writeFileSync(join(cwd, "docs", "delivery.md"), "Original\n", "utf8");
+      const registryFile = join(cwd, ".taskcraft", "spec", "index.json");
+      writeFileSync(
+        registryFile,
+        JSON.stringify({
+          schemaVersion: "tc-spec-registry/v1",
+          specs: [
+            {
+              id: "engineering.delivery",
+              kind: "engineering",
+              path: "docs/delivery.md",
+              summary: "Delivery",
+              appliesTo: ["src/**"],
+              status: "active",
+            },
+          ],
+        }),
+        "utf8",
+      );
+      expect(
+        runCli(
+          [
+            "task",
+            "new",
+            "--title",
+            "Bound task",
+            "--level",
+            "1",
+            "--reason",
+            "contract",
+            "--specs",
+            '[{"id":"engineering.delivery","duty":"required"}]',
+          ],
+          cwd,
+        ).status,
+      ).toBe(0);
+      writeFileSync(join(cwd, "docs", "delivery.md"), "Changed\n", "utf8");
+      const storeFile = databaseFile(cwd);
+      const beforeRegistry = readFileSync(registryFile);
+      const beforeStore = readFileSync(storeFile);
+
+      const result = runCli(["doctor"], cwd);
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain("TC_SPEC_BINDING_INVALID");
+      expect(result.stdout).toContain("digest_changed");
+      expect(readFileSync(registryFile)).toEqual(beforeRegistry);
+      expect(readFileSync(storeFile)).toEqual(beforeStore);
     });
   });
 

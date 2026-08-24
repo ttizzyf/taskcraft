@@ -9,7 +9,6 @@
 // the record obligation's evidence-owner trigger.
 
 import type { TaskcraftDatabase } from "../../store/database.js";
-import { getAttempts } from "../../store/query.js";
 import type { TaskSnapshot } from "../../store/revision-guard.js";
 import { withTransaction } from "../../store/transaction.js";
 import { ERROR_CODES, TaskcraftError } from "../errors.js";
@@ -30,15 +29,11 @@ import {
   snapshotOf,
 } from "./context.js";
 import {
-  attemptId,
   bumpRevision,
   finishAttempt,
-  insertAttempt,
   insertEvidence,
   nowIso,
   satisfyObligation,
-  validateExecuteResult,
-  validateRecordResult,
 } from "./shared.js";
 import {
   completeIntegrateNode,
@@ -46,11 +41,16 @@ import {
   insertAttemptFinishedEvent,
   resolveTargetAttempt,
 } from "./run-complete-nodes.js";
-import { L2_COMPILER_VERSION } from "../lifecycle/l2.js";
+import { isSpecBindingL2CompilerVersion } from "../lifecycle/l2.js";
 import type { SpecSelection } from "../../spec/bindings.js";
 import { assertResolvedSpecSelections } from "../../spec/bindings.js";
 import { insertLifecycleSpecBindings } from "../../store/spec-facts.js";
 import { validateStoredNodeResult } from "./lifecycle-result.js";
+import {
+  completeRecordNode,
+  type RecordResultShape,
+  writeRecordResult,
+} from "./run-complete-record.js";
 
 export function runComplete(
   database: TaskcraftDatabase,
@@ -100,7 +100,15 @@ function completeExecuteNode(
 ): CommandData {
   const result = input.result as ExecuteResultShape;
 
-  if (!validateExecuteResult(result)) {
+  if (
+    !validateStoredNodeResult(
+      database,
+      taskId,
+      snapshot.currentLifecycleRevision,
+      L1_EXECUTE_NODE_ID,
+      result,
+    )
+  ) {
     throw new TaskcraftError(ERROR_CODES.TC_LIFECYCLE_RESULT_INVALID, {
       problem: `Result for ${L1_EXECUTE_NODE_ID} failed the node result schema`,
       impact: "No facts were written; the task keeps its current state",
@@ -175,7 +183,15 @@ function completeExecuteNode(
   );
 
   if (result.record !== undefined) {
-    writeRecordResult(database, taskId, snapshot, result.record, actor, now);
+    writeRecordResult(
+      database,
+      taskId,
+      snapshot,
+      result.record,
+      input.resolvedSpecImpact,
+      actor,
+      now,
+    );
   }
 
   insertAttemptFinishedEvent(
@@ -248,7 +264,7 @@ function completeFrameNode(
   };
   if (
     snapshot.level === 2 &&
-    compiler.compilerVersion === L2_COMPILER_VERSION
+    isSpecBindingL2CompilerVersion(compiler.compilerVersion)
   ) {
     assertResolvedSpecSelections(
       result.specBindings ?? [],
@@ -302,130 +318,6 @@ function completeFrameNode(
   return commandData(database, taskId, snapshotOf(database, taskId));
 }
 
-/** Standalone record completion: validates against the record schema,
- * generates the note evidence, closes the record attempt and satisfies the
- * record obligation. */
-function completeRecordNode(
-  database: TaskcraftDatabase,
-  taskId: string,
-  snapshot: TaskSnapshot,
-  input: RunCompleteInput,
-): CommandData {
-  const result = input.result as { summary: string };
-
-  if (!validateRecordResult(result)) {
-    throw new TaskcraftError(ERROR_CODES.TC_LIFECYCLE_RESULT_INVALID, {
-      problem: `Result for ${L1_RECORD_NODE_ID} failed the node result schema`,
-      impact: "No facts were written; the task keeps its current state",
-      remediation:
-        "Resubmit a result matching the record-1 result schema from the Node Brief",
-      context: { taskId },
-    });
-  }
-
-  const attempt = resolveTargetAttempt(
-    database,
-    taskId,
-    snapshot,
-    input.attemptId,
-    L1_RECORD_NODE_ID,
-  );
-  const actor = input.actorInstanceId ?? L1_DEFAULT_ACTOR;
-  const now = nowIso();
-  const evidenceId = `ev-${taskId}-${attempt.id}-1`;
-
-  insertEvidence(database, {
-    id: evidenceId,
-    taskId,
-    attemptId: attempt.id,
-    type: "note",
-    reference: `record://${taskId}`,
-    summary: result.summary,
-    digest: null,
-    actor,
-    now,
-  });
-  finishAttempt(database, attempt.id, result, now);
-  satisfyObligation(
-    database,
-    taskId,
-    snapshot,
-    L1_RECORD_NODE_ID,
-    L1_OBLIGATION_IDS.resultAndScopeRetained,
-    evidenceId,
-    now,
-  );
-  insertAttemptFinishedEvent(
-    database,
-    taskId,
-    snapshot,
-    attempt.id,
-    attempt.nodeId,
-    attempt.host,
-    actor,
-    now,
-  );
-  bumpRevision(database, snapshot, now);
-
-  return commandData(database, taskId, snapshotOf(database, taskId));
-}
-
-/** The record node has no independent run: a record segment in the execute
- * result is materialized as a finished record attempt plus evidence owned by
- * that attempt, so the obligation_results evidence-owner trigger and the
- * "evidence of the target attempt" invariant both hold. */
-function writeRecordResult(
-  database: TaskcraftDatabase,
-  taskId: string,
-  snapshot: TaskSnapshot,
-  record: { summary: string },
-  actor: string,
-  now: string,
-): void {
-  const recordNumber =
-    getAttempts(database, taskId)
-      .filter((attempt) => attempt.nodeId === L1_RECORD_NODE_ID)
-      .reduce((max, attempt) => Math.max(max, attempt.attemptNumber), 0) + 1;
-  const recordAttemptId = attemptId(taskId, L1_RECORD_NODE_ID, recordNumber);
-  insertAttempt(database, {
-    id: recordAttemptId,
-    taskId,
-    lifecycleRevision: snapshot.currentLifecycleRevision,
-    nodeId: L1_RECORD_NODE_ID,
-    attemptNumber: recordNumber,
-    actorInstanceId: actor,
-    host: L1_DEFAULT_ACTOR,
-    status: "finished",
-    outcome: "success",
-    resultJson: JSON.stringify(record),
-    startedAt: now,
-    finishedAt: now,
-  });
-
-  const evidenceId = `ev-${taskId}-${recordAttemptId}-1`;
-  insertEvidence(database, {
-    id: evidenceId,
-    taskId,
-    attemptId: recordAttemptId,
-    type: "note",
-    reference: `record://${taskId}`,
-    summary: record.summary,
-    digest: null,
-    actor,
-    now,
-  });
-
-  satisfyObligation(
-    database,
-    taskId,
-    snapshot,
-    L1_RECORD_NODE_ID,
-    L1_OBLIGATION_IDS.resultAndScopeRetained,
-    evidenceId,
-    now,
-  );
-}
-
 /** The shape accepted by the execute-1 result schema (after Ajv passed). */
 interface ExecuteResultShape {
   summary: string;
@@ -435,5 +327,5 @@ interface ExecuteResultShape {
     summary: string;
     digest?: string;
   }>;
-  record?: { summary: string };
+  record?: RecordResultShape;
 }

@@ -153,7 +153,10 @@ describe("projector L3 modular graph", () => {
       run(db, taskId, { nodeId: "record-1" });
       runComplete(db, taskId, {
         nodeId: "record-1",
-        result: { summary: "Recorded" },
+        result: {
+          summary: "Recorded",
+          specImpact: { outcome: "none", reason: "No reusable rule changed" },
+        },
       });
       expect(project(db, taskId).status).toBe("done");
     } finally {

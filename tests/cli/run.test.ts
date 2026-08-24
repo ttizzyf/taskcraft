@@ -14,7 +14,10 @@ const RESULT_WITH_RECORD = JSON.stringify({
       summary: "test passes",
     },
   ],
-  record: { summary: "recorded" },
+  record: {
+    summary: "recorded",
+    specImpact: { outcome: "none", reason: "No reusable rule changed" },
+  },
 });
 
 function setupTask(cwd: string): void {
@@ -71,7 +74,7 @@ describe("tc run complete", () => {
 
       const status = runCli(["status"], cwd);
       expect(status.stdout).toContain("Status: done");
-      expect(status.stdout).toContain("Obligations: 3/3 required satisfied");
+      expect(status.stdout).toContain("Obligations: 4/4 required satisfied");
       expect(status.stdout).toContain("execute-1  satisfied");
       expect(status.stdout).toContain("record-1  satisfied");
 
@@ -203,7 +206,7 @@ describe("tc run complete", () => {
           "--node",
           "record-1",
           "--result",
-          '{"summary":"recorded"}',
+          '{"summary":"recorded","specImpact":{"outcome":"none","reason":"No reusable rule changed"}}',
         ],
         cwd,
       );
@@ -212,7 +215,7 @@ describe("tc run complete", () => {
 
       const status = runCli(["status"], cwd);
       expect(status.stdout).toContain("Status: done");
-      expect(status.stdout).toContain("Obligations: 3/3 required satisfied");
+      expect(status.stdout).toContain("Obligations: 4/4 required satisfied");
     });
   });
 });

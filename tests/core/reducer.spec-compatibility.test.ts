@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import { ERROR_CODES } from "../../src/core/errors.js";
 import { L3_PLAN_RESULT_SCHEMA } from "../../src/core/lifecycle/l3.js";
 import {
+  LEGACY_L1_EXECUTE_RESULT_SCHEMA,
+  LEGACY_L1_RECORD_RESULT_SCHEMA,
+} from "../../src/core/lifecycle/l1.js";
+import {
   reviewPass,
   reviewStart,
   run,
@@ -43,9 +47,9 @@ describe("Spec binding compiler compatibility", () => {
         .all();
 
       expect(rows).toEqual([
-        { taskId: l1.taskId, compilerVersion: "tc-l1/2" },
-        { taskId: l2.taskId, compilerVersion: "tc-l2/2" },
-        { taskId: l3.taskId, compilerVersion: "tc-l3/3" },
+        { taskId: l1.taskId, compilerVersion: "tc-l1/3" },
+        { taskId: l2.taskId, compilerVersion: "tc-l2/3" },
+        { taskId: l3.taskId, compilerVersion: "tc-l3/4" },
       ]);
     } finally {
       database.close();
@@ -83,7 +87,7 @@ describe("Spec binding compiler compatibility", () => {
       // These bytes would have been written before the compiler bump. The
       // fixture drops only update guards instead of shipping legacy writers.
       database.exec(
-        "DROP TRIGGER lifecycle_revisions_immutable_update; DROP TRIGGER lifecycle_nodes_immutable_update;",
+        "DROP TRIGGER lifecycle_revisions_immutable_update; DROP TRIGGER lifecycle_nodes_immutable_update; DROP TRIGGER obligation_definitions_immutable_delete;",
       );
       const l1 = taskNew(database, {
         title: "Legacy L1",
@@ -93,6 +97,23 @@ describe("Spec binding compiler compatibility", () => {
       database
         .prepare(
           "UPDATE lifecycle_revisions SET compiler_version = 'tc-l1/1' WHERE task_id = ? AND revision = 1",
+        )
+        .run(l1.taskId);
+      database
+        .prepare(
+          `UPDATE lifecycle_nodes SET output_schema_json = CASE id
+             WHEN 'execute-1' THEN ? WHEN 'record-1' THEN ? ELSE output_schema_json END
+           WHERE task_id = ? AND lifecycle_revision = 1`,
+        )
+        .run(
+          JSON.stringify(LEGACY_L1_EXECUTE_RESULT_SCHEMA),
+          JSON.stringify(LEGACY_L1_RECORD_RESULT_SCHEMA),
+          l1.taskId,
+        );
+      database
+        .prepare(
+          `DELETE FROM obligation_definitions
+           WHERE task_id = ? AND lifecycle_revision = 1 AND id = 'spec-impact-recorded'`,
         )
         .run(l1.taskId);
       run(database, l1.taskId);

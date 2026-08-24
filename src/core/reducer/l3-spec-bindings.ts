@@ -6,7 +6,7 @@ import type { TaskcraftDatabase } from "../../store/database.js";
 import { insertLifecycleSpecBindings } from "../../store/spec-facts.js";
 import { ERROR_CODES, TaskcraftError } from "../errors.js";
 import type { L3PlanResult } from "../lifecycle/l3-contract.js";
-import { L3_COMPILER_VERSION } from "../lifecycle/l3.js";
+import { isSpecBindingL3CompilerVersion } from "../lifecycle/l3.js";
 import { invalidL3Plan } from "./l3-accepted-relations.js";
 
 export interface AcceptedPlanSpecBindings {
@@ -54,7 +54,7 @@ export function normalizePlanSpecSelections(
   plan: L3PlanResult,
   compilerVersion: string,
 ): L3PlanResult {
-  if (compilerVersion === L3_COMPILER_VERSION) return plan;
+  if (isSpecBindingL3CompilerVersion(compilerVersion)) return plan;
   return {
     ...plan,
     executionSpecs: [],
@@ -71,10 +71,9 @@ export function validateAcceptedSpecBindings(
   accepted: AcceptedPlanSpecBindings | undefined,
   compilerVersion: string,
 ): AcceptedPlanSpecBindings {
-  const resolved =
-    compilerVersion === L3_COMPILER_VERSION
-      ? accepted
-      : emptyResolvedModules(plan);
+  const resolved = isSpecBindingL3CompilerVersion(compilerVersion)
+    ? accepted
+    : emptyResolvedModules(plan);
   if (resolved === undefined) {
     if (
       plan.executionSpecs.length === 0 &&

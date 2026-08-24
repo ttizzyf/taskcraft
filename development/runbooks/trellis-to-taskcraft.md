@@ -11,25 +11,28 @@
 默认进入条件：
 
 - Task 00–06 的验收已完成，MVP 发布门通过。
-- Store migration、事务、CAS、单 reducer/projector 和 `tc doctor` 通过。
+- Store migration、事务、CAS、单 reducer/projector 和只读 `tc doctor` 通过；doctor
+  同时覆盖 Spec Registry、binding/provenance/drift 和 Spec Impact。
 - L1 与 L2 在至少一个真实宿主完成创建、恢复、waiting/resume、Review 和 done 样本。
 - Codex 与 Claude Adapter 的 Entry Hook 安装、任务恢复和现场检测均已通过；Entry 不可用时不满足首版狗粮化条件，`tc task next` 只作为人工诊断命令。
-- Node Brief、Command Result、evidence 和 breadcrumb 合同已冻结。
+- Node Brief、Spec delivery、Spec Impact、Command Result、evidence 和 breadcrumb 合同已冻结。
+- 带真实 Git Spec 的 L1、L2、L3 single/modules 公共 CLI 闭环，以及旧 revision
+  无 binding/Impact 的兼容闭环均已通过。
 - Watch 是否可用不影响 CLI 恢复，但默认路线要求 Task 06 已完成后再切换。
 
 如果 tc 只能完成 demo、不能从新会话恢复活动任务，就不满足狗粮化条件。
 
 ## 2. 迁移映射
 
-| Trellis 内容 | 迁移处理 |
-| --- | --- |
-| active/planning PRD | 切换后人工创建新的 tc task，保存来源路径和未完成范围 |
-| design/implement | 长期决策进入 ADR；短期步骤仅作为来源/evidence reference |
-| `.trellis/spec` | 与 AGENTS/`development/` 比较，只合并当前有效且不重复的规则 |
-| research | 仅迁移仍有效、可分类且有来源的 fact/evidence |
-| 未完成 checklist | 转为 tc acceptance、required obligation 或独立后续任务 |
-| completed/archive/journal | 保留在 Git tag/归档中，不伪造为已完成 tc task |
-| task status/session pointer/Hook | 不迁移，冻结后移除 |
+| Trellis 内容                     | 迁移处理                                                                                                                                |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| active/planning PRD              | 切换后人工创建新的 tc task，保存来源路径和未完成范围                                                                                    |
+| design/implement                 | 长期决策进入 ADR；短期步骤仅作为来源/evidence reference                                                                                 |
+| `.trellis/spec`                  | 与 AGENTS/`development/` 比较；未来任务仍需遵守的工程合同登记到 `.taskcraft/spec/index.json` 指向的 Git Markdown，任务过程不迁移为 Spec |
+| research                         | 仅迁移仍有效、可分类且有来源的 fact/evidence                                                                                            |
+| 未完成 checklist                 | 转为 tc acceptance、required obligation 或独立后续任务                                                                                  |
+| completed/archive/journal        | 保留在 Git tag/归档中，不伪造为已完成 tc task                                                                                           |
+| task status/session pointer/Hook | 不迁移，冻结后移除                                                                                                                      |
 
 ## 3. 最后一张 Trellis 任务
 
@@ -79,9 +82,10 @@ trellis uninstall
 tc init --agent codex
 tc init --agent claude
 tc enable ask
+tc spec check
 tc doctor
 tc agent capabilities
-tc task new --title "Entry Hook cutover field test" --level 1 --reason "verify installed Entry Hook"
+tc task new --title "Entry Hook cutover field test" --level 1 --reason "verify installed Entry Hook" --specs '[{"id":"<confirmed-engineering-spec>","duty":"required"}]'
 tc run <task-id>
 tc agent test-entry-hook --agent claude
 tc agent test-entry-hook --agent codex
@@ -105,6 +109,8 @@ tc agent test-entry-hook --agent codex
 - 同一工作不存在 `.trellis/tasks` 与 Task Store 双份状态。
 - 新会话只注入 Taskcraft breadcrumb，Trellis 目录保持不存在或只存在于历史 tag。
 - 每项迁移后的长期规则只有一个权威位置。
+- Registry 与正文留在 Git；Task Store 只保存 revision binding、evidence 和 typed
+  Spec Impact，domain candidate 未经 owner 确认不会成为当前真相。
 - 第一张 L1 和第一张 L2 dogfood 任务有完整事实、evidence 与恢复记录。
 - 文档入口改为 tc 日常工作方式，Trellis 手册只保留为历史迁移说明。
 

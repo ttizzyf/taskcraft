@@ -14,6 +14,61 @@ import {
 import { countAttempts, queryEvents, VALID_RESULT } from "./reducer-utils.js";
 
 describe("reducer run", () => {
+  it("delivers exact revision-bound Spec snapshots in the Node Brief", () => {
+    const database = createMigratedDatabase();
+    try {
+      const taskId = taskNew(database, {
+        title: "Bound delivery",
+        level: 1,
+        reason: "exact contract",
+        initialSpecBindings: [
+          {
+            specId: "engineering.delivery",
+            kind: "engineering",
+            path: "docs/delivery.md",
+            digest: "a".repeat(64),
+            duty: "required",
+          },
+          {
+            specId: "domain.approval",
+            kind: "domain",
+            path: "docs/approval.md",
+            digest: "b".repeat(64),
+            duty: "recommended",
+          },
+        ],
+      }).taskId;
+
+      const result = run(database, taskId);
+
+      expect(result.nodeBrief).toMatchObject({
+        taskRevision: 2,
+        lifecycleRevision: 1,
+      });
+      expect(result.nodeBrief!.specs).toEqual([
+        {
+          id: "domain.approval",
+          kind: "domain",
+          path: "docs/approval.md",
+          digest: "b".repeat(64),
+          duty: "recommended",
+          drift: null,
+        },
+        {
+          id: "engineering.delivery",
+          kind: "engineering",
+          path: "docs/delivery.md",
+          digest: "a".repeat(64),
+          duty: "required",
+          drift: null,
+        },
+      ]);
+      expect(result.nodeBrief!.reviewContext).toBeNull();
+    } finally {
+      database.close();
+    }
+  });
+
   it("activates a queued task and claims the execute-1 attempt", () => {
     const database = createMigratedDatabase();
 
@@ -169,9 +224,10 @@ describe("reducer run", () => {
       });
       expect(
         result.nodeBrief!.obligations.map((obligation) => obligation.id),
-      ).toEqual(["result-and-scope-retained"]);
+      ).toEqual(["result-and-scope-retained", "spec-impact-recorded"]);
       expect(JSON.parse(result.nodeBrief!.resultSchemaJson).required).toEqual([
         "summary",
+        "specImpact",
       ]);
       expect(getAttempts(database, taskId)).toContainEqual(
         expect.objectContaining({

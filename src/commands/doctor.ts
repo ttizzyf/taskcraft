@@ -23,6 +23,11 @@ import {
   TASKCRAFT_DATABASE_FILE,
   taskcraftDirectory,
 } from "./helpers.js";
+import {
+  checkSpecRegistry,
+  loadSpecRegistry,
+  type LoadedSpecRegistry,
+} from "../spec/index.js";
 
 export function register(program: Command): void {
   program
@@ -35,7 +40,15 @@ export function register(program: Command): void {
         const database = openDoctorDatabase();
 
         try {
-          const checks = runDoctorChecks(database, migrationsDirectory());
+          const registry = loadDoctorRegistry(process.cwd());
+          const checks = [
+            registry.check,
+            ...runDoctorChecks(
+              database,
+              migrationsDirectory(),
+              registry.registry,
+            ),
+          ];
           const failedChecks = checks.filter((check) => !check.ok);
 
           if (json) {
@@ -61,6 +74,32 @@ export function register(program: Command): void {
         }
       }, json);
     });
+}
+
+function loadDoctorRegistry(projectDir: string): {
+  registry: LoadedSpecRegistry | null;
+  check: DoctorCheck;
+} {
+  try {
+    const registry = loadSpecRegistry(projectDir);
+    checkSpecRegistry(registry);
+    return { registry, check: { name: "spec-registry", ok: true } };
+  } catch (error) {
+    if (!(error instanceof TaskcraftError)) throw error;
+    return {
+      registry: null,
+      check: {
+        name: "spec-registry",
+        ok: false,
+        error: {
+          code: error.code,
+          problem: error.problem,
+          impact: error.impact,
+          remediation: error.remediation,
+        },
+      },
+    };
+  }
 }
 
 /** Opens the store read-only. The file must already exist: doctor never

@@ -52,24 +52,24 @@ dependencyEdges[]
 
 ### 核心节点
 
-| Node | 何时出现 | 主要输出 |
-| --- | --- | --- |
-| `frame` | L2/L3 或目标不清 | 目标、范围、验收、非目标 |
-| `plan` | L3 或需要拆分/依赖 | 子任务图、依赖、执行约束、集成边界 |
-| `execute` | 所有任务 | 工作成果、验证证据、变更摘要 |
-| `review` | L2/L3 必做，L1 可选；可审核 plan、execute 或 integrate attempt | pass 或 findings、`reviewed_attempt_id`、review purpose、能力状态 |
-| `integrate` | 多交付分支或跨模块结果需要统一验收 | 集成证据与整体验收；manual-attach 接收 plan 的子任务清单与依赖声明 |
-| `record` | 所有任务 | 最终结果、残余风险、关闭记录 |
+| Node        | 何时出现                                                       | 主要输出                                                           |
+| ----------- | -------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `frame`     | L2/L3 或目标不清                                               | 目标、范围、验收、非目标                                           |
+| `plan`      | L3 或需要拆分/依赖                                             | 子任务图、依赖、执行约束、集成边界                                 |
+| `execute`   | 所有任务                                                       | 工作成果、验证证据、变更摘要                                       |
+| `review`    | L2/L3 必做，L1 可选；可审核 plan、execute 或 integrate attempt | pass 或 findings、`reviewed_attempt_id`、review purpose、能力状态  |
+| `integrate` | 多交付分支或跨模块结果需要统一验收                             | 集成证据与整体验收；manual-attach 接收 plan 的子任务清单与依赖声明 |
+| `record`    | 所有任务                                                       | 最终结果、残余风险、关闭记录                                       |
 
 后续 typed node registry 可加入 `research`、`user-input`、`migration-check`、`security-review` 和 `release-check`。
 
 ## 4. 义务分级
 
-| Duty | 语义 | 能否阻塞节点完成 | 能否跳过 |
-| --- | --- | --- | --- |
-| `required` | 完成语义的一部分 | 是 | 否 |
-| `recommended` | 默认应做 | 否；项目 policy 可在编译时升级为 required | 可以，按需记录跳过原因 |
-| `optional` | 增强质量或效率 | 否 | 可以，按需记录结果 |
+| Duty          | 语义             | 能否阻塞节点完成                          | 能否跳过               |
+| ------------- | ---------------- | ----------------------------------------- | ---------------------- |
+| `required`    | 完成语义的一部分 | 是                                        | 否                     |
+| `recommended` | 默认应做         | 否；项目 policy 可在编译时升级为 required | 可以，按需记录跳过原因 |
+| `optional`    | 增强质量或效率   | 否                                        | 可以，按需记录结果     |
 
 未产生 result 的义务投影为 `pending`；持久结果为 `satisfied` 或 `skipped`。`required` 只能写入带有效 evidence 的 `satisfied`，recommended 与 optional 可直接跳过。
 
@@ -83,6 +83,7 @@ execute [required]
   - minimum validation recorded
 record [required]
   - result and changed scope retained
+  - spec impact recorded
 review [optional]
 ```
 
@@ -97,6 +98,7 @@ review [required, separate attempt]
   - reviewed_attempt_id retained
   - review capability state retained
 record [required]
+  - spec impact recorded
 focused plan [recommended when uncertainty exists]
 research [optional]
 ```
@@ -116,6 +118,7 @@ modules execution revision:
   integrate [required, consumes exact child task/revision/evidence refs]
   integration review [required only when Integrate modifies deliverables]
   record [required]
+    - spec impact recorded
 
 single execution revision:
   execute [required]
@@ -123,6 +126,7 @@ single execution revision:
   integrate [required]
   integration review [required only when Integrate modifies deliverables]
   record [required]
+    - spec impact recorded
 ```
 
 `modules` 至少包含两个可独立验收的交付模块。Feasibility Review 通过时，
@@ -163,6 +167,31 @@ L3 的 Feasibility pass 是 planning revision 到 execution revision 的原子�
 同一父任务下合同完全一致的历史 child。复用不改写 child 内容、lifecycle、Attempt、
 Evidence 或原始 inherited planning 来源。
 
+### 6.1 Spec binding 与收口
+
+Spec binding 是 revision/node scoped definition fact。L1 建卡时把显式确认的选择绑定到
+Execute/Record；L2 建卡选择只交给 Frame，Frame result 再把显式选择原子绑定到
+Execute/Delivery Review/Record；L3 accepted Plan 把 parent execution 和各 module
+选择与 execution revision、真实 child、inherited planning 在同一事务物化。空选择
+合法，`appliesTo` 候选不能自动成为 binding。
+
+创建 Execute 或 Review attempt 前，命令边界用当前 Registry 检查 exact
+id/kind/path/digest。required 漂移返回 `TC_SPEC_BINDING_STALE` 且不创建 attempt；
+recommended 漂移进入 Node Brief、`task show` 和 Watch，但不阻断。refresh 只创建新
+revision 和新 snapshot，不更新旧 binding；L3 child refresh 仍路由回 parent replan。
+
+当前 compiler 的 Record result 必须包含一种 Spec Impact：
+
+- `none`：非空理由，说明没有产生未来任务仍需遵守的规则。
+- `updated`：至少一个 active current Registry snapshot，并引用本 Task 已存在的验证、
+  测试或 artifact evidence。
+- `candidate`：工程或领域候选、理由和 ownerDecision；不会写 Registry，也不会自动
+  成为领域真相。
+
+Record attempt、Record evidence、Spec Impact row 和
+`spec-impact-recorded` obligation 在一个 reducer 事务内提交。旧 compiler revision
+没有该 schema/obligation，继续按存储合同完成。
+
 ## 7. Agent 连续执行合同
 
 本节是节点执行卡、Agent 自主连续推进与 Entry Hook 恢复方式的唯一规则源。
@@ -175,12 +204,18 @@ Evidence 或原始 inherited planning 来源。
 - 当前节点的目标、适用 procedure 和期望输出。
 - 已满足的输入、可读取证据、执行范围和依赖。
 - `required`、`recommended`、`optional` obligations 及其当前结果。
+- 当前 node 的 exact Spec `id/kind/duty/path/digest` 以及命令边界得到的 drift；
+  Adapter 只渲染同一个 DTO，不读取 Registry。
 - 允许提交的 typed outcomes、验收条件与结果登记命令。
 - 当前宿主、已知工具能力和可选派发说明。Agent 有 subagent 工具时可以派发，
   没有时由当前 Agent 自己执行；Taskcraft 不启动 subagent。
 - 本地结果 Schema。Agent 按该格式提交，Taskcraft 在写入前校验；宿主或模型的
   原生结构化输出能力只是可选辅助。
 - 需要用户决定的高风险动作，以及不得写入 Task Store 的 secret 边界。
+
+Review Node Brief 还必须包含 review purpose、被审核 attempt/node、attempt number、
+finished result 和该 attempt 的 evidence。Execute 与其 Delivery Review 使用同一
+revision/node binding 选择，不由 Adapter 或前端重新推断。
 
 Projector 使用节点 definition、当前任务 facts、已有 attempt/evidence 和 procedure registry 生成节点执行卡。Procedure registry 为 `frame`、`plan`、`execute`、`review`、`integrate` 与 `record` 提供通用执行方法；当前节点 definition 的 `objective`、`procedureRef`、`scope`、输入输出合同与 obligations 提供任务特定内容。Lifecycle compiler 只 materialize 能解析 `procedureRef` 的 typed node。
 

@@ -18,6 +18,8 @@ import { ERROR_CODES } from "./errors.js";
 import type { TaskcraftErrorCode } from "./errors.js";
 import { L1_FACTS_DIGEST, L1_POLICY_DIGEST } from "./lifecycle/l1.js";
 import { project } from "./projector.js";
+import type { LoadedSpecRegistry } from "../spec/index.js";
+import { runSpecStoreChecks } from "./doctor-spec.js";
 
 export interface DoctorError {
   code: TaskcraftErrorCode;
@@ -57,6 +59,7 @@ const PROJECTION_FIELDS = [
 export function runDoctorChecks(
   database: TaskcraftDatabase,
   migrationsDirectory: string,
+  registry: LoadedSpecRegistry | null = null,
 ): DoctorCheck[] {
   if (!hasMigrationLedger(database)) {
     // A store file without the ledger table was never migrated: the schema is
@@ -72,6 +75,7 @@ export function runDoctorChecks(
     checkEventContinuity(database),
     checkDefinitionDigest(database),
     checkL3Relations(database),
+    ...runSpecStoreChecks(database, registry),
     checkProjectionRebuild(database),
     checkBreadcrumbSchema(database),
   ];
@@ -248,6 +252,31 @@ const ORPHAN_QUERIES: ReadonlyArray<{ table: string; sql: string }> = [
           WHERE task.id IS NULL
              OR review_attempt.id IS NULL
              OR reviewed_attempt.id IS NULL`,
+  },
+  {
+    table: "lifecycle_spec_bindings",
+    sql: `SELECT b.task_id || ':' || b.lifecycle_revision || ':' || b.node_id || ':' || b.spec_id AS rowId
+          FROM lifecycle_spec_bindings AS b
+          LEFT JOIN lifecycle_nodes AS node
+            ON node.task_id = b.task_id
+           AND node.lifecycle_revision = b.lifecycle_revision
+           AND node.id = b.node_id
+          LEFT JOIN node_attempts AS source
+            ON source.id = b.source_attempt_id
+           AND source.task_id = b.source_task_id
+          WHERE node.id IS NULL
+             OR (b.source_attempt_id IS NOT NULL AND source.id IS NULL)`,
+  },
+  {
+    table: "spec_impact_results",
+    sql: `SELECT impact.record_attempt_id AS rowId
+          FROM spec_impact_results AS impact
+          LEFT JOIN node_attempts AS attempt
+            ON attempt.id = impact.record_attempt_id
+           AND attempt.task_id = impact.task_id
+           AND attempt.lifecycle_revision = impact.lifecycle_revision
+           AND attempt.node_id = impact.record_node_id
+          WHERE attempt.id IS NULL`,
   },
 ];
 

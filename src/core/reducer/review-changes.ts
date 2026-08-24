@@ -29,6 +29,7 @@ import {
   nextFindingId,
   resolveActiveReview,
 } from "./review-shared.js";
+import { buildNodeBrief } from "./node-brief.js";
 
 export function reviewChanges(
   database: TaskcraftDatabase,
@@ -131,12 +132,20 @@ export function reviewChanges(
     });
     bumpRevision(database, snapshot, now);
 
+    const currentSnapshot = snapshotOf(database, taskId);
     return {
-      ...commandData(database, taskId, snapshotOf(database, taskId)),
+      ...commandData(database, taskId, currentSnapshot),
       reviewAttemptId: attempt.id,
       reviewedAttemptId: link.reviewedAttemptId,
       findingId,
       successorAttemptId: successorAttempt,
+      nodeBrief: buildNodeBrief(
+        database,
+        taskId,
+        currentSnapshot,
+        successorAttempt,
+        reviewedNodeId,
+      ),
     };
   });
 }

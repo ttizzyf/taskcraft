@@ -18,7 +18,7 @@ import {
 import { expectZeroFacts, queryEvents, VALID_RESULT } from "./reducer-utils.js";
 
 describe("reducer runComplete", () => {
-  it("atomically closes the attempt, binds evidence and satisfies all three obligations", () => {
+  it("atomically closes the attempt, binds evidence and satisfies all obligations", () => {
     const database = createMigratedDatabase();
 
     try {
@@ -36,7 +36,7 @@ describe("reducer runComplete", () => {
 
       expect(result.status).toBe("done");
       expect(result.next).toBeNull();
-      expect(project(database, taskId).doneObligations).toBe(3);
+      expect(project(database, taskId).doneObligations).toBe(4);
 
       const task = getTask(database, taskId)!;
       expect(task.revision).toBe(3);
@@ -85,6 +85,11 @@ describe("reducer runComplete", () => {
           obligationId: "result-and-scope-retained",
           status: "satisfied",
         }),
+        expect.objectContaining({
+          nodeId: "record-1",
+          obligationId: "spec-impact-recorded",
+          status: "satisfied",
+        }),
       ]);
 
       expect(
@@ -118,7 +123,7 @@ describe("reducer runComplete", () => {
       const projection = project(database, taskId);
       expect(projection.status).toBe("active");
       expect(projection.doneObligations).toBe(2);
-      expect(projection.totalObligations).toBe(3);
+      expect(projection.totalObligations).toBe(4);
       expect(getObligationResults(database, taskId)).toHaveLength(2);
       expect(projection.runnableNodes).toEqual(["record-1"]);
       // The unique next claims the runnable record-1 node; the missing record
@@ -150,12 +155,22 @@ describe("reducer runComplete", () => {
       const result = runComplete(database, taskId, {
         nodeId: "record-1",
         attemptId: claimed.nodeBrief!.attemptId,
-        result: { summary: "Recorded late" },
+        result: {
+          summary: "Recorded late",
+          specImpact: {
+            outcome: "none",
+            reason: "No reusable rule changed",
+          },
+        },
+        resolvedSpecImpact: {
+          outcome: "none",
+          reason: "No reusable rule changed",
+        },
       });
 
       expect(result.status).toBe("done");
       expect(result.next).toBeNull();
-      expect(project(database, taskId).doneObligations).toBe(3);
+      expect(project(database, taskId).doneObligations).toBe(4);
 
       const attempts = getAttempts(database, taskId);
       expect(attempts).toEqual([
@@ -168,7 +183,13 @@ describe("reducer runComplete", () => {
           nodeId: "record-1",
           status: "finished",
           outcome: "success",
-          resultJson: JSON.stringify({ summary: "Recorded late" }),
+          resultJson: JSON.stringify({
+            summary: "Recorded late",
+            specImpact: {
+              outcome: "none",
+              reason: "No reusable rule changed",
+            },
+          }),
         }),
       ]);
       expect(getEvidence(database, taskId)).toHaveLength(2);
@@ -311,7 +332,7 @@ describe("reducer runComplete", () => {
         }),
       );
 
-      expect(error.code).toBe(ERROR_CODES.TC_LIFECYCLE_RESULT_INVALID);
+      expect(error.code).toBe(ERROR_CODES.TC_REQUIRED_OBLIGATION_MISSING);
       expect(getEvidence(database, "T-105")).toHaveLength(0);
       expect(getObligationResults(database, "T-105")).toHaveLength(0);
       expect(getAttempts(database, "T-105")[0]).toMatchObject({

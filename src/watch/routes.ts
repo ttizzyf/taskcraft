@@ -36,6 +36,7 @@ import type {
 } from "../store/query.js";
 import { collectDiagnostics } from "./diagnostics.js";
 import type { DiagnosticItem } from "./diagnostics.js";
+import { loadSpecDeliveryView, type SpecDeliveryView } from "../spec/index.js";
 
 // --- board ---------------------------------------------------------------
 
@@ -218,6 +219,7 @@ export interface WatchTaskDetail {
   reviewLinks: ReviewLinkRow[];
   blockers: BlockerRow[];
   events: WatchEventRow[];
+  specs: SpecDeliveryView;
   next: string | null;
 }
 
@@ -225,6 +227,7 @@ export interface WatchTaskDetail {
 export function buildTaskDetail(
   database: TaskcraftDatabase | null,
   taskId: string,
+  projectDir: string,
 ): WatchTaskDetail | null {
   if (database === null) {
     return null;
@@ -296,6 +299,12 @@ export function buildTaskDetail(
     reviewLinks: getReviewLinks(database, taskId),
     blockers: getOpenBlockers(database, taskId),
     events: getEvents(database, taskId),
+    specs: loadSpecDeliveryView(
+      projectDir,
+      database,
+      taskId,
+      snapshot.currentLifecycleRevision,
+    ),
     next: projection.next,
   };
 }

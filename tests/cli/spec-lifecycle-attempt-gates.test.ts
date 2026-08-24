@@ -10,6 +10,34 @@ import { runCli, withInitializedDirectory } from "./helpers.js";
 const REQUIRED_SPECS = '[{"id":"engineering.core","duty":"required"}]';
 
 describe("tc Spec successor Attempt gates", () => {
+  it("returns the checked Spec snapshot in a review-changes successor Brief", () => {
+    withInitializedDirectory((cwd) => {
+      writeRegistry(cwd);
+      createL2ReviewWithRequiredBinding(cwd);
+
+      const changes = runCli(
+        [
+          "review",
+          "changes",
+          "T-1",
+          "--attempt",
+          "att-T-1-review-1-1",
+          "--reviewed-attempt",
+          "att-T-1-execute-1-1",
+          "--finding",
+          "Update implementation",
+        ],
+        cwd,
+      );
+
+      expect(changes.status).toBe(0);
+      expect(changes.stdout).toContain("Node Brief");
+      expect(changes.stdout).toContain("engineering.core");
+      expect(changes.stdout).toContain("current");
+      expect(changes.stdout).toContain("att-T-1-execute-1-2");
+    });
+  });
+
   it("blocks run retry when a required Execute binding drifted", () => {
     withInitializedDirectory((cwd) => {
       writeRegistry(cwd);

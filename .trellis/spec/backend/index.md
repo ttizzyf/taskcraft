@@ -13,6 +13,8 @@ Taskcraft 的 TypeScript 生产实现位于 `src/`，测试位于 `tests/`。本
   parent Projector、replan/reuse、Entry root 选择、CLI/Watch/doctor 同源合同。
 - [Spec 生命周期绑定实现合同](spec-lifecycle-contract.md)：revision/node binding、
   L2/L3 原子继承、reuse Spec set、drift 与显式 refresh。
+- [Spec 交付、收口与诊断实现合同](spec-delivery-contract.md)：Node/Review Brief、
+  typed Spec Impact、共享 task show/Watch DTO 与 doctor 只读完整性。
 
 ## Pre-Development Checklist
 
@@ -26,6 +28,8 @@ Taskcraft 的 TypeScript 生产实现位于 `src/`，测试位于 `tests/`。本
 5. 先搜索命令名、配置字段和诊断码的全部生产与测试消费者。
 6. 修改 lifecycle Spec binding、drift 或 refresh 时，阅读
    [Spec 生命周期绑定实现合同](spec-lifecycle-contract.md)。
+7. 修改 Node Brief、Record 收口、task show/Watch Specs 或 doctor 时，阅读
+   [Spec 交付、收口与诊断实现合同](spec-delivery-contract.md)。
 
 ## Quality Check
 

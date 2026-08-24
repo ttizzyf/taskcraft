@@ -21,7 +21,10 @@ import { registerRunComplete } from "./run-complete.js";
 import { register as registerRunFail } from "./run-fail.js";
 import { register as registerRunRetry } from "./run-retry.js";
 import { register as registerRunStatus } from "./run-status.js";
-import { assertRunAttemptSpecBindings } from "./spec-bindings.js";
+import {
+  assertRunAttemptSpecBindings,
+  attachNodeBriefSpecDrift,
+} from "./spec-bindings.js";
 
 export function register(program: Command): void {
   const runCommand = program
@@ -57,7 +60,17 @@ export function register(program: Command): void {
             input.expectedRevision = checkedRevision;
           }
 
-          const data = run(database, taskId, input);
+          const result = run(database, taskId, input);
+          const data =
+            result.nodeBrief === undefined
+              ? result
+              : {
+                  ...result,
+                  nodeBrief: attachNodeBriefSpecDrift(
+                    result.nodeBrief,
+                    bindingCheck.drift,
+                  ),
+                };
 
           if (json) {
             printCommandResult(data);

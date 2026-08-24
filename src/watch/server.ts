@@ -149,7 +149,7 @@ async function handleRequest(
     if (taskMatch !== null) {
       const taskId = taskMatch[1] ?? "";
       const detail = withDatabase(options.projectDir, (database) =>
-        buildTaskDetail(database, taskId),
+        buildTaskDetail(database, taskId, options.projectDir),
       );
 
       if (detail === null) {

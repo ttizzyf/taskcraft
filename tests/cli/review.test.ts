@@ -141,6 +141,8 @@ describe("review feedback loops", () => {
         "Successor attempt: att-T-1-execute-1-2",
       );
       expect(changes.stdout).toContain("Next: tc run complete T-1");
+      expect(changes.stdout).toContain("Node Brief");
+      expect(changes.stdout).toContain("Attempt: att-T-1-execute-1-2");
 
       const redo = runCli(
         ["run", "complete", "T-1", "--result", EXECUTE_RESULT],

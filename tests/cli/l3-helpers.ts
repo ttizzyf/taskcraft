@@ -106,7 +106,10 @@ export const REVIEW_EVIDENCE = JSON.stringify([
     summary: "Reviewer verified the attempt",
   },
 ]);
-export const RECORD_RESULT = JSON.stringify({ summary: "Recorded" });
+export const RECORD_RESULT = JSON.stringify({
+  summary: "Recorded",
+  specImpact: { outcome: "none", reason: "No reusable rule changed" },
+});
 
 export interface AttemptJson {
   id: string;
@@ -263,7 +266,10 @@ export function toDeliveryPoint(cwd: string): string[] {
   expect(runCli(["run", "T-3", "--node", "execute-1"], cwd).status).toBe(0);
   const l1Result = JSON.stringify({
     ...JSON.parse(L3_EXECUTE_RESULT),
-    record: { summary: "L1 child recorded" },
+    record: {
+      summary: "L1 child recorded",
+      specImpact: { outcome: "none", reason: "No reusable rule changed" },
+    },
   });
   expect(
     runCli(["run", "complete", "T-3", "--result", l1Result], cwd).status,

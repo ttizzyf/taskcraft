@@ -12,7 +12,10 @@ const RESULT = JSON.stringify({
   evidence: [
     { type: "validation", reference: "tests/x.test.ts", summary: "passes" },
   ],
-  record: { summary: "recorded" },
+  record: {
+    summary: "recorded",
+    specImpact: { outcome: "none", reason: "No reusable rule changed" },
+  },
 });
 
 function setupTask(cwd: string): void {
@@ -101,7 +104,7 @@ describe("tc task wait / resume closed loop", () => {
 
       const status = runCli(["status"], cwd);
       expect(status.stdout).toContain("Status: done");
-      expect(status.stdout).toContain("Obligations: 3/3 required satisfied");
+      expect(status.stdout).toContain("Obligations: 4/4 required satisfied");
     });
   });
 

@@ -3,9 +3,9 @@ import {
   L1_COMPILER_VERSION,
   L1_EDGE,
   L1_FACTS_DIGEST,
-  L1_NODES,
-  L1_OBLIGATIONS,
   L1_POLICY_DIGEST,
+  l1NodesForCompiler,
+  l1ObligationsForCompiler,
 } from "../lifecycle/l1.js";
 
 export interface L1GraphInput {
@@ -24,6 +24,7 @@ export function materializeL1Graph(
   database: TaskcraftDatabase,
   input: L1GraphInput,
 ): void {
+  const compilerVersion = input.compilerVersion ?? L1_COMPILER_VERSION;
   database
     .prepare(
       `INSERT INTO lifecycle_revisions (
@@ -37,7 +38,7 @@ export function materializeL1Graph(
       input.revision,
       input.reasonCode,
       input.reason,
-      input.compilerVersion ?? L1_COMPILER_VERSION,
+      compilerVersion,
       L1_FACTS_DIGEST,
       L1_POLICY_DIGEST,
       JSON.stringify(input.changeSummary),
@@ -52,7 +53,7 @@ export function materializeL1Graph(
        retry_policy_json, input_schema_json, output_schema_json
      ) VALUES (?, ?, ?, ?, ?, ?, ?, '{}', '{}', '{}', ?, '{}', ?)`,
   );
-  for (const node of L1_NODES) {
+  for (const node of l1NodesForCompiler(compilerVersion)) {
     insertNode.run(
       input.taskId,
       input.revision,
@@ -86,7 +87,7 @@ export function materializeL1Graph(
        task_id, lifecycle_revision, node_id, id, duty, title, evaluator_json
      ) VALUES (?, ?, ?, ?, 'required', ?, ?)`,
   );
-  for (const obligation of L1_OBLIGATIONS) {
+  for (const obligation of l1ObligationsForCompiler(compilerVersion)) {
     insertObligation.run(
       input.taskId,
       input.revision,

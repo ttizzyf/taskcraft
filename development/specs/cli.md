@@ -84,7 +84,7 @@ id/path、domain authority、正文存在性、可读性和 project realpath con
 ## 4. Task
 
 ```bash
-tc task new --title "Fix parser" --level 1|2|3 --reason "<judgment>" [--facts <json|@path|@->]
+tc task new --title "Fix parser" --level 1|2|3 --reason "<judgment>" [--facts <json|@path|@->] [--specs <json|@path|@->]
 tc task list [--status active,waiting] [--json]
 tc task next <task-id> [--json]
 tc task show T-104 [--json]
@@ -95,11 +95,15 @@ tc task resume T-104
 tc task cancel T-104 --reason "superseded"
 tc task evidence add T-104 --attempt att_execute_1 --type test --ref report.json  （deferred）
 tc task fact add T-104 --attempt <id> --category probe --subject "API capability" --value <json|@path> --evidence <id>
+tc task spec refresh T-104 --reason "Registry contract changed"
 tc task export T-104 --format md  （deferred）
 ```
 
 Agent 提交任务目标、Level 和判定理由；其他 facts 按需提供，缺失就是未提供。
 `task new` 生成当前 revision 的 required obligations，但不激活任务或创建 attempt。
+`--specs` 接收显式 `{id,duty}` 选择；命令用 Registry 解析 active current snapshot，
+Reducer 只接收解析后的值。`task spec refresh` 创建新 revision，不覆盖旧 binding；
+L3 root 或 inherited child 复用 parent replan 路径。
 `promote` 提供升级快捷路径；`revise` 通过新 revision 修改 Level 或合同并留存原因
 与差异（两者均 deferred，非 MVP 范围）。evidence 不单独提交：随 `run complete`
 result 的 evidence refs 引用落库，`evidence add`/`export` 均 deferred。根命令 `tc`
@@ -132,7 +136,7 @@ tc review replan T-104 --attempt <id> --finding "Contract changed"
 subagent。当前 Agent 使用自身能力执行，也可以按 Node Brief 的派发说明调用宿主
 原生 subagent；`run attach` 只登记已有 host run 的观察关系。
 
-`review start` 记录 `reviewPurpose`：`feasibility` 审核 plan attempt，`delivery`
+`review start` 返回 Review Node Brief，并记录 `reviewPurpose`：`feasibility` 审核 plan attempt，`delivery`
 审核 execute attempt，`integration` 审核 integrate attempt，并保存 Review correlation
 能力（`context-only`、`manual-attach`、`host-observed`）与独立性状态。
 `review pass` 检查 required evidence；Reviewer 修改过内容时先用现有 evidence
@@ -142,6 +146,11 @@ revision。inherited L2 child 的 Delivery Review 执行 `review replan <child>`
 Reducer 将新 planning revision 创建在 root L3 parent 上，返回父任务的 next；旧
 children 只记录为 `not_required`，不自动取消或停止宿主运行。三个命令都由 reducer
 校验结构、CAS、结果 Schema 和引用关系。
+
+Execute/Review Node Brief 的 `specs[]` 来自当前 revision/node 的 immutable binding，
+包含 id、kind、duty、path、digest 和 drift。required drift 在新 attempt 事务前返回
+`TC_SPEC_BINDING_STALE`；recommended drift 只显示。Review Brief 同时返回被审核
+attempt 的 node、result 和 evidence。Codex 与 Claude Adapter 只渲染这个 DTO。
 
 ## 6. Watch 与状态
 
@@ -154,6 +163,8 @@ tc state --json
 ```
 
 `watch` 默认绑定 `127.0.0.1` 随机端口并打开浏览器；`--no-open` 只打印 URL。深链在同一 Watch 会话内稳定；无浏览器环境可使用 `tc task list` 与 `tc task show`，两者读取同一 Task Store。
+Task Detail 的 Specs 区块与 `task show` 消费同一个 delivery DTO，显示 current binding、
+drift、Registry issue 和最终 Spec Impact；前端不计算任务状态、漂移或 Impact 语义。
 `lifecycle inspect/explain/validate` 为 deferred，不进入首版帮助或闭环示例。
 
 ## 7. 常见闭环
@@ -217,23 +228,23 @@ tc run complete T-203 --node record-1 --result record.json
 
 ### 7.1 Command transition table
 
-| 命令 | 前置事实 | 原子写集合 | 成功后的唯一 next |
-| --- | --- | --- | --- |
-| `task new` | 仓库已初始化；Agent 提交目标、Level、reason，可选 facts | Task、初始 lifecycle revision、required obligations、审计事件；不写激活事实或 attempt | 返回 `taskId`、`taskRevision` 与唯一 `run` |
-| `task promote/revise`（deferred） | Task 存在；Agent 提交新 Level/合同与 reason；CAS 匹配 | 新 lifecycle revision、old/new diff、旧运行 attempt 的 `superseded` 结果、审计事件 | 返回新 revision 的首个 runnable node |
-| `task wait` | Task 已激活；typed reason 与 remediation 可读；CAS 匹配 | open blocker、审计事件 | 返回 `task resume`、用户输入或指定 remediation |
-| `task resume` | 对应 blocker 已具备解决事实；CAS 匹配 | blocker resolved、审计事件 | 返回当前首个 runnable node |
-| `task cancel` | Task 尚未形成取消事实；L3 parent 没有 queued/active/waiting required child；CAS 匹配 | cancel fact、当前任务活跃 attempt 终止结果、审计事件；不级联 child | 返回只读 `task show` |
-| `task evidence add`（deferred） | evidence reference 可读；目标 attempt/Task 引用有效；CAS 匹配 | evidence、可满足的 obligation result、审计事件 | 返回 projector 推导的 next |
-| `task fact add` | 来源 attempt 有效；category、subject、value 与可选 evidence 可读；CAS 匹配 | append-only Task fact、审计事件 | 返回当前 Review/节点的 next |
-| `run <task>` | Task 为 queued，或当前 lifecycle revision 存在 runnable node；CAS 匹配 | queued 时写激活事实；创建或领取 node attempt、actor claim、审计事件 | 返回 Node Brief 与 `run complete`；Agent 可选执行 `run attach` |
-| `run attach` | attempt 已创建；Agent 提供已有 host run；CAS 匹配 | agent run observation、attempt actor binding、审计事件 | 返回 `run status`/`run complete` |
-| `run retry` | 目标是当前 revision 中该 node 的最新 attempt，且已失败/superseded 或 host observation 为 stale；Agent 给出 reason；CAS 匹配 | stale 活跃 attempt 原子标为 `superseded`、创建并领取 successor attempt、审计事件 | 直接返回 successor Node Brief 与 `run complete`；Agent 可选执行 `run attach` |
-| `run complete` | attempt 属于当前 lifecycle revision；结果满足节点 gate；CAS 匹配 | attempt outcome、evidence refs、obligation results、审计事件 | 返回 projector 推导的下一节点命令 |
-| `review start` | 当前 revision 的 review node runnable；review purpose 与被审核 attempt kind 匹配；CAS 匹配 | review attempt、review link、purpose、能力与独立性披露、审计事件 | 返回 Review 节点上下文、可选 attach 与结论命令 |
-| `review pass` | review link 有效；required review evidence 完整；L3 Plan schema、coverage、dependencies 和 child 引用有效；CAS 匹配 | 普通 Review 写 outcome/evidence；L3 Feasibility pass 原子写 execution revision、anchors、relations 与真实 children | 返回 `record`、`integrate` 或新的 runnable node/child 集合 |
-| `review changes` | review link 有效；finding 需要实质修改且合同保持不变；CAS 匹配 | finding、被审核 node kind 的 successor attempt、审计事件 | 返回 successor `run` |
-| `review replan` | review link 有效；Agent 提交 typed reason；CAS 匹配；child 路径要求其属于当前 L3 required 集合 | 新 planning revision、old/new diff、旧 child 的 `not_required` membership 与审计事件；不删除或取消 child | 返回 root 新 revision 的首个 runnable node |
+| 命令                              | 前置事实                                                                                                                    | 原子写集合                                                                                                         | 成功后的唯一 next                                                            |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| `task new`                        | 仓库已初始化；Agent 提交目标、Level、reason，可选 facts                                                                     | Task、初始 lifecycle revision、required obligations、审计事件；不写激活事实或 attempt                              | 返回 `taskId`、`taskRevision` 与唯一 `run`                                   |
+| `task promote/revise`（deferred） | Task 存在；Agent 提交新 Level/合同与 reason；CAS 匹配                                                                       | 新 lifecycle revision、old/new diff、旧运行 attempt 的 `superseded` 结果、审计事件                                 | 返回新 revision 的首个 runnable node                                         |
+| `task wait`                       | Task 已激活；typed reason 与 remediation 可读；CAS 匹配                                                                     | open blocker、审计事件                                                                                             | 返回 `task resume`、用户输入或指定 remediation                               |
+| `task resume`                     | 对应 blocker 已具备解决事实；CAS 匹配                                                                                       | blocker resolved、审计事件                                                                                         | 返回当前首个 runnable node                                                   |
+| `task cancel`                     | Task 尚未形成取消事实；L3 parent 没有 queued/active/waiting required child；CAS 匹配                                        | cancel fact、当前任务活跃 attempt 终止结果、审计事件；不级联 child                                                 | 返回只读 `task show`                                                         |
+| `task evidence add`（deferred）   | evidence reference 可读；目标 attempt/Task 引用有效；CAS 匹配                                                               | evidence、可满足的 obligation result、审计事件                                                                     | 返回 projector 推导的 next                                                   |
+| `task fact add`                   | 来源 attempt 有效；category、subject、value 与可选 evidence 可读；CAS 匹配                                                  | append-only Task fact、审计事件                                                                                    | 返回当前 Review/节点的 next                                                  |
+| `run <task>`                      | Task 为 queued，或当前 lifecycle revision 存在 runnable node；CAS 匹配                                                      | queued 时写激活事实；创建或领取 node attempt、actor claim、审计事件                                                | 返回 Node Brief 与 `run complete`；Agent 可选执行 `run attach`               |
+| `run attach`                      | attempt 已创建；Agent 提供已有 host run；CAS 匹配                                                                           | agent run observation、attempt actor binding、审计事件                                                             | 返回 `run status`/`run complete`                                             |
+| `run retry`                       | 目标是当前 revision 中该 node 的最新 attempt，且已失败/superseded 或 host observation 为 stale；Agent 给出 reason；CAS 匹配 | stale 活跃 attempt 原子标为 `superseded`、创建并领取 successor attempt、审计事件                                   | 直接返回 successor Node Brief 与 `run complete`；Agent 可选执行 `run attach` |
+| `run complete`                    | attempt 属于当前 lifecycle revision；结果满足节点 gate；CAS 匹配                                                            | attempt outcome、evidence refs、obligation results、审计事件；当前 Record 同事务写 typed Spec Impact               | 返回 projector 推导的下一节点命令                                            |
+| `review start`                    | 当前 revision 的 review node runnable；review purpose 与被审核 attempt kind 匹配；required Spec 无漂移；CAS 匹配            | review attempt、review link、purpose、能力与独立性披露、审计事件                                                   | 返回带 exact Specs、被审核 result/evidence 的 Review Node Brief 与结论命令   |
+| `review pass`                     | review link 有效；required review evidence 完整；L3 Plan schema、coverage、dependencies 和 child 引用有效；CAS 匹配         | 普通 Review 写 outcome/evidence；L3 Feasibility pass 原子写 execution revision、anchors、relations 与真实 children | 返回 `record`、`integrate` 或新的 runnable node/child 集合                   |
+| `review changes`                  | review link 有效；finding 需要实质修改且合同保持不变；CAS 匹配                                                              | finding、被审核 node kind 的 successor attempt、审计事件                                                           | 返回 successor `run`                                                         |
+| `review replan`                   | review link 有效；Agent 提交 typed reason；CAS 匹配；child 路径要求其属于当前 L3 required 集合                              | 新 planning revision、old/new diff、旧 child 的 `not_required` membership 与审计事件；不删除或取消 child           | 返回 root 新 revision 的首个 runnable node                                   |
 
 所有写命令以当前 revision 的 CAS 校验为入口；冲突返回 `TC_REVISION_CONFLICT` 与最新 `tc status --json` 查询命令。reducer 的结构校验、引用校验和事务失败保持显式可见。
 
@@ -254,7 +265,9 @@ Node Brief 告诉 Agent 应提交的 JSON 结构和登记命令。Taskcraft 在�
     "taskId": "T-104",
     "taskRevision": 12,
     "status": "active",
-    "next": {"command": "tc review start T-104 --node review-1 --expected-revision 12"}
+    "next": {
+      "command": "tc review start T-104 --node review-1 --expected-revision 12"
+    }
   },
   "errors": []
 }
@@ -267,14 +280,16 @@ Node Brief 告诉 Agent 应提交的 JSON 结构和登记命令。Taskcraft 在�
   "schemaVersion": "tc-command-result/v1",
   "ok": false,
   "data": null,
-  "errors": [{
-    "code": "TC_REQUIRED_EVIDENCE_MISSING",
-    "problem": "review-1 cannot pass without boundary-test evidence",
-    "impact": "task remains active at review-1",
-    "remediation": {
-      "command": "tc task evidence add T-104 --attempt att_execute_2 --type test --ref <path>"
+  "errors": [
+    {
+      "code": "TC_REQUIRED_EVIDENCE_MISSING",
+      "problem": "review-1 cannot pass without boundary-test evidence",
+      "impact": "task remains active at review-1",
+      "remediation": {
+        "command": "tc task evidence add T-104 --attempt att_execute_2 --type test --ref <path>"
+      }
     }
-  }]
+  ]
 }
 ```
 
@@ -284,16 +299,16 @@ Node Brief 告诉 Agent 应提交的 JSON 结构和登记命令。Taskcraft 在�
 
 ## 9. Error taxonomy
 
-| Prefix | 范围 |
-| --- | --- |
-| `TC_TASK_*` | Task 不存在、状态或级别问题 |
-| `TC_LIFECYCLE_*` | 图、节点、依赖、义务问题 |
-| `TC_REVISION_*` | 并发与 CAS |
-| `TC_EVIDENCE_*` | 证据缺失或无效 |
-| `TC_ADAPTER_*` | host capability、Hook、run |
-| `TC_STORE_*` | SQLite、迁移、事务、完整性 |
-| `TC_POLICY_*` | 项目策略拒绝 |
-| `TC_SPEC_*` | Git-owned Spec Registry、正文路径和后续绑定/影响合同 |
+| Prefix           | 范围                                                 |
+| ---------------- | ---------------------------------------------------- |
+| `TC_TASK_*`      | Task 不存在、状态或级别问题                          |
+| `TC_LIFECYCLE_*` | 图、节点、依赖、义务问题                             |
+| `TC_REVISION_*`  | 并发与 CAS                                           |
+| `TC_EVIDENCE_*`  | 证据缺失或无效                                       |
+| `TC_ADAPTER_*`   | host capability、Hook、run                           |
+| `TC_STORE_*`     | SQLite、迁移、事务、完整性                           |
+| `TC_POLICY_*`    | 项目策略拒绝                                         |
+| `TC_SPEC_*`      | Git-owned Spec Registry、正文路径和后续绑定/影响合同 |
 
 错误 remediation 只引用 CLI、adapter 或用户输入动作；Task Store、Board、breadcrumb 和 Watch 由同一 command service 产生。
 

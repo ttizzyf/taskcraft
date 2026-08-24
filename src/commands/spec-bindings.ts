@@ -14,6 +14,7 @@ import {
   type SpecBindingDrift,
 } from "../spec/index.js";
 import { TaskcraftError } from "../core/errors.js";
+import type { NodeBrief } from "../core/reducer.js";
 
 export interface AttemptSpecBindingCheck {
   drift: SpecBindingDrift[];
@@ -81,7 +82,6 @@ function checkCurrentAttemptSpecBindings(
     drift,
     taskRevision: snapshot.revision,
   });
-  if (!creatingAttempt) return result([]);
   const node = getLifecycle(
     database,
     snapshot.id,
@@ -100,16 +100,6 @@ function checkCurrentAttemptSpecBindings(
     drift = evaluateSpecBindingDrift(loadSpecRegistry(process.cwd()), bindings);
   } catch (error) {
     if (!(error instanceof TaskcraftError)) throw error;
-    const failedSpecId = error.context?.specId;
-    const isBoundSpecFailure =
-      typeof failedSpecId === "string" &&
-      bindings.some((binding) => binding.specId === failedSpecId);
-    if (
-      !isBoundSpecFailure ||
-      bindings.some((binding) => binding.duty === "required")
-    ) {
-      throw error;
-    }
     drift = bindings.map((binding) => ({
       binding,
       status: "stale" as const,
@@ -117,6 +107,7 @@ function checkCurrentAttemptSpecBindings(
     }));
   }
   if (
+    creatingAttempt &&
     drift.some(
       (item) => item.status === "stale" && item.binding.duty === "required",
     )
@@ -124,6 +115,28 @@ function checkCurrentAttemptSpecBindings(
     throw staleRequiredBindingsError(snapshot.id, drift);
   }
   return result(drift);
+}
+
+/** Attaches the command boundary's Registry comparison to the immutable
+ * snapshot already present in the reducer-built Node Brief. */
+export function attachNodeBriefSpecDrift(
+  brief: NodeBrief,
+  drift: readonly SpecBindingDrift[],
+): NodeBrief {
+  const byId = new Map(drift.map((item) => [item.binding.specId, item]));
+  return {
+    ...brief,
+    specs: brief.specs.map((spec) => {
+      const item = byId.get(spec.id);
+      return {
+        ...spec,
+        drift:
+          item === undefined
+            ? spec.drift
+            : { status: item.status, reasons: [...item.reasons] },
+      };
+    }),
+  };
 }
 
 function resolveBoundarySnapshot(

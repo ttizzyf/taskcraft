@@ -49,6 +49,7 @@ describe("reducer taskNew", () => {
         "minimum-validation-recorded",
         "requested-outcome-produced",
         "result-and-scope-retained",
+        "spec-impact-recorded",
       ]);
       expect(
         graph.obligations.every((obligation) => obligation.duty === "required"),
@@ -101,6 +102,7 @@ describe("reducer taskNew", () => {
         "requested-outcome-produced",
         "frame-completed",
         "result-and-scope-retained",
+        "spec-impact-recorded",
         "review-completed",
       ]);
     } finally {

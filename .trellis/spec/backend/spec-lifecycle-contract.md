@@ -33,8 +33,9 @@ inherited_plan | refresh`，并保留 Frame/parent Plan attempt provenance。
 
 ## 3. Contracts
 
-- 新 compiler 是 `tc-l1/2`、`tc-l2/2`、`tc-l3/3` 和
-  `tc-l3-child/2`。旧 stored schema 由 exact node 的
+- 当前 compiler 是 `tc-l1/3`、`tc-l2/3`、`tc-l3/4` 和
+  `tc-l3-child/3`；上一代 `tc-l1/2`、`tc-l2/2`、`tc-l3/3` 和
+  `tc-l3-child/2` 已支持 binding，但没有 Spec Impact。所有旧 stored schema 由 exact node 的
   `output_schema_json` 校验；旧 `tc-l3/2` accepted Plan 继续生成 `/2` execution
   revision 和 `tc-l3-child/1` child，不被新 schema 反向升级。
 - L1 task-create binding 指向 Execute/Record；L2 task-create 只指向 Frame；L3

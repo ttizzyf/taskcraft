@@ -36,7 +36,7 @@ import {
   insertEvent,
   nowIso,
 } from "./shared.js";
-import { buildNodeBrief } from "./run.js";
+import { buildNodeBrief } from "./node-brief.js";
 
 export interface RetryResult extends CommandData {
   /** Successor attempt id, or null when the retry budget was exhausted and
@@ -270,13 +270,14 @@ export function runRetry(
     });
     bumpRevision(database, snapshot, now);
 
+    const currentSnapshot = snapshotOf(database, taskId);
     return {
-      ...commandData(database, taskId, snapshotOf(database, taskId)),
+      ...commandData(database, taskId, currentSnapshot),
       successorAttemptId: successorAttempt,
       nodeBrief: buildNodeBrief(
         database,
         taskId,
-        snapshot,
+        currentSnapshot,
         successorAttempt,
         attempt.nodeId,
       ),

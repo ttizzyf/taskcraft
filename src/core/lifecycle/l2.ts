@@ -7,6 +7,8 @@
 // append-only afterwards.
 
 import {
+  LEGACY_L1_EXECUTE_RESULT_SCHEMA,
+  LEGACY_L1_RECORD_RESULT_SCHEMA,
   L1_EXECUTE_RESULT_SCHEMA,
   L1_FACTS_DIGEST,
   L1_OBLIGATION_IDS,
@@ -15,7 +17,8 @@ import {
 } from "./l1.js";
 import { SPEC_SELECTION_ARRAY_SCHEMA } from "./spec-schemas.js";
 
-export const L2_COMPILER_VERSION = "tc-l2/2";
+export const L2_COMPILER_VERSION = "tc-l2/3";
+export const L2_SPEC_BINDING_COMPILER_VERSION = "tc-l2/2";
 
 /** L2 revisions carry the same empty facts/policy set at compile time; the
  * digests are stable for every L2 revision until facts change. */
@@ -45,6 +48,20 @@ export const L2_FRAME_RESULT_SCHEMA = {
       items: { type: "string", minLength: 1 },
     },
     specBindings: SPEC_SELECTION_ARRAY_SCHEMA,
+  },
+} as const;
+
+export const LEGACY_L2_FRAME_RESULT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["objective", "scope", "acceptance"],
+  properties: {
+    objective: { type: "string", minLength: 1 },
+    scope: { type: "object" },
+    acceptance: {
+      type: "array",
+      items: { type: "string", minLength: 1 },
+    },
   },
 } as const;
 
@@ -143,4 +160,58 @@ export const L2_OBLIGATIONS: readonly L2ObligationDefinition[] = Object.freeze([
     title: "Result and scope retained",
     evaluatorJson: JSON.stringify({ kind: "record-result" }),
   },
+  {
+    nodeId: "record-1",
+    id: L2_OBLIGATION_IDS.specImpactRecorded,
+    duty: "required",
+    title: "Spec Impact recorded",
+    evaluatorJson: JSON.stringify({ kind: "spec-impact-result" }),
+  },
 ]);
+
+export function isSpecBindingL2CompilerVersion(version: string): boolean {
+  return (
+    version === L2_COMPILER_VERSION ||
+    version === L2_SPEC_BINDING_COMPILER_VERSION
+  );
+}
+
+export function l2NodesForCompiler(
+  version: string,
+): readonly L2NodeDefinition[] {
+  if (version === L2_COMPILER_VERSION) return L2_NODES;
+  return L2_NODES.map((node) => {
+    if (node.id === "execute-1") {
+      return {
+        ...node,
+        outputSchemaJson: JSON.stringify(LEGACY_L1_EXECUTE_RESULT_SCHEMA),
+      };
+    }
+    if (node.id === "record-1") {
+      return {
+        ...node,
+        outputSchemaJson: JSON.stringify(LEGACY_L1_RECORD_RESULT_SCHEMA),
+      };
+    }
+    if (
+      node.id === L2_FRAME_NODE_ID &&
+      version !== L2_SPEC_BINDING_COMPILER_VERSION
+    ) {
+      return {
+        ...node,
+        outputSchemaJson: JSON.stringify(LEGACY_L2_FRAME_RESULT_SCHEMA),
+      };
+    }
+    return node;
+  });
+}
+
+export function l2ObligationsForCompiler(
+  version: string,
+): readonly L2ObligationDefinition[] {
+  return version === L2_COMPILER_VERSION
+    ? L2_OBLIGATIONS
+    : L2_OBLIGATIONS.filter(
+        (obligation) => obligation.id !== L2_OBLIGATION_IDS.specImpactRecorded,
+      );
+}

@@ -18,7 +18,10 @@ import {
 } from "./helpers.js";
 import type { ReviewRenderData } from "./render.js";
 import { renderReviewData } from "./render.js";
-import { assertReviewAttemptSpecBindings } from "./spec-bindings.js";
+import {
+  assertReviewAttemptSpecBindings,
+  attachNodeBriefSpecDrift,
+} from "./spec-bindings.js";
 
 const PURPOSES = ["feasibility", "delivery", "integration"] as const;
 const CAPABILITIES = [
@@ -118,6 +121,14 @@ export function register(review: Command): void {
           const result = reviewStart(database, taskId, input);
           const data: ReviewRenderData = {
             ...result,
+            ...(result.nodeBrief === undefined
+              ? {}
+              : {
+                  nodeBrief: attachNodeBriefSpecDrift(
+                    result.nodeBrief,
+                    bindingCheck.drift,
+                  ),
+                }),
             purpose,
             capability,
             independenceStatus,

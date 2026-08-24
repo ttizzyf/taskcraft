@@ -11,7 +11,6 @@ import {
   getSpecImpactResults,
   getTaskRelations,
 } from "../../src/store/query.js";
-import { insertSpecImpactResult } from "../../src/store/spec-facts.js";
 import {
   passReview,
   reviewInput,
@@ -83,18 +82,14 @@ describe("Spec lifecycle facts", () => {
               summary: "Validated",
             },
           ],
-          record: { summary: "Recorded" },
+          record: {
+            summary: "Recorded",
+            specImpact: {
+              outcome: "none",
+              reason: "No reusable rule changed",
+            },
+          },
         },
-      });
-      insertSpecImpactResult(database, {
-        recordAttemptId: `att-${taskId}-record-1-1`,
-        taskId,
-        lifecycleRevision: 1,
-        recordNodeId: "record-1",
-        outcome: "none",
-        details: { reason: "No reusable rule changed" },
-        actor: "test",
-        now: "2026-08-21T00:00:00.000Z",
       });
 
       expect(getSpecImpactResults(database, taskId)).toEqual([

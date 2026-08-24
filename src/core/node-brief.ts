@@ -82,12 +82,48 @@ function renderText(
       : `\nDispatch notes:\n${(input.dispatchNotes ?? [])
           .map((note) => `- ${note}`)
           .join("\n")}`;
+  const specs =
+    brief.specs.length === 0
+      ? "- (none)"
+      : brief.specs
+          .map((spec) => {
+            const drift =
+              spec.drift === null
+                ? "not checked"
+                : spec.drift.status === "current"
+                  ? "current"
+                  : `stale: ${spec.drift.reasons.join(", ")}`;
+            return `- [${spec.duty}] ${spec.id} (${spec.kind}) — ${spec.path} — sha256:${spec.digest} — ${drift}`;
+          })
+          .join("\n");
+  const review =
+    brief.reviewContext === null
+      ? ""
+      : [
+          "",
+          "Reviewed attempt:",
+          `- Purpose: ${brief.reviewContext.purpose}`,
+          `- Attempt: ${brief.reviewContext.reviewedAttemptId}`,
+          `- Node: ${brief.reviewContext.reviewedNodeId} (${brief.reviewContext.reviewedNodeKind})`,
+          `- Outcome: ${brief.reviewContext.outcome}`,
+          `- Result: ${JSON.stringify(brief.reviewContext.result)}`,
+          "- Evidence:",
+          ...(brief.reviewContext.evidence.length === 0
+            ? ["  - (none)"]
+            : brief.reviewContext.evidence.map(
+                (item) =>
+                  `  - ${item.id} (${item.type}) — ${item.reference} — ${item.summary}` +
+                  (item.digest === null ? "" : ` — digest:${item.digest}`),
+              )),
+        ].join("\n");
 
   return [
     "## Taskcraft Node Brief",
     "",
     `Host: ${input.host}${version}`,
     `Task: ${brief.taskId} — ${brief.taskTitle}`,
+    `Task revision: ${brief.taskRevision}`,
+    `Lifecycle revision: ${brief.lifecycleRevision}`,
     `Node: ${brief.nodeId} (${brief.nodeKind}) — attempt ${brief.attemptId}`,
     "",
     `Objective: ${brief.objective}`,
@@ -95,6 +131,10 @@ function renderText(
     "",
     "Obligations:",
     obligations,
+    "",
+    "Specs:",
+    specs,
+    review,
     "",
     "Result schema:",
     "```json",

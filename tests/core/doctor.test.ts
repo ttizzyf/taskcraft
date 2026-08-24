@@ -24,13 +24,13 @@ function checkOf(database: TaskcraftDatabase, name: string): DoctorCheck {
 }
 
 describe("runDoctorChecks", () => {
-  it("passes all eight checks on a migrated empty store", () => {
+  it("passes all ten Store checks on a migrated empty store", () => {
     const database = createMigratedDatabase();
 
     try {
       const checks = checksOf(database);
 
-      expect(checks).toHaveLength(8);
+      expect(checks).toHaveLength(10);
       for (const check of checks) {
         expect(check.ok, check.name).toBe(true);
         expect(check.error).toBeUndefined();
@@ -40,7 +40,7 @@ describe("runDoctorChecks", () => {
     }
   });
 
-  it("passes all eight checks on L1/L2/L3 tasks created through the reducer", () => {
+  it("passes all Store checks on L1/L2/L3 tasks created through the reducer", () => {
     const database = createMigratedDatabase();
 
     try {

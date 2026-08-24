@@ -44,6 +44,13 @@ describe("reducer reviewChanges", () => {
       expect(result.findingId).toBe(`fnd-${taskId}-1`);
       expect(result.successorAttemptId).toBe(`att-${taskId}-execute-1-2`);
       expect(result.next).toBe(`tc run complete ${taskId}`);
+      expect(result.nodeBrief).toMatchObject({
+        taskId,
+        taskRevision: 7,
+        lifecycleRevision: 1,
+        nodeId: "execute-1",
+        attemptId: `att-${taskId}-execute-1-2`,
+      });
 
       const attempts = getAttempts(database, taskId);
       expect(attempts).toContainEqual(

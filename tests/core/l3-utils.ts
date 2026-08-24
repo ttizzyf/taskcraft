@@ -172,7 +172,10 @@ export function completeModuleChildren(
   run(db, reviewedChild, { nodeId: "record-1" });
   runComplete(db, reviewedChild, {
     nodeId: "record-1",
-    result: { summary: "Reviewed child recorded" },
+    result: {
+      summary: "Reviewed child recorded",
+      specImpact: { outcome: "none", reason: "No reusable rule changed" },
+    },
   });
 
   const simpleChild = children[1]!;
@@ -180,7 +183,10 @@ export function completeModuleChildren(
   runComplete(db, simpleChild, {
     result: {
       ...L3_EXECUTE_RESULT,
-      record: { summary: "Simple child recorded" },
+      record: {
+        summary: "Simple child recorded",
+        specImpact: { outcome: "none", reason: "No reusable rule changed" },
+      },
     },
   });
   return children;

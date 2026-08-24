@@ -87,6 +87,71 @@ export function checkL3Relations(database: TaskcraftDatabase): DoctorCheck {
     }
   }
 
+  const inherited = database
+    .prepare(
+      `SELECT inherited.child_task_id AS childTaskId,
+              inherited.child_lifecycle_revision AS childRevision,
+              inherited.parent_task_id AS parentTaskId,
+              inherited.parent_lifecycle_revision AS parentRevision,
+              inherited.module_key AS moduleKey,
+              inherited.source_plan_attempt_id AS planAttemptId,
+              child.parent_task_id AS actualParentTaskId,
+              requirement.source_plan_attempt_id AS requirementPlanAttemptId,
+              source.planning_revision AS planningRevision,
+              source.source_plan_attempt_id AS executionPlanAttemptId,
+              attempt.lifecycle_revision AS attemptRevision,
+              attempt.status AS attemptStatus, attempt.outcome AS attemptOutcome,
+              node.kind AS attemptKind
+       FROM lifecycle_inherited_planning AS inherited
+       LEFT JOIN tasks AS child ON child.id = inherited.child_task_id
+       LEFT JOIN lifecycle_child_requirements AS requirement
+         ON requirement.parent_task_id = inherited.parent_task_id
+        AND requirement.parent_lifecycle_revision = inherited.parent_lifecycle_revision
+        AND requirement.module_key = inherited.module_key
+        AND requirement.child_task_id = inherited.child_task_id
+       LEFT JOIN lifecycle_execution_sources AS source
+         ON source.task_id = inherited.parent_task_id
+        AND source.lifecycle_revision = inherited.parent_lifecycle_revision
+       LEFT JOIN node_attempts AS attempt
+         ON attempt.id = inherited.source_plan_attempt_id
+        AND attempt.task_id = inherited.parent_task_id
+       LEFT JOIN lifecycle_nodes AS node
+         ON node.task_id = attempt.task_id
+        AND node.lifecycle_revision = attempt.lifecycle_revision
+        AND node.id = attempt.node_id`,
+    )
+    .all() as Array<{
+    childTaskId: string;
+    childRevision: number;
+    parentTaskId: string;
+    parentRevision: number;
+    moduleKey: string;
+    planAttemptId: string;
+    actualParentTaskId: string | null;
+    requirementPlanAttemptId: string | null;
+    planningRevision: number | null;
+    executionPlanAttemptId: string | null;
+    attemptRevision: number | null;
+    attemptStatus: string | null;
+    attemptOutcome: string | null;
+    attemptKind: string | null;
+  }>;
+  for (const row of inherited) {
+    if (
+      row.actualParentTaskId !== row.parentTaskId ||
+      row.requirementPlanAttemptId !== row.planAttemptId ||
+      row.executionPlanAttemptId !== row.planAttemptId ||
+      row.attemptRevision !== row.planningRevision ||
+      row.attemptKind !== "plan" ||
+      row.attemptStatus !== "finished" ||
+      row.attemptOutcome !== "success"
+    ) {
+      problems.push(
+        `${row.childTaskId} revision ${row.childRevision}: inexact inherited Plan provenance for ${row.parentTaskId} revision ${row.parentRevision} module ${row.moduleKey}`,
+      );
+    }
+  }
+
   return problems.length === 0
     ? { name: "l3-relations", ok: true }
     : {

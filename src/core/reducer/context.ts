@@ -14,7 +14,11 @@ import { checkRevision } from "../../store/revision-guard.js";
 import type { TaskSnapshot } from "../../store/revision-guard.js";
 import { project } from "../projector.js";
 import type { ProjectStatus } from "../projector.js";
-import type { ResolvedSpecBinding } from "../../spec/bindings.js";
+import type {
+  ResolvedSpecBinding,
+  SpecBindingDriftReason,
+} from "../../spec/bindings.js";
+import type { SpecImpactResult } from "../../spec/impact.js";
 
 export interface CommandData {
   taskId: string;
@@ -28,12 +32,41 @@ export interface CommandData {
 export interface NodeBrief {
   taskId: string;
   taskTitle: string;
+  taskRevision: number;
+  lifecycleRevision: number;
   nodeId: string;
   nodeKind: NodeKind;
   attemptId: string;
   objective: string;
   procedureRef: string;
   obligations: Array<{ id: string; duty: ObligationDuty; title: string }>;
+  specs: Array<{
+    id: string;
+    kind: "engineering" | "domain";
+    duty: "required" | "recommended";
+    path: string;
+    digest: string;
+    drift: {
+      status: "current" | "stale";
+      reasons: SpecBindingDriftReason[];
+    } | null;
+  }>;
+  reviewContext: {
+    purpose: "feasibility" | "delivery" | "integration";
+    reviewedAttemptId: string;
+    reviewedNodeId: string;
+    reviewedNodeKind: NodeKind;
+    attemptNumber: number;
+    outcome: string;
+    result: unknown;
+    evidence: Array<{
+      id: string;
+      type: string;
+      reference: string;
+      summary: string;
+      digest: string | null;
+    }>;
+  } | null;
   resultSchemaJson: string;
   nextCommand: string;
 }
@@ -68,6 +101,8 @@ export interface RunCompleteInput {
   actorInstanceId?: string;
   /** Command-resolved L2 Frame selection for downstream nodes. */
   resolvedSpecBindings?: ResolvedSpecBinding[];
+  /** Command-validated typed Spec Impact. Reducers never read Registry files. */
+  resolvedSpecImpact?: SpecImpactResult;
 }
 
 export interface CancelInput {

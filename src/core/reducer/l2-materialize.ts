@@ -13,9 +13,9 @@ import type { TaskcraftDatabase } from "../../store/database.js";
 import {
   L2_EDGES,
   L2_FRAME_RESULT_SCHEMA,
-  L2_NODES,
-  L2_OBLIGATIONS,
   L2_REVIEW_NODE_ID,
+  l2NodesForCompiler,
+  l2ObligationsForCompiler,
 } from "../lifecycle/l2.js";
 
 export interface L2GraphInput {
@@ -64,7 +64,7 @@ export function materializeL2Graph(
        retry_policy_json, input_schema_json, output_schema_json
      ) VALUES (?, ?, ?, ?, ?, ?, ?, '{}', '{}', '{}', ?, '{}', ?)`,
   );
-  for (const node of L2_NODES) {
+  for (const node of l2NodesForCompiler(input.compilerVersion)) {
     insertNode.run(
       input.taskId,
       input.revision,
@@ -98,7 +98,7 @@ export function materializeL2Graph(
        task_id, lifecycle_revision, node_id, id, duty, title, evaluator_json
      ) VALUES (?, ?, ?, ?, 'required', ?, ?)`,
   );
-  for (const obligation of L2_OBLIGATIONS) {
+  for (const obligation of l2ObligationsForCompiler(input.compilerVersion)) {
     insertObligation.run(
       input.taskId,
       input.revision,

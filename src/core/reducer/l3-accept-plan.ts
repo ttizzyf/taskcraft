@@ -16,6 +16,8 @@ import {
   L3_FRAME_NODE_ID,
   L3_LEGACY_CHILD_COMPILER_VERSION,
   L3_LEGACY_MODULAR_COMPILER_VERSION,
+  L3_SPEC_BINDING_CHILD_COMPILER_VERSION,
+  L3_SPEC_BINDING_COMPILER_VERSION,
   L3_POLICY_DIGEST,
 } from "../lifecycle/l3.js";
 import type { ResolvedSpecBinding } from "../../spec/bindings.js";
@@ -348,7 +350,9 @@ function materializeChildren(
       now,
       ...(planningCompilerVersion === L3_LEGACY_MODULAR_COMPILER_VERSION
         ? { compilerVersion: L3_LEGACY_CHILD_COMPILER_VERSION }
-        : {}),
+        : planningCompilerVersion === L3_SPEC_BINDING_COMPILER_VERSION
+          ? { compilerVersion: L3_SPEC_BINDING_CHILD_COMPILER_VERSION }
+          : {}),
     });
     database
       .prepare(

@@ -53,7 +53,7 @@ describe("projector L2 graph", () => {
         ["record-1", "record", "blocked"],
       ]);
       expect(projection.doneObligations).toBe(0);
-      expect(projection.totalObligations).toBe(5);
+      expect(projection.totalObligations).toBe(6);
     } finally {
       database.close();
     }
@@ -69,7 +69,7 @@ describe("projector L2 graph", () => {
         reason: "reason",
       });
       expect(project(database, taskId).next).toBe(`tc run ${taskId}`);
-      expect(project(database, taskId).totalObligations).toBe(3);
+      expect(project(database, taskId).totalObligations).toBe(4);
 
       const error = captureTaskcraftError(() =>
         taskNew(database, { title: "L4", level: 4, reason: "reason" }),
@@ -123,14 +123,17 @@ describe("projector L2 graph", () => {
       run(database, taskId, { nodeId: "record-1" });
       runComplete(database, taskId, {
         nodeId: "record-1",
-        result: { summary: "Recorded" },
+        result: {
+          summary: "Recorded",
+          specImpact: { outcome: "none", reason: "No reusable rule changed" },
+        },
       });
 
       const projection = project(database, taskId);
       expect(projection.status).toBe("done");
       expect(projection.next).toBeNull();
-      expect(projection.doneObligations).toBe(5);
-      expect(projection.totalObligations).toBe(5);
+      expect(projection.doneObligations).toBe(6);
+      expect(projection.totalObligations).toBe(6);
       expect(
         projection.nodeStatuses.map((node) => [node.nodeId, node.status]),
       ).toEqual([

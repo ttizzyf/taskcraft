@@ -13,6 +13,10 @@ import {
   L3_FRAME_RESULT,
   L3_PLAN_RESULT,
   REVIEW_EVIDENCE,
+  finishRecord,
+  showJson,
+  toDeliveryPoint,
+  toIntegratePoint,
 } from "./l3-helpers.js";
 
 describe("tc task Spec lifecycle", () => {
@@ -129,8 +133,8 @@ describe("tc task Spec lifecycle", () => {
 
       const blocked = runCli(["run", "T-1"], cwd);
       expect(blocked.status).toBe(1);
-      expect(blocked.stderr).toContain("TC_SPEC_NOT_FOUND");
-      expect(blocked.stderr).not.toContain("TC_SPEC_BINDING_STALE");
+      expect(blocked.stderr).toContain("TC_SPEC_BINDING_STALE");
+      expect(blocked.stderr).toContain("registry_unavailable");
       const database = openDatabase(join(cwd, ".taskcraft", "taskcraft.db"));
       expect(getAttempts(database, "T-1")).toEqual([]);
       database.close();
@@ -186,8 +190,8 @@ describe("tc task Spec lifecycle", () => {
       );
 
       const invalidRegistry = runCli(["run", "T-1"], cwd);
-      expect(invalidRegistry.status).toBe(1);
-      expect(invalidRegistry.stderr).toContain("TC_SPEC_REGISTRY_INVALID");
+      expect(invalidRegistry.status).toBe(0);
+      expect(invalidRegistry.stdout).toContain("registry_unavailable");
     });
   });
 
@@ -368,6 +372,11 @@ describe("tc task Spec lifecycle", () => {
         cwd,
       );
       expect(passed.status).toBe(0);
+
+      toDeliveryPoint(cwd);
+      toIntegratePoint(cwd, false);
+      finishRecord(cwd);
+      expect(showJson(cwd).status).toBe("done");
 
       const database = openDatabase(join(cwd, ".taskcraft", "taskcraft.db"));
       expect(getLifecycleSpecBindings(database, "T-1", 2)).toHaveLength(3);

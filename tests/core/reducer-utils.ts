@@ -21,7 +21,10 @@ export const VALID_RESULT = {
     },
     { type: "test", reference: "ref://test", summary: "Docs build" },
   ],
-  record: { summary: "Recorded" },
+  record: {
+    summary: "Recorded",
+    specImpact: { outcome: "none", reason: "No reusable rule changed" },
+  },
 };
 
 export const L2_FRAME_RESULT = {

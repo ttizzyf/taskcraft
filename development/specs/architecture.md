@@ -69,6 +69,8 @@ nodes、下一步和用户视图；Adapter 负责 Entry Hook 安装、节点执�
   `lifecycle_task_dependencies`、`lifecycle_validation_assignments` 与
   `lifecycle_inherited_planning` 保存 accepted L3 Plan 编译出的 revision-scoped、
   append-only 定义事实。
+- `lifecycle_spec_bindings` 保存 lifecycle revision/node 实际采用的 Spec id、分类、
+  路径、SHA-256、duty 和 Frame/Plan/refresh 来源。它不保存 Markdown 正文。
 - stable node id 在跨 revision 的相同语义中复用，新语义使用新 id。
 
 ### 3.2 Runtime facts
@@ -80,6 +82,9 @@ nodes、下一步和用户视图；Adapter 负责 Entry Hook 安装、节点执�
 - `review_findings` 保存 Review 问题。Review 的 `passed|changes_requested|replan_required` outcome、successor attempt 或新 revision、evidence 与 event 共同表达处理结果，不建立 resolution 表。
 - `obligation_results` 记录当前 revision 中每项义务的满足证据；required obligation 满足后才能投影为 `done`。
 - `evidence`、`blockers` 和 `events` 保存结果、等待原因和审计链。`blockers.waiting_reason` 是公开 `waitingReason` 的输入事实。
+- `spec_impact_results` 为成功的 Record attempt 保存一个不可变的
+  `none|updated|candidate` 结果；`updated` 引用当前 Registry snapshot 和本 Task
+  evidence，`candidate` 只保存待 owner 决定的提案。
 
 ### 3.3 Observations
 
@@ -124,6 +129,8 @@ erDiagram
     LIFECYCLE_CHILD_REQUIREMENTS ||--o{ LIFECYCLE_ANCHOR_COVERAGE : covers
     LIFECYCLE_CHILD_REQUIREMENTS ||--o{ LIFECYCLE_TASK_DEPENDENCIES : orders
     LIFECYCLE_CHILD_REQUIREMENTS ||--o| LIFECYCLE_INHERITED_PLANNING : sources
+    LIFECYCLE_NODES ||--o{ LIFECYCLE_SPEC_BINDINGS : adopts
+    NODE_ATTEMPTS ||--o| SPEC_IMPACT_RESULTS : records
 ```
 
 `development/contracts/storage.sql` 是表结构和外键的唯一合同。Definition 表的 append-only trigger 保持旧 revision、旧 attempt 和旧 evidence 可引用。
@@ -147,12 +154,12 @@ project(taskSnapshot)
 
 ### 五个公开状态
 
-| 状态 | Projector 条件 | `waitingReason` |
-| --- | --- | --- |
-| `queued` | 任务尚未激活，当前 revision 已登记 | 空 |
-| `active` | 任务已激活，至少一个节点 runnable 或 running | 空 |
-| `done` | record 结果已满足，当前 revision 的全部 required obligations 已满足 | 空 |
-| `cancelled` | 存在显式取消事实 | 空 |
+| 状态        | Projector 条件                                                      | `waitingReason` |
+| ----------- | ------------------------------------------------------------------- | --------------- |
+| `queued`    | 任务尚未激活，当前 revision 已登记                                  | 空              |
+| `active`    | 任务已激活，至少一个节点 runnable 或 running                        | 空              |
+| `done`      | record 结果已满足，当前 revision 的全部 required obligations 已满足 | 空              |
+| `cancelled` | 存在显式取消事实                                                    | 空              |
 
 `cancelled` 优先级最高，`done` 需要满足 record 和 required obligations。Attempt 的 `failed` outcome 由 reducer 转为下一次 retry、typed blocker 或取消事实；重试耗尽时使用 `waiting(failed_retries_exhausted)`。
 
@@ -186,6 +193,11 @@ revision。新 revision 生效事务将旧 revision 中 `created` 或 `running` 
 标记为 `superseded`；旧 attempt 与 evidence 保留原引用，新 revision 引用旧证据
 时写入显式 evidence reference。
 
+Spec Impact 通过新 compiler 代际启用：`tc-l1/3`、`tc-l2/3`、`tc-l3/4` 和
+`tc-l3-child/3` 的 Record schema 要求 `specImpact`，并带 required
+`spec-impact-recorded` obligation。SQLite 中已经保存的旧 compiler revision 继续按
+其 exact `output_schema_json` 和原 obligations 完成，不回填 binding 或 Impact。
+
 ## 7. Revision 与并发
 
 每个 Task 有递增 `revision`，代表事实快照的 CAS 版本；每个 Task 同时维护单线递增的 `current_lifecycle_revision`。写命令携带 `expectedRevision`，不匹配返回 `TC_REVISION_CONFLICT`，响应包含当前 revision 和重读命令。
@@ -208,7 +220,7 @@ SQLite 使用 WAL、短写事务和 busy timeout。同一任务的事实写入�
     "nodeKind": "execute",
     "waitingReason": null
   },
-  "next": {"command": "tc task next T-104 --json"},
+  "next": { "command": "tc task next T-104 --json" },
   "detailCommand": "tc task show T-104 --json"
 }
 ```
@@ -267,7 +279,8 @@ Codex Hook 控制协议解析，因此不允许直接把业务 breadcrumb 作为
   非敏感决定写入 `constraint` fact。Taskcraft 不签发或校验授权凭证。
 - export 支持移除绝对路径、session id 和运行细节。
 - `doctor` 检查 migration ledger、外键、孤儿事实、事件连续性、definition digest、
-  L3 层级/覆盖/依赖/provenance、投影重建和 breadcrumb schema；它提供完整性诊断。
+  L3 层级/覆盖/依赖/provenance、Spec Registry、binding drift/provenance、Spec Impact
+  compiler/obligation/evidence、投影重建和 breadcrumb schema；它只读并提供完整性诊断。
 
 ## 11. 迁移
 

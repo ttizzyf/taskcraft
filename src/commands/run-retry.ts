@@ -16,7 +16,10 @@ import {
   printCommandResult,
 } from "./helpers.js";
 import { renderRunData } from "./render.js";
-import { assertNewAttemptSpecBindings } from "./spec-bindings.js";
+import {
+  assertNewAttemptSpecBindings,
+  attachNodeBriefSpecDrift,
+} from "./spec-bindings.js";
 
 export function register(runCommand: Command): void {
   runCommand
@@ -60,7 +63,17 @@ export function register(runCommand: Command): void {
           ) {
             input.expectedRevision = bindingCheck.taskRevision;
           }
-          const data = runRetry(database, taskId, input);
+          const result = runRetry(database, taskId, input);
+          const data =
+            result.nodeBrief === undefined
+              ? result
+              : {
+                  ...result,
+                  nodeBrief: attachNodeBriefSpecDrift(
+                    result.nodeBrief,
+                    bindingCheck.drift,
+                  ),
+                };
 
           if (json) {
             printCommandResult(data);

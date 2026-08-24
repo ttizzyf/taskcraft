@@ -18,7 +18,10 @@ import {
 } from "./helpers.js";
 import type { ReviewRenderData } from "./render.js";
 import { renderReviewData } from "./render.js";
-import { assertNewAttemptSpecBindings } from "./spec-bindings.js";
+import {
+  assertNewAttemptSpecBindings,
+  attachNodeBriefSpecDrift,
+} from "./spec-bindings.js";
 
 export function register(review: Command): void {
   review
@@ -75,6 +78,14 @@ export function register(review: Command): void {
           const result = reviewChanges(database, taskId, input);
           const data: ReviewRenderData = {
             ...result,
+            ...(result.nodeBrief === undefined
+              ? {}
+              : {
+                  nodeBrief: attachNodeBriefSpecDrift(
+                    result.nodeBrief,
+                    bindingCheck.drift,
+                  ),
+                }),
             outcome: "changes_requested",
             finding: options.finding,
           };

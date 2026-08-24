@@ -44,7 +44,7 @@ describe("tc status", () => {
       expect(text.stdout).toContain("Status: queued");
       expect(text.stdout).toContain("Task: T-1");
       expect(text.stdout).toContain("Next: tc run T-1");
-      expect(text.stdout).toContain("Obligations: 0/3 required satisfied");
+      expect(text.stdout).toContain("Obligations: 0/4 required satisfied");
       expect(text.stdout).toContain("Nodes:");
       expect(text.stdout).toContain("execute-1  runnable");
       expect(text.stdout).toContain("Breadcrumb:");

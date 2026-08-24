@@ -4,6 +4,8 @@
 // execution graph. Historical tc-l3/1 revisions stay readable from SQLite.
 
 import {
+  LEGACY_L1_EXECUTE_RESULT_SCHEMA,
+  LEGACY_L1_RECORD_RESULT_SCHEMA,
   L1_EXECUTE_RESULT_SCHEMA,
   L1_FACTS_DIGEST,
   L1_OBLIGATION_IDS,
@@ -23,15 +25,25 @@ export {
   L3_PLAN_RESULT_SCHEMA,
 } from "./l3-schemas.js";
 
-export const L3_COMPILER_VERSION = "tc-l3/3";
-export const L3_CHILD_COMPILER_VERSION = "tc-l3-child/2";
+export const L3_COMPILER_VERSION = "tc-l3/4";
+export const L3_CHILD_COMPILER_VERSION = "tc-l3-child/3";
+export const L3_SPEC_BINDING_COMPILER_VERSION = "tc-l3/3";
+export const L3_SPEC_BINDING_CHILD_COMPILER_VERSION = "tc-l3-child/2";
 export const L3_LEGACY_MODULAR_COMPILER_VERSION = "tc-l3/2";
 export const L3_LEGACY_CHILD_COMPILER_VERSION = "tc-l3-child/1";
 
 export function isModularL3CompilerVersion(version: string): boolean {
   return (
     version === L3_COMPILER_VERSION ||
+    version === L3_SPEC_BINDING_COMPILER_VERSION ||
     version === L3_LEGACY_MODULAR_COMPILER_VERSION
+  );
+}
+
+export function isSpecBindingL3CompilerVersion(version: string): boolean {
+  return (
+    version === L3_COMPILER_VERSION ||
+    version === L3_SPEC_BINDING_COMPILER_VERSION
   );
 }
 export const L3_FACTS_DIGEST = L1_FACTS_DIGEST;
@@ -199,6 +211,13 @@ const INTEGRATION_OBLIGATIONS: readonly L3ObligationDefinition[] = [
     title: "Result and scope retained",
     evaluatorJson: JSON.stringify({ kind: "record-result" }),
   },
+  {
+    nodeId: "record-1",
+    id: L1_OBLIGATION_IDS.specImpactRecorded,
+    duty: "required",
+    title: "Spec Impact recorded",
+    evaluatorJson: JSON.stringify({ kind: "spec-impact-result" }),
+  },
 ];
 
 export const L3_PLANNING_OBLIGATIONS = Object.freeze([
@@ -244,3 +263,34 @@ export const L3_SINGLE_EXECUTION_OBLIGATIONS = Object.freeze([
 export const L3_NODES = L3_PLANNING_NODES;
 export const L3_EDGES = L3_PLANNING_EDGES;
 export const L3_OBLIGATIONS = L3_PLANNING_OBLIGATIONS;
+
+export function l3NodesForCompiler(
+  nodes: readonly L3NodeDefinition[],
+  version: string,
+): readonly L3NodeDefinition[] {
+  if (version === L3_COMPILER_VERSION) return nodes;
+  return nodes.map((node) =>
+    node.id === "execute-1"
+      ? {
+          ...node,
+          outputSchemaJson: JSON.stringify(LEGACY_L1_EXECUTE_RESULT_SCHEMA),
+        }
+      : node.id === "record-1"
+        ? {
+            ...node,
+            outputSchemaJson: JSON.stringify(LEGACY_L1_RECORD_RESULT_SCHEMA),
+          }
+        : node,
+  );
+}
+
+export function l3ObligationsForCompiler(
+  obligations: readonly L3ObligationDefinition[],
+  version: string,
+): readonly L3ObligationDefinition[] {
+  return version === L3_COMPILER_VERSION
+    ? obligations
+    : obligations.filter(
+        (obligation) => obligation.id !== L1_OBLIGATION_IDS.specImpactRecorded,
+      );
+}

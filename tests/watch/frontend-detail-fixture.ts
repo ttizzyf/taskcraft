@@ -225,6 +225,11 @@ const DETAIL: WatchTaskDetail = {
       occurredAt: TIMESTAMP,
     },
   ],
+  specs: {
+    bindings: [],
+    impacts: [],
+    registryIssue: null,
+  },
   next: "tc run complete T-1",
 };
 

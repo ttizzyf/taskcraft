@@ -24,7 +24,10 @@ import { queryEvents } from "./reducer-utils.js";
 const RESULT = {
   summary: "done",
   evidence: [{ type: "validation", reference: "r", summary: "ok" }],
-  record: { summary: "recorded" },
+  record: {
+    summary: "recorded",
+    specImpact: { outcome: "none", reason: "No reusable rule changed" },
+  },
 };
 
 function activatedTask(

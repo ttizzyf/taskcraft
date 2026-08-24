@@ -17,6 +17,7 @@ export { run } from "./reducer/run.js";
 export { runAttach } from "./reducer/run-attach.js";
 export type { RunAttachInput, RunAttachResult } from "./reducer/run-attach.js";
 export { runComplete } from "./reducer/run-complete.js";
+export { requiresSpecImpact } from "./reducer/spec-impact.js";
 export { cancel } from "./reducer/cancel.js";
 export { taskWait, taskResume } from "./reducer/blocker.js";
 export { runFail, runRetry } from "./reducer/failure.js";

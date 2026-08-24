@@ -6,12 +6,12 @@
 // record segment can be submitted without redoing the execute work).
 
 import type { TaskcraftDatabase } from "../../store/database.js";
-import { getAttempts, getLifecycle } from "../../store/query.js";
+import { getAttempts } from "../../store/query.js";
 import { withTransaction } from "../../store/transaction.js";
 import { ERROR_CODES, TaskcraftError } from "../errors.js";
 import { L1_DEFAULT_ACTOR, L1_EXECUTE_NODE_ID } from "../lifecycle/l1.js";
 import { project } from "../projector.js";
-import type { CommandData, NodeBrief, RunInput } from "./context.js";
+import type { CommandData, RunInput } from "./context.js";
 import {
   assertNotCancelled,
   commandData,
@@ -26,6 +26,7 @@ import {
   insertEvent,
   nowIso,
 } from "./shared.js";
+import { buildNodeBrief } from "./node-brief.js";
 
 export function run(
   database: TaskcraftDatabase,
@@ -161,56 +162,17 @@ export function run(
       claimedAttemptId = activeAttempt.id;
     }
 
-    const data = commandData(database, taskId, snapshotOf(database, taskId));
+    const currentSnapshot = snapshotOf(database, taskId);
+    const data = commandData(database, taskId, currentSnapshot);
     return {
       ...data,
       nodeBrief: buildNodeBrief(
         database,
         taskId,
-        snapshot,
+        currentSnapshot,
         claimedAttemptId,
         nodeId,
       ),
     };
   });
-}
-
-/** Node Brief for the claimed node: objective, its obligations, the node
- * result schema and the registered completion command, all read from the
- * current revision. */
-export function buildNodeBrief(
-  database: TaskcraftDatabase,
-  taskId: string,
-  snapshot: { title: string; currentLifecycleRevision: number },
-  claimedAttemptId: string,
-  nodeId: string,
-): NodeBrief {
-  const graph = getLifecycle(
-    database,
-    taskId,
-    snapshot.currentLifecycleRevision,
-  );
-  const node = graph.nodes.find((candidate) => candidate.id === nodeId)!;
-
-  return {
-    taskId,
-    taskTitle: snapshot.title,
-    nodeId: node.id,
-    nodeKind: node.kind,
-    attemptId: claimedAttemptId,
-    objective: node.objective,
-    procedureRef: node.procedureRef,
-    obligations: graph.obligations
-      .filter((obligation) => obligation.nodeId === nodeId)
-      .map((obligation) => ({
-        id: obligation.id,
-        duty: obligation.duty,
-        title: obligation.title,
-      })),
-    resultSchemaJson: node.outputSchemaJson,
-    nextCommand:
-      nodeId === L1_EXECUTE_NODE_ID
-        ? `tc run complete ${taskId}`
-        : `tc run complete ${taskId} --node ${nodeId}`,
-  };
 }

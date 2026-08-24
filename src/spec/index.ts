@@ -27,6 +27,20 @@ export {
   selectionsFromBindingRows,
   staleRequiredBindingsError,
 } from "./bindings.js";
+export {
+  assertResolvedSpecImpact,
+  parseSpecImpactResult,
+  resolveSpecImpactResult,
+  specImpactResultsEqual,
+  SPEC_IMPACT_RESULT_SCHEMA,
+} from "./impact.js";
+export type { SpecImpactResult } from "./impact.js";
+export { buildSpecDeliveryView, loadSpecDeliveryView } from "./delivery.js";
+export type {
+  SpecDeliveryBinding,
+  SpecDeliveryImpact,
+  SpecDeliveryView,
+} from "./delivery.js";
 export type {
   ResolvedSpecBinding,
   SpecBindingDrift,

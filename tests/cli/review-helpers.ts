@@ -29,7 +29,10 @@ export const REVIEW_EVIDENCE = JSON.stringify([
   },
 ]);
 
-export const RECORD_RESULT = JSON.stringify({ summary: "Recorded" });
+export const RECORD_RESULT = JSON.stringify({
+  summary: "Recorded",
+  specImpact: { outcome: "none", reason: "No reusable rule changed" },
+});
 
 export interface AttemptJson {
   id: string;

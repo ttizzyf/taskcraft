@@ -95,7 +95,13 @@ describe("tc run attach", () => {
           JSON.stringify({
             summary: "done",
             evidence: [{ type: "validation", reference: "r", summary: "ok" }],
-            record: { summary: "recorded" },
+            record: {
+              summary: "recorded",
+              specImpact: {
+                outcome: "none",
+                reason: "No reusable rule changed",
+              },
+            },
           }),
         ],
         cwd,

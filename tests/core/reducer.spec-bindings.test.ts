@@ -28,6 +28,7 @@ import {
   setupL3ToFeasibility,
 } from "./l3-utils.js";
 import { L2_FRAME_RESULT } from "./reducer-utils.js";
+import { L2_EXECUTE_RESULT } from "./reducer-utils.js";
 
 const STORE_SPEC = {
   specId: "engineering.store",
@@ -45,6 +46,72 @@ const CLI_SPEC = {
 };
 
 describe("Spec binding reducer flow", () => {
+  it("delivers the same exact binding plus reviewed result and evidence to Review", () => {
+    const database = createMigratedDatabase();
+    try {
+      const { taskId } = taskNew(database, {
+        title: "Review delivery",
+        level: 2,
+        reason: "separate review",
+      });
+      run(database, taskId, { nodeId: "frame-1" });
+      runComplete(database, taskId, {
+        nodeId: "frame-1",
+        result: {
+          ...L2_FRAME_RESULT,
+          specBindings: [{ id: STORE_SPEC.specId, duty: STORE_SPEC.duty }],
+        },
+        resolvedSpecBindings: [STORE_SPEC],
+      });
+      const execute = run(database, taskId, { nodeId: "execute-1" });
+      runComplete(database, taskId, {
+        nodeId: "execute-1",
+        result: L2_EXECUTE_RESULT,
+      });
+      const executeAttemptId = `att-${taskId}-execute-1-1`;
+      const review = reviewStart(
+        database,
+        taskId,
+        reviewInput(taskId, "review-1", executeAttemptId, "delivery"),
+      );
+
+      expect(review.nodeBrief!.specs).toEqual(execute.nodeBrief!.specs);
+      expect(review.nodeBrief!.specs).toEqual([
+        {
+          id: STORE_SPEC.specId,
+          kind: STORE_SPEC.kind,
+          duty: STORE_SPEC.duty,
+          path: STORE_SPEC.path,
+          digest: STORE_SPEC.digest,
+          drift: null,
+        },
+      ]);
+      expect(review.nodeBrief!.reviewContext).toMatchObject({
+        purpose: "delivery",
+        reviewedAttemptId: executeAttemptId,
+        reviewedNodeId: "execute-1",
+        reviewedNodeKind: "execute",
+        attemptNumber: 1,
+        outcome: "success",
+        result: L2_EXECUTE_RESULT,
+        evidence: [
+          expect.objectContaining({
+            id: `ev-${taskId}-${executeAttemptId}-1`,
+            type: "validation",
+            reference: "ref://validation",
+          }),
+          expect.objectContaining({
+            id: `ev-${taskId}-${executeAttemptId}-2`,
+            type: "test",
+            reference: "ref://test",
+          }),
+        ],
+      });
+    } finally {
+      database.close();
+    }
+  });
+
   it("binds task creation and L2 Frame selection to the exact nodes", () => {
     const database = createMigratedDatabase();
     try {
@@ -157,7 +224,7 @@ describe("Spec binding reducer flow", () => {
               "SELECT compiler_version AS compilerVersion FROM lifecycle_revisions WHERE task_id = ? AND revision = 1",
             )
             .get(child.childTaskId),
-        ).toEqual({ compilerVersion: "tc-l3-child/2" });
+        ).toEqual({ compilerVersion: "tc-l3-child/3" });
         expect(rows.length).toBe(child.moduleKey === "contract" ? 3 : 2);
         expect(
           rows.every(

@@ -21,6 +21,8 @@ import {
   L3_SINGLE_EXECUTION_EDGES,
   L3_SINGLE_EXECUTION_NODES,
   L3_SINGLE_EXECUTION_OBLIGATIONS,
+  l3NodesForCompiler,
+  l3ObligationsForCompiler,
   type L3NodeDefinition,
   type L3ObligationDefinition,
 } from "../lifecycle/l3.js";
@@ -46,7 +48,10 @@ export function materializeL3Graph(
   database: TaskcraftDatabase,
   input: L3GraphInput,
 ): void {
-  const definition = graphDefinition(input.kind ?? "planning");
+  const definition = graphDefinition(
+    input.kind ?? "planning",
+    input.compilerVersion,
+  );
 
   database
     .prepare(
@@ -74,7 +79,10 @@ export function materializeL3Graph(
   insertObligations(database, input, definition.obligations);
 }
 
-function graphDefinition(kind: L3GraphKind): {
+function graphDefinition(
+  kind: L3GraphKind,
+  compilerVersion: string,
+): {
   kind: L3GraphKind;
   nodes: readonly L3NodeDefinition[];
   edges: readonly { fromNodeId: string; toNodeId: string }[];
@@ -84,23 +92,32 @@ function graphDefinition(kind: L3GraphKind): {
     case "planning":
       return {
         kind,
-        nodes: L3_PLANNING_NODES,
+        nodes: l3NodesForCompiler(L3_PLANNING_NODES, compilerVersion),
         edges: L3_PLANNING_EDGES,
-        obligations: L3_PLANNING_OBLIGATIONS,
+        obligations: l3ObligationsForCompiler(
+          L3_PLANNING_OBLIGATIONS,
+          compilerVersion,
+        ),
       };
     case "modules":
       return {
         kind,
-        nodes: L3_MODULES_EXECUTION_NODES,
+        nodes: l3NodesForCompiler(L3_MODULES_EXECUTION_NODES, compilerVersion),
         edges: L3_MODULES_EXECUTION_EDGES,
-        obligations: L3_MODULES_EXECUTION_OBLIGATIONS,
+        obligations: l3ObligationsForCompiler(
+          L3_MODULES_EXECUTION_OBLIGATIONS,
+          compilerVersion,
+        ),
       };
     case "single":
       return {
         kind,
-        nodes: L3_SINGLE_EXECUTION_NODES,
+        nodes: l3NodesForCompiler(L3_SINGLE_EXECUTION_NODES, compilerVersion),
         edges: L3_SINGLE_EXECUTION_EDGES,
-        obligations: L3_SINGLE_EXECUTION_OBLIGATIONS,
+        obligations: l3ObligationsForCompiler(
+          L3_SINGLE_EXECUTION_OBLIGATIONS,
+          compilerVersion,
+        ),
       };
   }
 }

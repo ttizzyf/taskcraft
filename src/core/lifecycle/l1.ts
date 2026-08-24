@@ -6,8 +6,10 @@
 import { createHash } from "node:crypto";
 
 import type { EvidenceRow } from "../../store/query.js";
+import { SPEC_IMPACT_RESULT_SCHEMA } from "../../spec/impact.js";
 
-export const L1_COMPILER_VERSION = "tc-l1/2";
+export const L1_COMPILER_VERSION = "tc-l1/3";
+export const L1_SPEC_BINDING_COMPILER_VERSION = "tc-l1/2";
 export const L1_REASON_CODE = "initial";
 export const L1_REASON = "initial L1 lifecycle";
 export const L1_DEFAULT_ACTOR = "cli";
@@ -22,6 +24,7 @@ export const L1_OBLIGATION_IDS = Object.freeze({
   requestedOutcomeProduced: "requested-outcome-produced",
   minimumValidationRecorded: "minimum-validation-recorded",
   resultAndScopeRetained: "result-and-scope-retained",
+  specImpactRecorded: "spec-impact-recorded",
 });
 
 /** Facts/policy are empty at L1 revision 1: the digest is the SHA-256 of the
@@ -30,7 +33,7 @@ export const L1_FACTS_DIGEST = createHash("sha256").update("").digest("hex");
 export const L1_POLICY_DIGEST = createHash("sha256").update("").digest("hex");
 
 /** Draft 2020-12 JSON Schema for the record result segment. */
-export const L1_RECORD_RESULT_SCHEMA = {
+export const LEGACY_L1_RECORD_RESULT_SCHEMA = {
   type: "object",
   additionalProperties: false,
   required: ["summary"],
@@ -41,6 +44,16 @@ export const L1_RECORD_RESULT_SCHEMA = {
       type: "array",
       items: { type: "string", minLength: 1 },
     },
+  },
+} as const;
+
+export const L1_RECORD_RESULT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["summary", "specImpact"],
+  properties: {
+    ...LEGACY_L1_RECORD_RESULT_SCHEMA.properties,
+    specImpact: SPEC_IMPACT_RESULT_SCHEMA,
   },
 } as const;
 
@@ -73,6 +86,11 @@ export const L1_EXECUTE_RESULT_SCHEMA = {
     record: { $ref: "#/$defs/record" },
   },
   $defs: { record: L1_RECORD_RESULT_SCHEMA },
+} as const;
+
+export const LEGACY_L1_EXECUTE_RESULT_SCHEMA = {
+  ...L1_EXECUTE_RESULT_SCHEMA,
+  $defs: { record: LEGACY_L1_RECORD_RESULT_SCHEMA },
 } as const;
 
 export interface L1NodeDefinition {
@@ -140,7 +158,47 @@ export const L1_OBLIGATIONS: readonly L1ObligationDefinition[] = Object.freeze([
     title: "Result and scope retained",
     evaluatorJson: JSON.stringify({ kind: "record-result" }),
   },
+  {
+    nodeId: L1_RECORD_NODE_ID,
+    id: L1_OBLIGATION_IDS.specImpactRecorded,
+    duty: "required",
+    title: "Spec Impact recorded",
+    evaluatorJson: JSON.stringify({ kind: "spec-impact-result" }),
+  },
 ]);
+
+export function isSpecImpactCompilerVersion(version: string): boolean {
+  return version === L1_COMPILER_VERSION;
+}
+
+export function l1NodesForCompiler(
+  version: string,
+): readonly L1NodeDefinition[] {
+  if (isSpecImpactCompilerVersion(version)) return L1_NODES;
+  return L1_NODES.map((node) =>
+    node.id === L1_EXECUTE_NODE_ID
+      ? {
+          ...node,
+          outputSchemaJson: JSON.stringify(LEGACY_L1_EXECUTE_RESULT_SCHEMA),
+        }
+      : node.id === L1_RECORD_NODE_ID
+        ? {
+            ...node,
+            outputSchemaJson: JSON.stringify(LEGACY_L1_RECORD_RESULT_SCHEMA),
+          }
+        : node,
+  );
+}
+
+export function l1ObligationsForCompiler(
+  version: string,
+): readonly L1ObligationDefinition[] {
+  return isSpecImpactCompilerVersion(version)
+    ? L1_OBLIGATIONS
+    : L1_OBLIGATIONS.filter(
+        (obligation) => obligation.id !== L1_OBLIGATION_IDS.specImpactRecorded,
+      );
+}
 
 export interface L1ObligationContext {
   /** Evidence rows bound to the target execute attempt (current revision). */
