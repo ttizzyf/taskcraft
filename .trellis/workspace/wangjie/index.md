@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 22
-- **Last Active**: 2026-08-17
+- **Total Sessions**: 23
+- **Last Active**: 2026-08-24
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~517 | Active |
+| `journal-1.md` | ~540 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 23 | 2026-08-24 | Complete Taskcraft Spec system | `ddec2a7`, `7fe84e5`, `1f2167e` | `main` |
 | 22 | 2026-08-17 | Complete modular L3 task decomposition | `914b048`, `f4ff255`, `8c8726b` | `main` |
 | 21 | 2026-08-14 | Remove Stop Hook and adopt agent-driven continuation | `babeb09`, `b70adb5` | `main` |
 | 20 | 2026-08-13 | Task 07：MVP 就绪度返工（父 + 6 子） | `8f8a9a3`, `196b195`, `fc25abc`, `e6eed98`, `e87f2cb`, `66fe90d`, `955c872`, `f325f06` | `main` |

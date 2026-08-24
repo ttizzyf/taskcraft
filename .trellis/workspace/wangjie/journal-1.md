@@ -515,3 +515,26 @@ Implemented one-level L1/L2 modular L3 tasks with inherited planning, explicit d
 ### Status
 
 [OK] **Completed**
+
+
+## Session 23: Complete Taskcraft Spec system
+
+**Date**: 2026-08-24
+**Task**: Complete Taskcraft Spec system
+**Branch**: `main`
+
+### Summary
+
+Implemented and independently verified the Git-owned Spec Registry, revision-scoped lifecycle bindings, Node/Review Brief delivery, typed Spec Impact, doctor diagnostics and Watch views; archived all three child tasks and the parent after full CLI, migration, compatibility and desktop/mobile validation.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ddec2a7` | (see git log) |
+| `7fe84e5` | (see git log) |
+| `1f2167e` | (see git log) |
+
+### Status
+
+[OK] **Completed**
