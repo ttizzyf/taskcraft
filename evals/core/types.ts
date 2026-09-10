@@ -70,6 +70,9 @@ export interface TaskSnapshot {
   attempts: Array<Record<string, unknown>>;
   evidence: Array<Record<string, unknown>>;
   facts: Array<Record<string, unknown>>;
+  /** Optional fields from newer `tc task show` payloads. */
+  findings?: Array<Record<string, unknown>>;
+  nodeBrief?: Record<string, unknown> | null;
 }
 
 export interface TaskReadResult {

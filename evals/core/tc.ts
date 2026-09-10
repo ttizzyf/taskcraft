@@ -113,7 +113,7 @@ function runProcess(
 }
 
 function normalizeTaskSnapshot(data: Record<string, unknown>): TaskSnapshot {
-  return {
+  const snapshot: TaskSnapshot = {
     taskId: data.taskId as string,
     status: typeof data.status === "string" ? data.status : "unknown",
     taskRevision:
@@ -122,6 +122,18 @@ function normalizeTaskSnapshot(data: Record<string, unknown>): TaskSnapshot {
     evidence: arrayOfRecords(data.evidence),
     facts: arrayOfRecords(data.facts),
   };
+  if (Array.isArray(data.findings)) {
+    snapshot.findings = arrayOfRecords(data.findings);
+  }
+  if (Object.hasOwn(data, "nodeBrief")) {
+    snapshot.nodeBrief =
+      data.nodeBrief === null ? null : recordOrNull(data.nodeBrief);
+  }
+  return snapshot;
+}
+
+function recordOrNull(value: unknown): Record<string, unknown> | null {
+  return isRecord(value) ? value : null;
 }
 
 function arrayOfRecords(value: unknown): Array<Record<string, unknown>> {
