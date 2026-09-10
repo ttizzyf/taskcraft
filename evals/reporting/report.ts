@@ -1,4 +1,9 @@
-import type { EvalReport, HostAdapter, Verdict } from "../core/types.ts";
+import type {
+  CheckResult,
+  EvalReport,
+  HostAdapter,
+  Verdict,
+} from "../core/types.ts";
 
 const VERDICTS = ["pass", "fail", "inconclusive"] as const;
 const HOST_ADAPTERS = ["claude", "pi-sdk"] as const;
@@ -44,7 +49,42 @@ export function parseEvalReport(value: unknown): EvalReport {
   if (root.provenance !== undefined)
     parseProvenance(root.provenance, "report.provenance");
 
-  return value as EvalReport;
+  const report = value as EvalReport;
+  const semanticError = reportVerdictInvariant(report.verdict, report.checks);
+  if (semanticError !== null) throw new Error(semanticError);
+  return report;
+}
+
+export function reportVerdictInvariant(
+  declaredVerdict: Verdict,
+  checks: readonly CheckResult[],
+): string | null {
+  const codeChecks = checks.filter((check) => check.grader === "code");
+  const modelChecks = checks.filter((check) => check.grader === "model");
+  if (declaredVerdict !== "inconclusive" && codeChecks.length === 0) {
+    return "terminal report requires at least one code check";
+  }
+  if (declaredVerdict === "pass") {
+    if (codeChecks.some((check) => check.verdict !== "pass")) {
+      return "pass report requires every code check to pass";
+    }
+    if (modelChecks.length === 0) {
+      return "pass report requires at least one model check";
+    }
+    if (modelChecks.some((check) => check.verdict !== "pass")) {
+      return "pass report requires every model check to pass";
+    }
+  }
+  if (declaredVerdict === "fail") {
+    const hasFailure = checks.some(
+      (check) =>
+        check.verdict === "fail" &&
+        (check.grader === "code" || check.grader === "model"),
+    );
+    if (!hasFailure)
+      return "fail report requires a failing code or model check";
+  }
+  return null;
 }
 
 export function isEvalReport(value: unknown): value is EvalReport {
@@ -177,8 +217,8 @@ function parseProvenance(value: unknown, label: string): void {
   nonNegativeInteger(root.judgeTimeoutMs, `${label}.judgeTimeoutMs`);
   nullableString(root.subjectRevision, `${label}.subjectRevision`);
   optionalHost(root.hostAdapter, `${label}.hostAdapter`);
-  nullableString(root.actorApi, `${label}.actorApi`);
-  nullableString(root.judgeApi, `${label}.judgeApi`);
+  optionalNullableString(root.actorApi, `${label}.actorApi`);
+  optionalNullableString(root.judgeApi, `${label}.judgeApi`);
   optionalNullableString(
     root.actorThinkingLevel,
     `${label}.actorThinkingLevel`,

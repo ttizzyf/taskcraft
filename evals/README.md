@@ -89,7 +89,7 @@ pnpm smoke:evals
 
 ## 添加案例
 
-在 `cases/` 增加实现 `EvalCase` 的文件并登记到 `cases/index.ts`；在 `board/guide.ts` 补齐中文背景、任务、步骤、证据边界和完整验收标准；在 `tests/cases/` 添加 fake host + 真实 `tc` CLI 的正反例。更新 provenance 的实际执行/验收源清单，保持报告字段和旧报告读取兼容。不要把 fake 产物或付费模型运行写入正式 `runs/`，不要为案例重建产品协议测试平台。
+在 `cases/` 增加实现 `EvalCase` 的文件并登记到 `cases/index.ts`；在 `board/guide.ts` 补齐中文背景、任务、步骤、证据边界和完整验收标准；在 `tests/cases/` 添加 fake host + 真实 `tc` CLI 的正反例。更新 provenance 的实际执行/验收源清单，保持报告字段和旧报告读取兼容。合成测试报告只能写入临时目录，正式 `runs/` 只保留真实测评报告；新增付费测评由 QA 执行。不要为案例重建产品协议测试平台。
 
 ## 范围与边界
 

@@ -21,6 +21,7 @@ import type {
 } from "./types.ts";
 import { findCase } from "../cases/index.ts";
 import { buildProvenance } from "../reporting/provenance.ts";
+import { reportVerdictInvariant } from "../reporting/report.ts";
 
 export interface RunEvalOptions extends EvalOptions {
   cliPath?: string;
@@ -241,13 +242,7 @@ export function aggregate(
   const codeChecks = checks.filter((check) => check.grader === "code");
   const modelChecks = checks.filter((check) => check.grader === "model");
   const codeFail = codeChecks.some((check) => check.verdict === "fail");
-  const codeInconclusive = codeChecks.some(
-    (check) => check.verdict === "inconclusive",
-  );
   const modelFail = modelChecks.some((check) => check.verdict === "fail");
-  const modelInconclusive = modelChecks.some(
-    (check) => check.verdict === "inconclusive",
-  );
   const established = hostRuns.some((run) => run.status === "success");
   const phases = hostRuns.map((run) => `${run.phase}=${run.status}`).join(", ");
   const codeDetail = codeChecks
@@ -281,10 +276,11 @@ export function aggregate(
       summary: `code checks passed but the semantic model grader reported a failure (${modelDetail}).`,
     };
   }
-  if (codeInconclusive || modelInconclusive || modelChecks.length === 0) {
+  const passInvariantError = reportVerdictInvariant("pass", checks);
+  if (passInvariantError !== null) {
     return {
       verdict: "inconclusive",
-      summary: `not every necessary check passed: code ${codeDetail || "none"}, model ${modelDetail || "not-run"} have inconclusive or absent entries.`,
+      summary: `not every necessary check passed: code ${codeDetail || "none"}, model ${modelDetail || "not-run"}; ${passInvariantError}.`,
     };
   }
   return {

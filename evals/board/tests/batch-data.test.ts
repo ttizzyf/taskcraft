@@ -64,6 +64,13 @@ describe("evals board batch report loading", () => {
           reason: "ok",
           evidence: ["fixture"],
         },
+        {
+          id: "model-overall",
+          grader: "model",
+          verdict: "pass",
+          reason: "ok",
+          evidence: ["fixture"],
+        },
       ],
       model: {
         status: "pass",
@@ -169,6 +176,22 @@ describe("evals board batch report loading", () => {
     expect(
       symlinkData.malformedDiagnostics?.some((entry) =>
         entry.error.includes("symlink"),
+      ),
+    ).toBe(true);
+
+    rmSync(join(attemptDir, "report.json"));
+    rmSync(join(attemptDir, "report.md"));
+    writeFileSync(
+      join(attemptDir, "report.json"),
+      JSON.stringify(report),
+      "utf8",
+    );
+    mkdirSync(join(attemptDir, "report.md"));
+    const directoryData = loadBoardData(tempDir);
+    expect(directoryData.reports).toHaveLength(0);
+    expect(
+      directoryData.malformedDiagnostics?.some((entry) =>
+        entry.error.includes("regular files"),
       ),
     ).toBe(true);
   });

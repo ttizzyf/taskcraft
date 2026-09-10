@@ -372,6 +372,13 @@ test.describe("evals synthetic trials comparison and diagnostics smoke", () => {
           reason: "output matched exactly",
           evidence: [],
         },
+        {
+          id: "model-overall",
+          grader: "model",
+          verdict: "pass",
+          reason: "semantic review passed",
+          evidence: [],
+        },
       ],
       model: {
         status: "pass",

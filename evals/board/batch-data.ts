@@ -1,8 +1,23 @@
-import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 
 import {
   batchFilePath,
+  canonicalizeExistingPath,
   loadBatch,
   resolveBatchPath,
   type BatchRecord,
@@ -152,9 +167,14 @@ function resolveSafeReportPaths(
   storedMarkdownPath: string,
 ): { jsonPath: string; markdownPath: string } {
   const batchRoot = dirname(batchPath);
-  const attemptRoot = resolve(batchRoot, attemptDirectory);
-  const attemptReal = realpathSync(attemptRoot);
-  if (attemptReal !== attemptRoot) {
+  const realBatchRoot = canonicalizeExistingPath(batchRoot);
+  const attemptRoot = resolve(realBatchRoot, attemptDirectory);
+  const attemptReal = canonicalizeExistingPath(attemptRoot);
+  const expectedAttemptRoot = resolve(
+    canonicalizeExistingPath(dirname(attemptRoot)),
+    basename(attemptRoot),
+  );
+  if (attemptReal !== expectedAttemptRoot) {
     throw new Error("batch attempt directory must not be a symlink");
   }
   const jsonPath = resolveBatchPath(batchPath, storedJsonPath);
@@ -171,6 +191,9 @@ function resolveSafeReportPaths(
     throw new Error(
       "markdown report path is outside its saved attempt directory",
     );
+  }
+  if (!statSync(jsonReal).isFile() || !statSync(markdownReal).isFile()) {
+    throw new Error("batch report references must be regular files");
   }
   return { jsonPath: jsonReal, markdownPath: markdownReal };
 }

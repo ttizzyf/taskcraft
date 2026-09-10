@@ -21,6 +21,7 @@ import type { HostAdapter, Verdict } from "../core/types.ts";
 export {
   batchDirectory,
   batchFilePath,
+  canonicalizeExistingPath,
   resolveBatchPath,
   toBatchRelativePath,
   validateBatchId,

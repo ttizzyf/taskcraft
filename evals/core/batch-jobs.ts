@@ -1,7 +1,15 @@
-import { mkdirSync, readFileSync, realpathSync } from "node:fs";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { mkdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 
 import {
+  canonicalizeExistingPath,
   toBatchRelativePath,
   type BatchJobAttempt,
   type BatchJobRecord,
@@ -242,20 +250,24 @@ function resolveReportInAttempt(
   storedPath: string,
 ): string {
   const root = resolve(attemptRoot);
-  const candidate = resolve(root, storedPath);
-  if (!pathWithin(root, candidate)) {
-    throw new Error("report path escapes attempt directory");
-  }
-  const realRoot = realpathSync(root);
-  if (realRoot !== root) {
+  const realRoot = canonicalizeExistingPath(root);
+  const expectedRoot = resolve(
+    canonicalizeExistingPath(dirname(root)),
+    basename(root),
+  );
+  if (realRoot !== expectedRoot) {
     throw new Error("batch attempt directory must not be a symlink");
+  }
+  const candidate = resolve(realRoot, storedPath);
+  if (!pathWithin(realRoot, candidate)) {
+    throw new Error("report path escapes attempt directory");
   }
   const realCandidate = realpathSync(candidate);
   if (realCandidate !== candidate) {
     throw new Error("batch report references must not be symlinks");
   }
-  if (!pathWithin(realRoot, realCandidate)) {
-    throw new Error("report path escapes attempt directory");
+  if (!statSync(realCandidate).isFile()) {
+    throw new Error("batch report reference must be a regular file");
   }
   return realCandidate;
 }

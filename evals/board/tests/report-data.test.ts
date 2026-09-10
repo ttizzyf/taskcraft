@@ -106,9 +106,16 @@ describe("evals board legacy report loading", () => {
           reason: "fixture",
           evidence: [],
         },
+        {
+          id: "fixture-model",
+          grader: "model",
+          verdict: "pass",
+          reason: "fixture",
+          evidence: [],
+        },
       ],
       model: {
-        status: "not-run",
+        status: "pass",
         elapsedMs: null,
         callCount: null,
         diagnostics: [],
@@ -143,9 +150,29 @@ describe("evals board legacy report loading", () => {
       }),
       "utf8",
     );
+    const codePass = validReport.checks[0]!;
+    const modelPass = validReport.checks[1]!;
+    for (const [filename, checks] of [
+      ["pass-code-fail.json", [{ ...codePass, verdict: "fail" }, modelPass]],
+      [
+        "pass-code-inconclusive.json",
+        [{ ...codePass, verdict: "inconclusive" }, modelPass],
+      ],
+      ["pass-without-model.json", [codePass]],
+      [
+        "pass-model-inconclusive.json",
+        [codePass, { ...modelPass, verdict: "inconclusive" }],
+      ],
+    ] as const) {
+      writeFileSync(
+        join(runDir, filename),
+        JSON.stringify({ ...validReport, checks }),
+        "utf8",
+      );
+    }
 
     const data = loadBoardData(runDir);
-    expect(data.malformedDiagnostics).toHaveLength(7);
+    expect(data.malformedDiagnostics).toHaveLength(11);
     expect(data.reports).toHaveLength(0);
     expect(data.overview.totalScenarios).toBe(5);
     expect(data.overview.decisiveScenarios).toBe(0);

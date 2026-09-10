@@ -2,10 +2,12 @@ import {
   chmodSync,
   existsSync,
   mkdtempSync,
+  mkdirSync,
   readFileSync,
   readdirSync,
   rmSync,
   writeFileSync,
+  symlinkSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
@@ -31,8 +33,11 @@ afterEach(() => {
 describe("batch persistence and scheduling", () => {
   it("expands repeats, respects concurrency, and links each report to its job", async () => {
     const fixture = fixtureWorker("normal");
+    mkdirSync(fixture.runDir, { recursive: true });
+    const runAlias = join(dirname(fixture.runDir), "run-alias");
+    symlinkSync(fixture.runDir, runAlias);
     const result = await runBatch({
-      runDir: fixture.runDir,
+      runDir: runAlias,
       caseIds: ["delivery", "recovery"],
       repeat: 2,
       concurrency: 2,
@@ -338,9 +343,16 @@ if (mode === "descendant") {
         reason: "fixture",
         evidence: [],
       },
+      {
+        id: "fixture-model",
+        grader: "model",
+        verdict: "pass",
+        reason: "fixture",
+        evidence: [],
+      },
     ],
     model: {
-      status: "not-run",
+      status: "pass",
       elapsedMs: null,
       callCount: null,
       diagnostics: [],
