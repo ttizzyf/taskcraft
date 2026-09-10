@@ -40,6 +40,51 @@ describe("provenance helper", () => {
     expect(computeGraderFingerprint(deliveryCase)).not.toBe(graderBefore);
   });
 
+  it("invalidates grader and comparison fingerprints when the verdict helper changes", () => {
+    const readFile = vi.mocked(readFileSync);
+    const defaultReadFile = readFile.getMockImplementation();
+    expect(defaultReadFile).toBeDefined();
+
+    let helperSource = "original verdict helper";
+    readFile.withImplementation(
+      (path) => {
+        if (String(path).endsWith("/evals/reporting/report.ts")) {
+          return helperSource;
+        }
+        return defaultReadFile!(path, "utf8") as string;
+      },
+      () => {
+        const before = buildProvenance({
+          caseDefinition: deliveryCase,
+          actorModel: "actor-model",
+          judgeModel: "judge-model",
+          hostVersion: "1.0.0",
+          actorTimeoutMs: 180_000,
+          judgeTimeoutMs: 60_000,
+          subjectRevision: "subject-revision",
+        });
+
+        helperSource = "changed verdict helper";
+        const after = buildProvenance({
+          caseDefinition: deliveryCase,
+          actorModel: "actor-model",
+          judgeModel: "judge-model",
+          hostVersion: "1.0.0",
+          actorTimeoutMs: 180_000,
+          judgeTimeoutMs: 60_000,
+          subjectRevision: "subject-revision",
+        });
+
+        expect(after.caseFingerprint).toBe(before.caseFingerprint);
+        expect(after.graderFingerprint).not.toBe(before.graderFingerprint);
+        expect(after.comparisonFingerprint).not.toBe(
+          before.comparisonFingerprint,
+        );
+        expect(after.subjectRevision).toBe(before.subjectRevision);
+      },
+    );
+  });
+
   it("computes deterministic grader fingerprints and reflects rubric / criteria changes", () => {
     const gfp1 = computeGraderFingerprint(deliveryCase);
     const gfp2 = computeGraderFingerprint(deliveryCase);

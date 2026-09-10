@@ -74,6 +74,7 @@ export function computeGraderFingerprint(caseDefinition: EvalCase): string {
     "../hosts/pi.ts",
     "../hosts/pi-worker.ts",
     "../core/runner.ts",
+    "../reporting/report.ts",
     "../graders/artifacts.ts",
     "../core/tc.ts",
   ];
