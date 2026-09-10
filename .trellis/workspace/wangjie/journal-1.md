@@ -607,3 +607,43 @@ User-selected deepseek/deepseek-v4-flash worked. Reproduced public Entry missing
 ### Next Steps
 
 - 需要更广模型/任务样本再评估Trellis迁移门；本轮不扩大能力声明。用户自行审阅并提交改动。
+
+
+## Session 27: Evals 批量运行与两种 Agent 场景交付
+
+**Date**: 2026-09-11
+**Task**: Evals 批量运行与两种 Agent 场景交付
+**Branch**: `feat/evals-batch-and-scenarios`
+
+### Summary
+
+完成批量选择/重复/并发/续跑、可信三态判定、盲评证据、L2 Review 回流及正常会话恢复；已完成独立审查并推送功能代码。六份历史运行的12个文件原样保留。
+
+### Main Changes
+
+- 批次 ledger 与只读中文看板接线，取消清理与路径/报告边界通过实证回归。
+- 两个新场景使用真实 tc CLI 与 fake host 验证；judge 接收真实 controller 证据且不接收 code 评分。
+- 共享评分 helper 已纳入方法指纹，QA subject Git SHA 保持独立；生产 src 和宿主配置未改。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ddd0904` | (see git log) |
+| `fa9635b` | (see git log) |
+| `778ed7b` | (see git log) |
+| `1781867` | (see git log) |
+
+### Testing
+
+- [OK] 集成阶段：620项全项目测试及类型/lint/格式/build通过。
+- [OK] 后续边界修复：110项Evals测试与4项浏览器smoke通过；最终指纹修复10项定向测试通过。
+- [OK] 父级实际请求3100页面/API均200，5个场景、6份历史报告；12份文件哈希一致。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- QA 检出并构建推送分支后运行真实 Actor/Judge 批次；本地未运行新的真实测评。

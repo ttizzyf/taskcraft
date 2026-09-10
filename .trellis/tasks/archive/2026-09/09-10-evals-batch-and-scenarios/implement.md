@@ -12,8 +12,8 @@ User approved queues A–E, Luna/max subagents, new feature branch, final commit
 4. [x] Dispatch A batch, B verdict/board, C blind judge, D L2, E normal-session resume together through one native async workflow. All children use company/gpt-5.6-luna:max.
 5. [x] One integration child cherry-picks verified lane commits, resolves intended overlap, wires batch loading/new cases, writes scenario guide/README, and performs full automated validation.
 6. [x] Two fresh read-only Luna/max reviewers run in parallel: batch/verdict/board and scenarios/judge/claim boundaries. They return evidence-backed findings; only structured blocked verdict blocks the workflow gate.
-7. [x] Sole integration child handles accepted findings; focused re-review as needed, bounded to three rounds. Infrastructure/setup/tooling errors stop the workflow and are never silently replaced by external CLI execution.
-8. [ ] Parent validates final diff, branch/ref, command evidence and clean status; records task/spec/session completion, commits bookkeeping, and pushes the feature branch to origin without merging main.
+7. [x] Sole integration child handles accepted findings; three primary review rounds followed by one focused provenance fix/review closed every confirmed finding. Infrastructure/setup/tooling errors use the same native protocol; no external CLI fallback was used.
+8. [x] Parent validated final diff, branch/ref, command evidence, clean status and all 12 historical report hashes; code commit `1781867` was pushed to origin. Task archival and journal record are the final bookkeeping steps.
 
 ## Integration progress
 
@@ -46,6 +46,17 @@ User approved queues A–E, Luna/max subagents, new feature branch, final commit
 - Cancellation cleanup now tracks known descendants through worker close and continues grace/SIGKILL cleanup for detached descendants; the regression fixture covers a SIGTERM-ignoring child.
 - L2 task completion is inconclusive when the final snapshot is unavailable; normal `session-resume` now forwards typed first-session handoff/source/task/attempt evidence to the blind judge/report on both established and unestablished paths.
 - Focused reviewer regression checks passed: 6 Evals test files / 21 tests, board data and server tests, Evals typecheck, affected ESLint/Prettier, and `git diff --check`.
+
+## Parent acceptance
+
+- Final code commit: `17818674c1a28d955f0d8e0c1a2de80d4c0aba4d`, pushed to `origin/feat/evals-batch-and-scenarios`; no merge into main.
+- All confirmed review findings are closed. Batch/report review passed at `778ed7b`; scenario/evidence review passed at `fa9635b`, with the subsequent shared-helper provenance gap fixed and independently passed at `1781867`.
+- Final boundary changes at `778ed7b`: 110 Evals tests and 4 browser smoke tests passed. Final provenance-only change: 10 targeted tests passed, plus Evals typecheck and affected lint/format. The earlier full-project integration run passed 620 tests, typecheck, lint, format and build; those were not misrepresented as a repeated final-HEAD full run.
+- Parent restarted the previously owned local board process and made real requests: `http://127.0.0.1:3100/` and `/api/data` returned 200; the API showed 5 scenarios, 6 historical reports and 0 batches. The server remains available for inspection.
+- The original six real runs' 12 JSON/Markdown files match the lane manifest byte-for-byte. No synthetic reports were added to formal `evals/runs/` and no new real Actor/Judge evaluations ran locally.
+- QA checks out/builds the pushed commit and runs real evaluations with the configured host. Reports capture QA's actual subject Git SHA separately from evaluation-method fingerprints; no built-artifact hash or human-calibration claim was added.
+- Existing README and executable regressions capture the Evals contracts; production specs and `src/` required no change. Only this active task is archived; unrelated task records and lane worktrees are retained.
+- Review evidence is retained in native workflow receipts `60d82e29-de4e-4c8a-ae36-7d7ce41a2f52` and `064f382e-4733-41f6-9cbe-b37e6e0a0a3e`, including structured verdicts and precise reproductions.
 
 ## Recovery
 

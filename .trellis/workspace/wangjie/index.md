@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 26
-- **Last Active**: 2026-09-10
+- **Total Sessions**: 27
+- **Last Active**: 2026-09-11
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~609 | Active |
+| `journal-1.md` | ~649 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 27 | 2026-09-11 | Evals 批量运行与两种 Agent 场景交付 | `ddd0904`, `fa9635b`, `778ed7b`, `1781867` | `feat/evals-batch-and-scenarios` |
 | 26 | 2026-09-10 | 修复 Entry 与跨会话恢复并完成 DeepSeek 盲测 | - | `main` |
 | 25 | 2026-09-09 | DeepSeek Entry and L2 recovery evaluation follow-up | - | `main` |
 | 24 | 2026-09-09 | Claude Entry and L2 cold-start evaluation | - | `main` |
