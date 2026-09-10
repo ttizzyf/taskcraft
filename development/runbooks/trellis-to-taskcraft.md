@@ -1,7 +1,7 @@
 # 从 Trellis 迁移到 Taskcraft 狗粮化
 
 > 状态：切换条件未满足（2026-08-17 复核，迁移门 `blocked`）。Task 00–07 的
-> 实现缺口已经收口，Stop Hook 已按 ADR 0009 移除；Codex 0.147.0 已通过公共
+> 实现缺口已经收口，Adapter 使用 SessionStart Entry Hook；Codex 0.147.0 已通过公共
 > `tc agent test-entry-hook` 真实宿主复核，Claude 仍未取得成功结果。当前不得执行卸载。
 
 目标是在一个明确切换窗口内停止 Trellis 的任务状态、Hook 和上下文注入，让 tc 成为后续开发的唯一活动任务系统。退出保留可审计历史，但不把 Trellis 状态机械翻译成 Taskcraft 五状态，也不设置双写期。

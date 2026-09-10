@@ -1,3 +1,4 @@
+import { CLAUDE_ENTRY_STREAM } from "../adapters/claude-entry-fixture.js";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
@@ -85,7 +86,10 @@ export function scriptPassingChain(
   agent: "codex" | "claude",
 ): void {
   fake.setSpawnScript(agent, {
-    stdout: `${BREADCRUMB_LINE}\nagent: TC_FIRST\n`,
+    stdout:
+      agent === "claude"
+        ? CLAUDE_ENTRY_STREAM
+        : `${BREADCRUMB_LINE}\nagent: TC_FIRST\n`,
   });
 }
 

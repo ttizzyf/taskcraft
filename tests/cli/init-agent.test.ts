@@ -3,7 +3,13 @@
 // user content); unknown agents fail with TC_ADAPTER_UNSUPPORTED; every real
 // write stays inside the project directory (global host config untouched).
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
@@ -59,9 +65,9 @@ describe("tc init --agent (CLI)", () => {
       // The Entry wrapper delegates to the public CLI (state --breadcrumb).
       expect(entry).toContain("dist/cli.js");
       expect(entry).toContain("state --breadcrumb");
-      expect(existsSync(join(cwd, ".taskcraft", "hooks", "stop.sh"))).toBe(
-        false,
-      );
+      expect(readdirSync(join(cwd, ".taskcraft", "hooks"))).toEqual([
+        "entry.sh",
+      ]);
 
       const config = JSON.parse(
         readFileSync(join(cwd, ".codex", "hooks.json"), "utf8"),
@@ -70,7 +76,6 @@ describe("tc init --agent (CLI)", () => {
           SessionStart: Array<{
             hooks: Array<{ type: string; command: string }>;
           }>;
-          Stop?: unknown[];
         };
       };
       expect(config.hooks.SessionStart).toHaveLength(1);
@@ -78,7 +83,7 @@ describe("tc init --agent (CLI)", () => {
         type: "command",
         command: expect.stringContaining("entry.sh"),
       });
-      expect(config.hooks.Stop).toBeUndefined();
+      expect(Object.keys(config.hooks)).toEqual(["SessionStart"]);
     });
   });
 
@@ -91,9 +96,9 @@ describe("tc init --agent (CLI)", () => {
 
       const settings = JSON.parse(
         readFileSync(join(cwd, ".claude", "settings.json"), "utf8"),
-      ) as { hooks: { SessionStart: unknown[]; Stop?: unknown[] } };
+      ) as { hooks: { SessionStart: unknown[] } };
       expect(settings.hooks.SessionStart).toHaveLength(1);
-      expect(settings.hooks.Stop).toBeUndefined();
+      expect(Object.keys(settings.hooks)).toEqual(["SessionStart"]);
     });
   });
 

@@ -1,20 +1,11 @@
-// L3 lifecycle compiler and result-contract validators. Planning, modules
+// L3 lifecycle compiler. Planning, modules
 // execution and single execution graphs are separate immutable revisions.
-
-import {
-  Ajv2020,
-  type AnySchema,
-  type ValidateFunction,
-} from "ajv/dist/2020.js";
 
 import type { TaskcraftDatabase } from "../../store/database.js";
 import {
-  L3_FRAME_RESULT_SCHEMA,
-  L3_INTEGRATE_RESULT_SCHEMA,
   L3_MODULES_EXECUTION_EDGES,
   L3_MODULES_EXECUTION_NODES,
   L3_MODULES_EXECUTION_OBLIGATIONS,
-  L3_PLAN_RESULT_SCHEMA,
   L3_PLANNING_EDGES,
   L3_PLANNING_NODES,
   L3_PLANNING_OBLIGATIONS,
@@ -193,27 +184,4 @@ function insertObligations(
       obligation.evaluatorJson,
     );
   }
-}
-
-let frameResultValidator: ValidateFunction | null = null;
-let planResultValidator: ValidateFunction | null = null;
-let integrateResultValidator: ValidateFunction | null = null;
-
-export function validateL3FrameResult(result: unknown): boolean {
-  frameResultValidator ??= compile(L3_FRAME_RESULT_SCHEMA);
-  return frameResultValidator(result) === true;
-}
-
-export function validatePlanResult(result: unknown): boolean {
-  planResultValidator ??= compile(L3_PLAN_RESULT_SCHEMA);
-  return planResultValidator(result) === true;
-}
-
-export function validateIntegrateResult(result: unknown): boolean {
-  integrateResultValidator ??= compile(L3_INTEGRATE_RESULT_SCHEMA);
-  return integrateResultValidator(result) === true;
-}
-
-function compile(schema: AnySchema): ValidateFunction {
-  return new Ajv2020({ strict: true, allErrors: true }).compile(schema);
 }

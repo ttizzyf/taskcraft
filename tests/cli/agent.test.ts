@@ -234,12 +234,17 @@ describe("tc agent (CLI smoke)", () => {
     });
   });
 
-  it("does not expose the removed test-hook compatibility command", () => {
+  it("advertises the supported agent commands", () => {
     withTemporaryDirectory((cwd) => {
-      const result = runCli(["agent", "test-hook", "--agent", "claude"], cwd);
+      const result = runCli(["agent", "--help"], cwd);
 
-      expect(result.status).toBe(1);
-      expect(result.stderr).toContain("unknown command 'test-hook'");
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(
+        [...result.stdout.matchAll(/^ {2}([a-z][\w-]*)/gm)].map(
+          (match) => match[1],
+        ),
+      ).toEqual(["capabilities", "test-entry-hook", "help"]);
     });
   });
 });

@@ -221,6 +221,16 @@ Projector 使用节点 definition、当前任务 facts、已有 attempt/evidence
 
 Breadcrumb 保持为紧凑定位投影，携带当前 Task、lifecycle revision、节点、状态和下一条查询命令。节点执行卡承载 Agent 完成当前节点所需的执行内容。
 
+冷启动通过 breadcrumb 的 `detailCommand` 查询 `tc task show <id> --json`。
+任务详情的 `nodeBrief` 返回当前 revision 已领取节点的同源执行卡，包含结果 Schema；
+没有已领取节点时为 `null`，按 `next` 正常领取。查询执行卡不创建 attempt、不推进
+task revision，也不登记结果。已开始的 Review 从持久化 Review link 恢复被审核
+attempt、purpose 和 evidence，不通过再次启动 Review 来读取。
+
+结果格式校验失败时，错误必须指出字段路径和违反的约束，并提供带实际 task id 的
+取卡命令；不能要求没有旧会话上下文的 Agent 自行猜测提交结构。校验仍使用该
+lifecycle revision 保存的 Schema，失败不写入任何部分事实。
+
 ### 7.2 连续推进
 
 ```mermaid

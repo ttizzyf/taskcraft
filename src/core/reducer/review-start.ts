@@ -34,7 +34,7 @@ import {
   nowIso,
 } from "./shared.js";
 import { insertReviewLink, reviewRefError } from "./review-shared.js";
-import { buildNodeBrief } from "./node-brief.js";
+import { buildNodeBrief } from "../node-brief-query.js";
 
 const REVIEW_CAPABILITIES = ["context-only", "manual-attach", "host-observed"];
 const REVIEW_INDEPENDENCE_STATUSES = [
@@ -210,7 +210,6 @@ export function reviewStart(
         currentSnapshot,
         reviewAttempt,
         nodeId,
-        { attempt: reviewed, purpose: input.purpose },
       ),
     };
   });

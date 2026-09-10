@@ -1,0 +1,6 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend checklist and verification"}
+{"file":".trellis/spec/taskcraft.md","reason":"Authoritative sources and product boundary"}
+{"file":".trellis/spec/guides/index.md","reason":"Shared engineering guidelines"}
+{"file":"development/specs/architecture.md","reason":"CLI-only fact writes and host execution ownership"}
+{"file":".trellis/tasks/09-09-tc-evals/design.md","reason":"Approved minimal implementation choices and verified CLI evidence"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend conventions; do not import Watch or touch agent harness"}

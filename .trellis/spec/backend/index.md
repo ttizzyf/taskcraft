@@ -8,7 +8,7 @@ Taskcraft 的 TypeScript 生产实现位于 `src/`，测试位于 `tests/`。本
 - [Spec Registry 实现合同](spec-registry-contract.md)：Registry Schema、单一解析入口、
   安全文件读取、候选解析、`tc init` / `tc spec` 和稳定错误合同。
 - [Entry Hook 跨层合同](entry-hook-contract.md)：Adapter、CLI、配置持久化、
-  Watch Runtime/Diagnostics 的 Entry-only 数据流。
+  Watch Runtime/Diagnostics 的 SessionStart Entry 数据流。
 - [L3 模块化跨层实现合同](l3-modular-contract.md)：accepted Plan 事务、真实 child、
   parent Projector、replan/reuse、Entry root 选择、CLI/Watch/doctor 同源合同。
 - [Spec 生命周期绑定实现合同](spec-lifecycle-contract.md)：revision/node binding、
@@ -36,7 +36,7 @@ Taskcraft 的 TypeScript 生产实现位于 `src/`，测试位于 `tests/`。本
 - CLI、Adapter、配置和 Watch 是否仍使用同一个 Entry Hook 结果合同。
 - Registry、CLI 和后续消费者是否仍复用同一个 `src/spec/` 解析结果，且候选没有被
   自动提升为 binding。
-- 新安装是否只产生 `entry.sh`/SessionStart，且没有 Stop 兼容壳或第二套 schema。
+- 新安装的完整 Hook 产物是否为 `entry.sh`、SessionStart 注册和统一测试记录 schema。
 - 失败是否保持非零退出和稳定诊断；真实宿主证据是否与自动测试分开报告。
 
 新增专题指南必须引用实际源码、测试和权威规范，不得从阶段计划或研究材料单独

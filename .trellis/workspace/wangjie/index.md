@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 23
-- **Last Active**: 2026-08-24
+- **Total Sessions**: 26
+- **Last Active**: 2026-09-10
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~540 | Active |
+| `journal-1.md` | ~609 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,9 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 26 | 2026-09-10 | 修复 Entry 与跨会话恢复并完成 DeepSeek 盲测 | - | `main` |
+| 25 | 2026-09-09 | DeepSeek Entry and L2 recovery evaluation follow-up | - | `main` |
+| 24 | 2026-09-09 | Claude Entry and L2 cold-start evaluation | - | `main` |
 | 23 | 2026-08-24 | Complete Taskcraft Spec system | `ddec2a7`, `7fe84e5`, `1f2167e` | `main` |
 | 22 | 2026-08-17 | Complete modular L3 task decomposition | `914b048`, `f4ff255`, `8c8726b` | `main` |
 | 21 | 2026-08-14 | Remove Stop Hook and adopt agent-driven continuation | `babeb09`, `b70adb5` | `main` |

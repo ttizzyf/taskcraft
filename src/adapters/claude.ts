@@ -5,6 +5,7 @@
 
 import { renderNodeBrief } from "../core/node-brief.js";
 import type { NodeBriefInput, RenderedNodeBrief } from "../core/node-brief.js";
+import { inspectClaudeEntryOutput } from "./claude-entry.js";
 import { observeRun } from "./observe.js";
 import {
   appendCommandHook,
@@ -39,6 +40,9 @@ const DOCUMENT_ARG_SETS = [["--help"]];
 const TEST_HOOK_ARGS = [
   "-p",
   "--include-hook-events",
+  "--output-format",
+  "stream-json",
+  "--verbose",
   "--setting-sources",
   "user,project",
 ];
@@ -103,7 +107,14 @@ export function createClaudeAdapter(deps: AdapterDeps = {}): HostAdapter {
           serializeClaudeSettings(buildClaudeProjectConfig({}, commands)),
       }),
     testEntryHook: (input: HookTestInput): HookTestResult =>
-      runEntryHookTest(spawn, now, CLAUDE_ID, TEST_HOOK_ARGS, input),
+      runEntryHookTest(
+        spawn,
+        now,
+        CLAUDE_ID,
+        TEST_HOOK_ARGS,
+        input,
+        inspectClaudeEntryOutput,
+      ),
     renderNodeBrief: (input: NodeBriefInput): RenderedNodeBrief =>
       renderNodeBrief(input),
     observe: (run: HostRun): RuntimeObservation => observeRun(run, now),

@@ -10,7 +10,7 @@
 | [Task 01](task-01-engineering-foundation.md) 工程基础 | 已完成（2026-08-11） | 可安装、测试、构建、迁移的最小工程 | 空库 migration、Schema fixture、静态检查和构建通过 |
 | [Task 02](task-02-l1-vertical-slice.md) L1 纵切 | 已归档（2026-08-11）；Task 07 补齐 waiting/resume/retry | Store、单 reducer/projector、L1 CLI 闭环 | L1 真实任务完成；waiting/resume/retry 公开闭环已补齐 |
 | [Task 03](task-03-l2-review-loop.md) L2 Review | 已完成（2026-08-12） | 独立 Review 节点及三种 outcome 回流 | passed/changes/replan 均有可追溯样本 |
-| [Task 04](task-04-host-adapters.md) Adapter | 阶段已归档（2026-08-12）；Entry-only 合同已更新（2026-08-14） | Codex/Claude Adapter、Node Brief、能力披露 | 只安装 Entry Hook；Diagnostics 已自动验证；Codex 0.147.0 公共 `test-entry-hook` 已真实通过，Claude 待通过 |
+| [Task 04](task-04-host-adapters.md) Adapter | 阶段已归档（2026-08-12）；SessionStart Entry 合同已更新（2026-08-14） | Codex/Claude Adapter、Node Brief、能力披露 | 安装 SessionStart Entry Hook；Diagnostics 已自动验证；Codex 0.147.0 公共 `test-entry-hook` 已真实通过，Claude 待通过 |
 | [Task 05](task-05-l3.md) L3 | 已归档（2026-08-13）；模块化合同已升级（2026-08-17） | 两阶段 Plan/Feasibility、真实 L1/L2 children、Integrate | modules 与 single 均由公开 CLI 回放；waiting/resume、依赖、Review、取消门和 doctor 通过 |
 | [Task 06](task-06-watch.md) Watch | 阶段已归档（2026-08-13）；Task 07 已补 Diagnostics | 只读 Board、详情、Runtime、Diagnostics | 页面 smoke 与 Runtime 同源展示通过；Hook 注册/路径/现场结果/宿主版本漂移诊断已自动验证 |
 | [Task 07](task-07-mvp-readiness-remediation.md) MVP 就绪度返工 | 代码与自动测试完成；真实宿主验收部分通过（2026-08-17） | doctor、waiting/resume、真实 Hook/恢复样本与合同收口 | Codex `test-entry-hook` 已真实通过；Claude 尚未取得成功结果 → 迁移门 `blocked` |

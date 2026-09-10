@@ -10,6 +10,7 @@ Entry Hook 迁移门通过后才会退出 Trellis 并开始狗粮化。
 
 - [开发指南](development/README.md)：规范、合同、Task 00–06、Trellis 工作流与迁移方案的唯一入口。
 - [交互原型](development/prototypes/watch.html)：当前 Watch 交互概念的静态演示。
+- [Evals 测评框架](evals/README.md)：delivery/recovery/review 三个 Agent 案例的 runner、grader 与运行说明（`pnpm eval`）。
 
 ## 工程开发
 

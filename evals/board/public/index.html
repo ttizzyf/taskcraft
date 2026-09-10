@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Taskcraft Evals 评测看板</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-container">
+      <!-- Top Header -->
+      <header class="board-header">
+        <div class="header-brand">
+          <div class="brand-logo">
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M18 20V10"></path>
+              <path d="M12 20V4"></path>
+              <path d="M6 20v-6"></path>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <h1 class="brand-title">Taskcraft Evals</h1>
+            <p class="brand-subtitle">独立评测控制台 · 结论与历史比对</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <div
+            class="polling-badge"
+            id="polling-badge"
+            title="页面正在定时检测新增评测报告"
+          >
+            <span class="pulse-dot"></span>
+            <span id="polling-text">自动刷新中</span>
+          </div>
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm"
+            id="btn-refresh"
+            aria-label="立即刷新数据"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"
+              />
+            </svg>
+            刷新
+          </button>
+        </div>
+      </header>
+
+      <!-- Malformed Diagnostics Alert -->
+      <section
+        class="alert-banner"
+        id="malformed-alert"
+        style="display: none"
+        role="alert"
+      >
+        <div class="alert-content">
+          <svg
+            class="alert-icon"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span id="malformed-message">检测到异常报告文件</span>
+        </div>
+        <button type="button" class="btn-link" id="btn-toggle-malformed">
+          查看明细
+        </button>
+        <div
+          class="alert-details"
+          id="malformed-details"
+          style="display: none"
+        ></div>
+      </section>
+
+      <!-- Overview Statistics Cards -->
+      <section class="overview-grid" aria-label="评测总览指标">
+        <div class="metric-card">
+          <div class="metric-label">场景总数</div>
+          <div class="metric-value" id="stat-total">3</div>
+          <div class="metric-desc">固定核心场景</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">已尝试</div>
+          <div class="metric-value" id="stat-attempted">0</div>
+          <div class="metric-desc">至少产生一次运行记录</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">有效判定</div>
+          <div class="metric-value metric-success" id="stat-decisive">0</div>
+          <div class="metric-desc">前置成立（通过或失败）</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">执行受阻</div>
+          <div class="metric-value metric-warning" id="stat-blocked">0</div>
+          <div class="metric-desc">Actor 或前置未形成产物</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">无法判定</div>
+          <div class="metric-value metric-inconclusive" id="stat-inconclusive">
+            0
+          </div>
+          <div class="metric-desc">执行已成立，但必要检查未能验证</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">未运行</div>
+          <div class="metric-value metric-muted" id="stat-unrun">3</div>
+          <div class="metric-desc">尚未启动评测</div>
+        </div>
+      </section>
+
+      <!-- Scenarios Section -->
+      <main class="main-section">
+        <div class="section-header">
+          <h2 class="section-title">评测场景列表</h2>
+          <span class="section-note" id="update-timestamp">最后更新：—</span>
+        </div>
+
+        <p class="section-context">
+          每个场景是一个可重复运行的测评模板。当前每次运行创建 1 个 tc
+          任务，并用多个标准验收；点开场景可查看背景、具体任务、执行步骤和完整标准。
+        </p>
+        <div class="table-container">
+          <table
+            class="scenarios-table"
+            id="scenarios-table"
+            aria-label="评测场景列表"
+          >
+            <thead>
+              <tr>
+                <th scope="col">场景名称</th>
+                <th scope="col">最新结果</th>
+                <th scope="col">一句话原因</th>
+                <th scope="col">较上次比对</th>
+                <th scope="col">最近运行时间</th>
+                <th scope="col">耗时</th>
+                <th scope="col" class="th-actions">操作</th>
+              </tr>
+            </thead>
+            <tbody id="scenarios-tbody">
+              <!-- Rendered by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile Scenarios Cards -->
+        <div class="scenarios-cards" id="scenarios-cards">
+          <!-- Rendered by JavaScript for narrow screens -->
+        </div>
+      </main>
+
+      <!-- Drawer / Modal for Scenario Drilldown & History -->
+      <div
+        class="drawer-overlay"
+        id="drawer-overlay"
+        style="display: none"
+        tabindex="-1"
+      >
+        <div
+          class="drawer-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="drawer-title"
+          id="drawer-panel"
+        >
+          <div class="drawer-header">
+            <div>
+              <h2 class="drawer-title" id="drawer-title">场景详情</h2>
+              <p class="drawer-subtitle" id="drawer-subtitle">
+                场景说明与历史记录
+              </p>
+            </div>
+            <button
+              type="button"
+              class="btn-close"
+              id="btn-close-drawer"
+              aria-label="关闭详情面板"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="drawer-body">
+            <div id="scenario-guide-content"></div>
+            <!-- History Run Selector -->
+            <div class="history-selector-wrapper">
+              <div class="field-label">历史运行记录：</div>
+              <div class="history-nav" id="history-nav">
+                <!-- Rendered as chips or buttons -->
+              </div>
+            </div>
+
+            <!-- Active Run Drilldown Container -->
+            <div id="run-drilldown-content">
+              <!-- Rendered by JavaScript -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

@@ -1,3 +1,8 @@
+import {
+  CLAUDE_ENTRY_STREAM,
+  CLAUDE_HOOK_EVENT,
+  CLAUDE_RESULT_EVENT,
+} from "../adapters/claude-entry-fixture.js";
 // runAgentTestEntryHook scenarios: the installed Entry Hook field test exercises a real
 // project setup (installed scripts, host registration, takeover enabled) with
 // fake host spawn outcomes for the pre-flight failures (scripts/gate artifact/
@@ -332,4 +337,54 @@ describe("runAgentTestEntryHook judgments", () => {
       setup.cleanup();
     }
   });
+});
+
+describe("Claude structured failures persist through the public command", () => {
+  it.each([
+    [
+      "model error",
+      {
+        stdout: [CLAUDE_HOOK_EVENT, { ...CLAUDE_RESULT_EVENT, is_error: true }]
+          .map((e) => JSON.stringify(e))
+          .join("\n"),
+      },
+      "model result",
+    ],
+    [
+      "timeout after Hook",
+      { stdout: CLAUDE_ENTRY_STREAM, timedOut: true },
+      "timed out",
+    ],
+    [
+      "host failure after Hook",
+      { stdout: CLAUDE_ENTRY_STREAM, exitCode: 1, stderr: "host failed" },
+      "host failed",
+    ],
+  ] as const)(
+    "records %s instead of accepting Hook evidence",
+    (_label, script, failure) => {
+      const fake = createFakeHost();
+      const setup = setupProject("claude");
+      fake.setSpawnScript("claude", script);
+      try {
+        expect(() =>
+          runAgentTestEntryHook(claudeAdapter(fake), setup.projectDir),
+        ).toThrow();
+        const config = JSON.parse(
+          readFileSync(
+            join(setup.projectDir, ".taskcraft", "config.json"),
+            "utf8",
+          ),
+        ) as {
+          entryHookTests: Record<string, { ok: boolean; failure: string }>;
+        };
+        expect(config.entryHookTests.claude).toMatchObject({
+          ok: false,
+          failure: expect.stringContaining(failure),
+        });
+      } finally {
+        setup.cleanup();
+      }
+    },
+  );
 });

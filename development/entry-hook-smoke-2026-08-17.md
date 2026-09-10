@@ -1,8 +1,7 @@
 # Taskcraft Entry Hook 真实宿主复核（2026-08-17）
 
-> 本记录只评估 ADR 0009 之后的 Entry-only 合同。Stop Hook 已移除，不属于当前
-> 能力或迁移门。2026-08-12/13 的 Stop、`enforced/advisory` 和旧 `test-hook`
-> 结论是历史实验，不能覆盖本记录。
+> 本记录评估 SessionStart Entry Hook 的安装、任务恢复和公共现场检测合同。
+> 当前迁移判断以本记录中的宿主测试结果为准。
 
 ## 当前结论
 

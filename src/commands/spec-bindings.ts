@@ -1,3 +1,4 @@
+import { withNodeBriefSpecDrift } from "../core/node-brief-query.js";
 import type { TaskcraftDatabase } from "../store/database.js";
 import {
   getAttempts,
@@ -123,20 +124,13 @@ export function attachNodeBriefSpecDrift(
   brief: NodeBrief,
   drift: readonly SpecBindingDrift[],
 ): NodeBrief {
-  const byId = new Map(drift.map((item) => [item.binding.specId, item]));
-  return {
-    ...brief,
-    specs: brief.specs.map((spec) => {
-      const item = byId.get(spec.id);
-      return {
-        ...spec,
-        drift:
-          item === undefined
-            ? spec.drift
-            : { status: item.status, reasons: [...item.reasons] },
-      };
-    }),
-  };
+  return withNodeBriefSpecDrift(
+    brief,
+    drift.map((item) => ({
+      id: item.binding.specId,
+      drift: { status: item.status, reasons: [...item.reasons] },
+    })),
+  );
 }
 
 function resolveBoundarySnapshot(

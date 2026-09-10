@@ -1,3 +1,4 @@
+import { CLAUDE_ENTRY_STREAM } from "./claude-entry-fixture.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { readFileSync } from "node:fs";
@@ -35,7 +36,7 @@ import {
   buildClaudeProjectConfig,
   serializeClaudeSettings,
 } from "../../src/adapters/claude.js";
-import { createFakeHost, BREADCRUMB_LINE } from "../helpers/fake-host.js";
+import { createFakeHost } from "../helpers/fake-host.js";
 import { createTemporaryDirectory } from "../helpers/temp-directory.js";
 import { runConformance } from "./conformance.js";
 
@@ -96,7 +97,7 @@ describe("claude adapter", () => {
       "entry.sh",
     );
     fake.setSpawnScript("claude", {
-      stdout: `${BREADCRUMB_LINE}\nagent: TC_FIRST\n`,
+      stdout: CLAUDE_ENTRY_STREAM,
     });
 
     try {
@@ -113,7 +114,16 @@ describe("claude adapter", () => {
       );
       expect(call?.command).toBe("claude");
       expect(call?.args[0]).toBe("-p");
-      expect(call?.args).toContain("--include-hook-events");
+      expect(call?.args).toEqual([
+        "-p",
+        "--include-hook-events",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--setting-sources",
+        "user,project",
+        "Reply exactly TC_FIRST.",
+      ]);
       expect(call?.args).toContain("--setting-sources");
       expect(call?.args.at(-1)).toBe("Reply exactly TC_FIRST.");
     } finally {

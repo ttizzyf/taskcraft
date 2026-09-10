@@ -136,6 +136,13 @@ tc review replan T-104 --attempt <id> --finding "Contract changed"
 subagent。当前 Agent 使用自身能力执行，也可以按 Node Brief 的派发说明调用宿主
 原生 subagent；`run attach` 只登记已有 host run 的观察关系。
 
+`tc task show <id> --json` 的可空 `nodeBrief` 返回当前 revision 已领取节点的完整
+执行卡与结果 Schema；文本输出也展示该卡。冷启动可沿 breadcrumb 的
+`detailCommand` 恢复，无需重新领取。查询不创建 attempt 或推进 revision；没有
+已领取节点时返回 `null`，继续按 `next` 领取。Review 卡从持久化 Review link 恢复
+被审 attempt 和 purpose。结果格式错误沿用既有错误信封，在 `problem` 中指出字段
+路径和约束，并在 `remediation` 中给出具体任务的 `task show` 命令；失败不写事实。
+
 `review start` 返回 Review Node Brief，并记录 `reviewPurpose`：`feasibility` 审核 plan attempt，`delivery`
 审核 execute attempt，`integration` 审核 integrate attempt，并保存 Review correlation
 能力（`context-only`、`manual-attach`、`host-observed`）与独立性状态。

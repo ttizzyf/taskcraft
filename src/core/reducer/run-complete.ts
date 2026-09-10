@@ -45,7 +45,7 @@ import { isSpecBindingL2CompilerVersion } from "../lifecycle/l2.js";
 import type { SpecSelection } from "../../spec/bindings.js";
 import { assertResolvedSpecSelections } from "../../spec/bindings.js";
 import { insertLifecycleSpecBindings } from "../../store/spec-facts.js";
-import { validateStoredNodeResult } from "./lifecycle-result.js";
+import { assertStoredNodeResult } from "./lifecycle-result.js";
 import {
   completeRecordNode,
   type RecordResultShape,
@@ -100,23 +100,13 @@ function completeExecuteNode(
 ): CommandData {
   const result = input.result as ExecuteResultShape;
 
-  if (
-    !validateStoredNodeResult(
-      database,
-      taskId,
-      snapshot.currentLifecycleRevision,
-      L1_EXECUTE_NODE_ID,
-      result,
-    )
-  ) {
-    throw new TaskcraftError(ERROR_CODES.TC_LIFECYCLE_RESULT_INVALID, {
-      problem: `Result for ${L1_EXECUTE_NODE_ID} failed the node result schema`,
-      impact: "No facts were written; the task keeps its current state",
-      remediation:
-        "Resubmit a result matching the execute-1 result schema from the Node Brief",
-      context: { taskId },
-    });
-  }
+  assertStoredNodeResult(
+    database,
+    taskId,
+    snapshot.currentLifecycleRevision,
+    L1_EXECUTE_NODE_ID,
+    result,
+  );
 
   const attempt = resolveTargetAttempt(
     database,
@@ -223,25 +213,13 @@ function completeFrameNode(
     specBindings?: SpecSelection[];
   };
 
-  const valid = validateStoredNodeResult(
+  assertStoredNodeResult(
     database,
     taskId,
     snapshot.currentLifecycleRevision,
     L2_FRAME_NODE_ID,
     result,
   );
-
-  if (!valid) {
-    throw new TaskcraftError(ERROR_CODES.TC_LIFECYCLE_RESULT_INVALID, {
-      problem: `Result for ${L2_FRAME_NODE_ID} failed the node result schema`,
-      impact: "No facts were written; the task keeps its current state",
-      remediation:
-        snapshot.level === 3
-          ? "Resubmit a result matching the L3 frame schema (objective, scope, acceptanceAnchors, nonGoals)"
-          : "Resubmit a result matching the frame-1 result schema (objective, scope, acceptance)",
-      context: { taskId },
-    });
-  }
 
   const attempt = resolveTargetAttempt(
     database,

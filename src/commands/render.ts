@@ -98,6 +98,7 @@ export interface TaskShowData {
   executionSource: Projection["executionSource"];
   inheritedPlanning: Projection["inheritedPlanning"];
   specs: SpecDeliveryView;
+  nodeBrief: NodeBrief | null;
 }
 
 export interface StatusDetailData {
@@ -238,6 +239,7 @@ export function renderTaskShowData(data: TaskShowData): string {
   }
 
   lines.push(`Next: ${data.next ?? "(none)"}`);
+  if (data.nodeBrief !== null) lines.push("", renderNodeBrief(data.nodeBrief));
   lines.push(...renderSpecDelivery(data.specs));
   lines.push(...renderL3TaskShowSections(data));
   lines.push("Attempts:");

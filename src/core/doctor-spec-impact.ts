@@ -87,18 +87,6 @@ export function checkSpecImpact(database: TaskcraftDatabase): DoctorCheck {
           `${task.id} ${row.recordAttemptId}: no compiler obligation`,
         );
       }
-      if (
-        !hasSatisfiedImpactResult(
-          database,
-          task.id,
-          row.lifecycleRevision,
-          row.recordAttemptId,
-        )
-      ) {
-        problems.push(
-          `${task.id} ${row.recordAttemptId}: missing satisfied Spec Impact obligation result`,
-        );
-      }
     }
   }
   const revisions = database
@@ -147,6 +135,16 @@ export function checkSpecImpact(database: TaskcraftDatabase): DoctorCheck {
       )
       .all(revision.taskId, revision.revision) as Array<{ id: string }>;
     if (obligation) {
+      // Obligations belong to a node/revision, while every successful Record
+      // retains its own Impact. A successor does not replace first evidence.
+      if (
+        successful.length > 0 &&
+        !hasSatisfiedImpactResult(database, revision.taskId, revision.revision)
+      ) {
+        problems.push(
+          `${revision.taskId} revision ${revision.revision}: missing satisfied Spec Impact obligation result`,
+        );
+      }
       for (const attempt of successful) {
         if (!impactByAttempt.has(attempt.id)) {
           problems.push(
@@ -187,27 +185,21 @@ export function checkSpecImpact(database: TaskcraftDatabase): DoctorCheck {
   }
   const results = database
     .prepare(
-      `SELECT result.task_id AS taskId,
-              result.lifecycle_revision AS lifecycleRevision,
-              result.status,
-              evidence.node_attempt_id AS recordAttemptId
-       FROM obligation_results AS result
-       LEFT JOIN evidence
-         ON evidence.id = result.satisfied_by_evidence_id
-        AND evidence.task_id = result.task_id
-       WHERE result.node_id = 'record-1' AND result.obligation_id = ?`,
+      `SELECT task_id AS taskId, lifecycle_revision AS lifecycleRevision
+       FROM obligation_results
+       WHERE node_id = 'record-1' AND obligation_id = ?`,
     )
     .all(L1_OBLIGATION_IDS.specImpactRecorded) as Array<{
     taskId: string;
     lifecycleRevision: number;
-    status: string;
-    recordAttemptId: string | null;
   }>;
   for (const result of results) {
     if (
-      result.status !== "satisfied" ||
-      result.recordAttemptId === null ||
-      !impactByAttempt.has(result.recordAttemptId)
+      !hasSatisfiedImpactResult(
+        database,
+        result.taskId,
+        result.lifecycleRevision,
+      )
     ) {
       problems.push(
         `${result.taskId} revision ${result.lifecycleRevision}: orphan Spec Impact obligation result`,
@@ -330,7 +322,6 @@ function hasSatisfiedImpactResult(
   database: TaskcraftDatabase,
   taskId: string,
   revision: number,
-  recordAttemptId: string,
 ): boolean {
   return (
     database
@@ -342,14 +333,26 @@ function hasSatisfiedImpactResult(
          WHERE result.task_id = ? AND result.lifecycle_revision = ?
            AND result.node_id = 'record-1' AND result.obligation_id = ?
            AND result.status = 'satisfied'
-           AND evidence.node_attempt_id = ?`,
+           AND EXISTS (
+             SELECT 1 FROM node_attempts AS attempt
+             JOIN lifecycle_nodes AS node
+               ON node.task_id = attempt.task_id
+              AND node.lifecycle_revision = attempt.lifecycle_revision
+              AND node.id = attempt.node_id
+             JOIN spec_impact_results AS impact
+               ON impact.record_attempt_id = attempt.id
+              AND impact.task_id = attempt.task_id
+              AND impact.lifecycle_revision = attempt.lifecycle_revision
+              AND impact.record_node_id = attempt.node_id
+             WHERE attempt.id = evidence.node_attempt_id
+               AND attempt.task_id = result.task_id
+               AND attempt.lifecycle_revision = result.lifecycle_revision
+               AND attempt.node_id = result.node_id
+               AND node.kind = 'record'
+               AND attempt.status = 'finished' AND attempt.outcome = 'success'
+           )`,
       )
-      .get(
-        taskId,
-        revision,
-        L1_OBLIGATION_IDS.specImpactRecorded,
-        recordAttemptId,
-      ) !== undefined
+      .get(taskId, revision, L1_OBLIGATION_IDS.specImpactRecorded) !== undefined
   );
 }
 

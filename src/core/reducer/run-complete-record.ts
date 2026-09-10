@@ -1,7 +1,6 @@
 import type { TaskcraftDatabase } from "../../store/database.js";
 import { getAttempts } from "../../store/query.js";
 import type { TaskSnapshot } from "../../store/revision-guard.js";
-import { ERROR_CODES, TaskcraftError } from "../errors.js";
 import {
   L1_DEFAULT_ACTOR,
   L1_OBLIGATION_IDS,
@@ -9,7 +8,7 @@ import {
 } from "../lifecycle/l1.js";
 import type { CommandData, RunCompleteInput } from "./context.js";
 import { commandData, snapshotOf } from "./context.js";
-import { validateStoredNodeResult } from "./lifecycle-result.js";
+import { assertStoredNodeResult } from "./lifecycle-result.js";
 import {
   insertAttemptFinishedEvent,
   resolveTargetAttempt,
@@ -39,23 +38,13 @@ export function completeRecordNode(
   input: RunCompleteInput,
 ): CommandData {
   const result = input.result as RecordResultShape;
-  if (
-    !validateStoredNodeResult(
-      database,
-      taskId,
-      snapshot.currentLifecycleRevision,
-      L1_RECORD_NODE_ID,
-      result,
-    )
-  ) {
-    throw new TaskcraftError(ERROR_CODES.TC_LIFECYCLE_RESULT_INVALID, {
-      problem: `Result for ${L1_RECORD_NODE_ID} failed the node result schema`,
-      impact: "No facts were written; the task keeps its current state",
-      remediation:
-        "Resubmit a result matching the record-1 result schema from the Node Brief",
-      context: { taskId },
-    });
-  }
+  assertStoredNodeResult(
+    database,
+    taskId,
+    snapshot.currentLifecycleRevision,
+    L1_RECORD_NODE_ID,
+    result,
+  );
 
   const attempt = resolveTargetAttempt(
     database,

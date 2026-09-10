@@ -538,3 +538,72 @@ Implemented and independently verified the Git-owned Spec Registry, revision-sco
 ### Status
 
 [OK] **Completed**
+
+
+## Session 24: Claude Entry and L2 cold-start evaluation
+
+**Date**: 2026-09-09
+**Task**: Claude Entry and L2 cold-start evaluation
+**Branch**: `main`
+
+### Summary
+
+Delivered evaluation report: real Claude Hook emitted breadcrumb; public check did not pass; configured Gemini/antigravity route returned 429. L2 checkpoints not exercised (zero tools/tasks). Independent evidence review completed; temporary artifacts removed; original 9 dirty files unchanged. No product changes or Git commit.
+
+### Git Commits
+
+(No commits - planning session)
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 25: DeepSeek Entry and L2 recovery evaluation follow-up
+
+**Date**: 2026-09-09
+**Task**: DeepSeek Entry and L2 recovery evaluation follow-up
+**Branch**: `main`
+
+### Summary
+
+User-selected deepseek/deepseek-v4-flash worked. Reproduced public Entry missing-stream-json observability defect. Interrupted execution samples did not close (controller/permission confounds preserved); controlled review changes -> cold repair -> independent review -> done passed 8 tests, frozen acceptance, doctor11. Independent evidence audit corrected cold1 task-show observation. Report updated retaining first round; all temporary artifacts removed, no product edits or Git commit.
+
+### Git Commits
+
+(No commits - planning session)
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 26: 修复 Entry 与跨会话恢复并完成 DeepSeek 盲测
+
+**Date**: 2026-09-10
+**Task**: 修复 Entry 与跨会话恢复并完成 DeepSeek 盲测
+**Branch**: `main`
+
+### Summary
+
+修复 Claude Hook结构化检测、只读执行卡恢复、字段级结果诊断及重测发现的多Record doctor误报；6个DeepSeek盲测会话完成，同库只读复核通过。原始失败和限制已记录，临时产物清理，无Git提交。
+
+### Main Changes
+
+- 代码、回归与合同见09-10-tc-recovery-remediation归档任务；结果见development/evaluations/claude-entry-l2-recovery-2026-09-10.md
+
+### Git Commits
+
+(No commits - planning session)
+
+### Testing
+
+- [OK] 最终独立构建74文件514测试、产品type/lint/format/build通过；Watch桌面/移动6项通过；真实原库doctor均11/11，DB哈希不变
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 需要更广模型/任务样本再评估Trellis迁移门；本轮不扩大能力声明。用户自行审阅并提交改动。

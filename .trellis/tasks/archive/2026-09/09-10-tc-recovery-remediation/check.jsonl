@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/entry-hook-contract.md", "reason": "Entry detection and shared diagnostics contract"}
+{"file": ".trellis/spec/backend/spec-delivery-contract.md", "reason": "Node Brief and task show shared query contract"}
+{"file": "development/specs/lifecycle.md", "reason": "Cold-start and continuous progression contract"}
+{"file": ".trellis/tasks/archive/2026-09/09-10-tc-recovery-remediation/design.md", "reason": "Approved-scope implementation design; never send to evaluated agents"}

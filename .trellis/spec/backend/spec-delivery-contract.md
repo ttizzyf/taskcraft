@@ -29,8 +29,15 @@ loadSpecDeliveryView(projectDir, database, taskId, revision): SpecDeliveryView;
 
 ## 3. Contracts
 
-- `src/core/reducer/node-brief.ts` 从 exact SQLite revision/node binding 构建 DTO；命令
+- `src/core/node-brief-query.ts` 从 exact SQLite revision/node binding 构建 DTO；命令
   边界只附加 Registry drift。Codex/Claude Adapter 调用同一个纯 renderer，不读文件。
+- `task show` 返回可空 `nodeBrief`，从 Projector 的当前 running node 恢复已领取卡，
+  与 `run` 共用构造器；Review context 从持久化 link 读取。查询不创建 attempt、
+  不改变 revision/events；无已领取节点返回 null，L3 child 读取自身任务卡。
+  查询使用同一只读 SpecDeliveryView 附加 drift，不执行领取时的写入 gate。
+- 结果校验使用当前 revision 保存的 Schema 与共享缓存 validator；错误沿用既有
+  信封，`problem` 提供字段路径/约束，`remediation` 指向具体 task show 命令，
+  不回显提交值，失败整笔回滚；doctor 的布尔校验也复用该 validator。
 - Review Brief 使用 Review node binding，并包含 purpose、被审核 attempt/node、result
   和该 attempt evidence。required drift 在 Review attempt 写入前失败。
 - `review changes` 原子创建的 successor Execute/Plan attempt 必须返回它自己的 Node
@@ -48,6 +55,11 @@ loadSpecDeliveryView(projectDir, database, taskId, revision): SpecDeliveryView;
   `candidate` 不读取或写入 Registry；domain candidate 必须保留 ownerDecision。
 - Record attempt、note evidence、Impact row 和 obligation 在同一 reducer 事务写入；
   任一步失败整笔回滚。
+- Spec Impact 按 Record attempt 保存，完成义务按 task/revision/node/obligation 唯一
+  保存。返工再次内嵌 Record 时，各 attempt 的 Impact/result 都须校验；节点义务
+  可保留首次满足它的证据，不得要求同一条义务同时引用每次 Record。doctor 必须
+  验证该证据属于同 task/revision 的成功 Record，且有对应 Impact，不能仅因某个
+  其他 attempt 存在 Impact 就放行。
 - `src/spec/delivery.ts` 是 `task show` 与 Watch 的共享 DTO。Watch 只渲染 Registry
   issue、binding drift 和 Impact，不推导状态或语义。
 - doctor 始终只读：命令边界检查 Registry；Store 检查 binding current drift、来源
@@ -66,6 +78,9 @@ loadSpecDeliveryView(projectDir, database, taskId, revision): SpecDeliveryView;
 | `updated` 非 current snapshot、foreign/`note` evidence 或语义不等价        | `TC_SPEC_IMPACT_INVALID`，整笔回滚                     |
 | Impact insert/obligation 失败                                             | Record attempt、evidence、Impact 和 obligation 全回滚  |
 | 旧 compiler 无 Impact                                                     | 合法，可按 stored schema 完成                          |
+| 已领取节点的只读恢复、required Spec 已漂移                                | 返回同源卡和 drift，不重新领取或写事实                 |
+| 结果缺字段、类型错误或含额外字段                                           | `TC_LIFECYCLE_RESULT_INVALID`，字段路径/约束及具体取卡命令，无部分写入 |
+| 返工产生多个合法 Record，节点义务保留首次有效证据                           | doctor 通过；逐 attempt 校验 Impact，按节点校验义务     |
 | Registry/binding/Impact/result/obligation/schema 关系损坏                  | doctor 非零，Registry 与 DB bytes 不变                 |
 
 ## 5. Good / Base / Bad Cases
@@ -75,6 +90,8 @@ loadSpecDeliveryView(projectDir, database, taskId, revision): SpecDeliveryView;
   与当前 active Registry snapshot。
 - Base：旧 compiler 没有 Spec Impact obligation，仍按 stored Record schema 完成；
   当前 Registry 后续更新不会反向把历史 `updated` Impact 判为损坏。
+- Good：冷启动查询已领取 Review 得到正确的被审 attempt 与 evidence；查询前后
+  SQLite 内容相同。无已领取节点时 `nodeBrief: null`，按 `next` 正常领取。
 - Bad：`review changes` 创建 successor Attempt 却不返回它自己的 Brief，或再次读取
   Registry 得到另一份 drift；必须返回 exact successor Brief，并附加创建前已检查的
   同一份 drift。
@@ -84,6 +101,8 @@ loadSpecDeliveryView(projectDir, database, taskId, revision): SpecDeliveryView;
 ## 6. Tests Required
 
 - `tests/core/reducer.spec-impact.test.ts`、`reducer.spec-compatibility.test.ts`。
+- `tests/core/node-brief-query.test.ts`、`lifecycle-result.test.ts`：重复取卡无写入、
+  Review successor/feasibility、L3 parent/child、drift、字段诊断与历史 Schema。
 - `tests/core/reducer.run.test.ts`、`reducer.spec-bindings.test.ts`、
   `tests/adapters/node-brief.test.ts`。
 - `tests/spec/delivery.test.ts`、`tests/cli/spec-impact.test.ts`、
@@ -94,7 +113,8 @@ loadSpecDeliveryView(projectDir, database, taskId, revision): SpecDeliveryView;
 ## 7. Wrong vs Correct
 
 Wrong：Adapter/前端自行读取 Registry、candidate 自动写 Spec、给旧 revision 动态套用
-新 Record schema，或先完成 Record 再另起事务写 Impact。
+新 Record schema，先完成 Record 再另起事务写 Impact，或冷启动调用 `review start`
+来获取已经开始的 Review 卡。
 
 Correct：文件解析停在 command/service 边界；Reducer 只验证 resolved DTO 并原子写
 facts；所有显示层消费同一个 immutable query DTO。

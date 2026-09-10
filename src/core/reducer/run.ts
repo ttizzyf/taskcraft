@@ -26,7 +26,7 @@ import {
   insertEvent,
   nowIso,
 } from "./shared.js";
-import { buildNodeBrief } from "./node-brief.js";
+import { buildNodeBrief } from "../node-brief-query.js";
 
 export function run(
   database: TaskcraftDatabase,

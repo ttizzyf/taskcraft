@@ -4,6 +4,10 @@
 
 import type { Command } from "commander";
 
+import {
+  getClaimedNodeBrief,
+  withNodeBriefSpecDrift,
+} from "../core/node-brief-query.js";
 import { project } from "../core/projector.js";
 import type { TaskcraftDatabase } from "../store/database.js";
 import {
@@ -107,6 +111,21 @@ export function buildTaskShowData(
     createdAt: row.createdAt,
   }));
 
+  const specs = loadSpecDeliveryView(
+    projectDir,
+    database,
+    taskId,
+    snapshot.currentLifecycleRevision,
+  );
+  const brief = getClaimedNodeBrief(database, taskId, snapshot, projection);
+  const nodeBrief =
+    brief === null
+      ? null
+      : withNodeBriefSpecDrift(
+          brief,
+          specs.bindings.filter((binding) => binding.nodeId === brief.nodeId),
+        );
+
   return {
     taskId,
     title: snapshot.title,
@@ -133,11 +152,7 @@ export function buildTaskShowData(
     validations: projection.validations,
     executionSource: projection.executionSource,
     inheritedPlanning: projection.inheritedPlanning,
-    specs: loadSpecDeliveryView(
-      projectDir,
-      database,
-      taskId,
-      snapshot.currentLifecycleRevision,
-    ),
+    specs,
+    nodeBrief,
   };
 }

@@ -1,3 +1,4 @@
+import { CLAUDE_ENTRY_STREAM } from "./claude-entry-fixture.js";
 // Shared conformance contract for every HostAdapter: the same suite drives
 // codex and claude to prove both hosts share the contract without sharing
 // implementation details. All host interaction goes through the fake host;
@@ -197,7 +198,10 @@ export function runConformance(
         });
       }
       fake.setSpawnScript(id, {
-        stdout: `${BREADCRUMB_LINE}\nagent: TC_FIRST\n`,
+        stdout:
+          id === "claude"
+            ? CLAUDE_ENTRY_STREAM
+            : `${BREADCRUMB_LINE}\nagent: TC_FIRST\n`,
       });
     }
 

@@ -9,6 +9,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -67,8 +68,9 @@ describe("tc enable", () => {
       const off = runCli(["enable", "off"], cwd);
 
       expect(off.status).toBe(0);
-      expect(off.stdout).toContain("Takeover mode: off");
-      expect(off.stdout).toContain("silent (zero output)");
+      expect(off.stdout).toBe(
+        `Takeover mode: off\nConfig: ${configPath(realpathSync(cwd))}\nEntry hook: silent (zero output)\n`,
+      );
 
       const config = readConfig(cwd) as { takeOver: string };
       expect(config.takeOver).toBe("off");
@@ -83,7 +85,6 @@ describe("tc enable", () => {
 
       expect(hook.stdout).toBe("");
       expect(hook.status).toBe(0);
-      expect(off.stdout).not.toContain("Stop hook");
     });
   });
 

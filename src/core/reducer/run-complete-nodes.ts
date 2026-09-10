@@ -30,8 +30,7 @@ import {
 } from "../lifecycle/l3.js";
 import type { CommandData, RunCompleteInput } from "./context.js";
 import { commandData, snapshotOf } from "./context.js";
-import { validateIntegrateResult } from "./l3-materialize.js";
-import { validateStoredNodeResult } from "./lifecycle-result.js";
+import { assertStoredNodeResult } from "./lifecycle-result.js";
 import {
   bumpRevision,
   finishAttempt,
@@ -111,23 +110,13 @@ export function completePlanNode(
 ): CommandData {
   const result = input.result as { integrationPath?: string };
 
-  if (
-    !validateStoredNodeResult(
-      database,
-      taskId,
-      snapshot.currentLifecycleRevision,
-      L3_PLAN_NODE_ID,
-      result,
-    )
-  ) {
-    throw new TaskcraftError(ERROR_CODES.TC_LIFECYCLE_RESULT_INVALID, {
-      problem: `Result for ${L3_PLAN_NODE_ID} failed the node result schema`,
-      impact: "No facts were written; the task keeps its current state",
-      remediation:
-        "Resubmit a plan result with decomposition, modules, coverage, dependencies, sharedValidations and integrationPath",
-      context: { taskId },
-    });
-  }
+  assertStoredNodeResult(
+    database,
+    taskId,
+    snapshot.currentLifecycleRevision,
+    L3_PLAN_NODE_ID,
+    result,
+  );
 
   const attempt = resolveTargetAttempt(
     database,
@@ -184,15 +173,13 @@ export function completeIntegrateNode(
 ): CommandData {
   const result = input.result as IntegrateResultShape;
 
-  if (!validateIntegrateResult(result)) {
-    throw new TaskcraftError(ERROR_CODES.TC_LIFECYCLE_RESULT_INVALID, {
-      problem: `Result for ${L3_INTEGRATE_NODE_ID} failed the node result schema`,
-      impact: "No facts were written; the task keeps its current state",
-      remediation:
-        "Resubmit an integrate result with childrenResults and integrationEvidence",
-      context: { taskId },
-    });
-  }
+  assertStoredNodeResult(
+    database,
+    taskId,
+    snapshot.currentLifecycleRevision,
+    L3_INTEGRATE_NODE_ID,
+    result,
+  );
 
   validateIntegrateReferences(database, taskId, snapshot, result);
 

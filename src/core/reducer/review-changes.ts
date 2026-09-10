@@ -29,7 +29,7 @@ import {
   nextFindingId,
   resolveActiveReview,
 } from "./review-shared.js";
-import { buildNodeBrief } from "./node-brief.js";
+import { buildNodeBrief } from "../node-brief-query.js";
 
 export function reviewChanges(
   database: TaskcraftDatabase,

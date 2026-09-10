@@ -339,6 +339,7 @@ export function runEntryHookTest(
   hostCommand: string,
   hostArgs: string[],
   input: HookTestInput,
+  inspectOutput: (stdout: string) => string | null = inspectEntryMarker,
 ): HookTestResult {
   const timeoutMs = input.timeoutMs ?? DEFAULT_HOOK_TEST_TIMEOUT_MS;
   const testedAt = now();
@@ -358,9 +359,12 @@ export function runEntryHookTest(
     cwd: input.projectDir,
     timeoutMs,
   });
-  const entryInjected =
-    host.ok && host.stdout.includes(BREADCRUMB_SCHEMA_VERSION);
-  const failures = entryTestFailures(host, entryInjected, timeoutMs);
+  const failures = entryTestFailures(host, timeoutMs);
+  if (failures.length === 0) {
+    const outputFailure = inspectOutput(host.stdout);
+    if (outputFailure !== null) failures.push(outputFailure);
+  }
+  const entryInjected = failures.length === 0;
 
   const result: HookTestResult = {
     ok: failures.length === 0,
@@ -378,11 +382,7 @@ export function runEntryHookTest(
 
 /** Collects the explicit reason for every failed judgment, so a partial
  * failure reports exactly which check failed instead of a vague "not ok". */
-function entryTestFailures(
-  host: SpawnOutcome,
-  entryInjected: boolean,
-  timeoutMs: number,
-): string[] {
+function entryTestFailures(host: SpawnOutcome, timeoutMs: number): string[] {
   const failures: string[] = [];
 
   if (host.timedOut) {
@@ -392,10 +392,6 @@ function entryTestFailures(
   } else if (!host.ok) {
     failures.push(
       `host exited with code ${exitDetail(host.exitCode)}${stderrDetail(host.stderr)}`,
-    );
-  } else if (!entryInjected) {
-    failures.push(
-      `entry injection: ${BREADCRUMB_SCHEMA_VERSION} missing from host output`,
     );
   }
 
@@ -410,4 +406,10 @@ function stderrDetail(stderr: string): string {
   const detail = stderr.trim();
 
   return detail.length > 0 ? `: ${detail}` : "";
+}
+
+function inspectEntryMarker(stdout: string): string | null {
+  return stdout.includes(BREADCRUMB_SCHEMA_VERSION)
+    ? null
+    : `entry injection: ${BREADCRUMB_SCHEMA_VERSION} missing from host output`;
 }
