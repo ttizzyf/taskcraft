@@ -76,6 +76,15 @@ describe("verdict aggregation", () => {
     expect(result.verdict).toBe("fail");
   });
 
+  it("is inconclusive when no independent code check was recorded", () => {
+    const result = aggregate(
+      [host("success")],
+      [modelCheck("model-overall", "pass")],
+    );
+    expect(result.verdict).toBe("inconclusive");
+    expect(result.summary).toContain("necessary code check");
+  });
+
   it("flags a model-reported failure that code checks did not catch", () => {
     const result = aggregate(
       [host("success")],

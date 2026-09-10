@@ -109,7 +109,7 @@ export function renderCheckItems(run, guide, badgeClass, comparisonClass) {
         (item) => item.id === check.id,
       );
       const deltaBadge =
-        delta && (delta.status === "improved" || delta.status === "regressed")
+        delta && (delta.status === "changed" || delta.status === "inconclusive")
           ? `<span class="comp-badge ${comparisonClass(delta.status)}">${escapeHtml(delta.displayText)}</span>`
           : "";
       const evidence =

@@ -2,8 +2,8 @@ import { checkComparisonCompatibility } from "../reporting/provenance.ts";
 import type { CheckResult, EvalReport } from "../core/types.ts";
 
 export type ComparisonStatus =
-  | "improved"
-  | "regressed"
+  | "changed"
+  | "inconclusive"
   | "unchanged"
   | "none"
   | "missing_metadata"
@@ -13,7 +13,7 @@ export interface CheckComparisonResult {
   id: string;
   previousVerdict: string | null;
   currentVerdict: string | null;
-  status: "improved" | "regressed" | "unchanged" | "new" | "missing";
+  status: "changed" | "inconclusive" | "unchanged" | "new" | "missing";
   displayText: string;
 }
 
@@ -33,10 +33,19 @@ export function formatTimingDelta(deltaMs: number): string {
   return `${seconds}秒`;
 }
 
-function getVerdictScore(verdict: string): number {
-  if (verdict === "pass") return 2;
-  if (verdict === "fail") return 1;
-  return 0; // blocked, inconclusive, unrun, etc.
+function verdictLabel(verdict: string | null): string {
+  if (verdict === "pass") return "通过";
+  if (verdict === "fail") return "未通过";
+  if (verdict === "inconclusive") return "无法判定";
+  if (verdict === null) return "未生成";
+  return verdict;
+}
+
+function hasInconclusiveCheck(report: EvalReport): boolean {
+  return (
+    report.verdict === "inconclusive" ||
+    report.checks.some((check) => check.verdict === "inconclusive")
+  );
 }
 
 export function computeCheckComparison(
@@ -52,12 +61,21 @@ export function computeCheckComparison(
   const deltas: CheckComparisonResult[] = currentChecks.map((cur) => {
     const prev = prevMap.get(cur.id);
     if (!prev) {
+      if (cur.verdict === "inconclusive") {
+        return {
+          id: cur.id,
+          previousVerdict: null,
+          currentVerdict: cur.verdict,
+          status: "inconclusive" as const,
+          displayText: "无法排序：未生成 → 无法判定",
+        };
+      }
       return {
         id: cur.id,
         previousVerdict: null,
         currentVerdict: cur.verdict,
         status: "new" as const,
-        displayText: "新增检查项",
+        displayText: `新增检查项：${verdictLabel(cur.verdict)}`,
       };
     }
 
@@ -67,38 +85,26 @@ export function computeCheckComparison(
         previousVerdict: prev.verdict,
         currentVerdict: cur.verdict,
         status: "unchanged" as const,
-        displayText: "持平",
+        displayText: `结果未变化：${verdictLabel(cur.verdict)}`,
       };
     }
 
-    if (cur.verdict === "pass" && prev.verdict === "fail") {
+    if (cur.verdict === "inconclusive" || prev.verdict === "inconclusive") {
       return {
         id: cur.id,
         previousVerdict: prev.verdict,
         currentVerdict: cur.verdict,
-        status: "improved" as const,
-        displayText: "改善 (失败 → 通过)",
+        status: "inconclusive" as const,
+        displayText: `无法排序：${verdictLabel(prev.verdict)} → ${verdictLabel(cur.verdict)}`,
       };
     }
 
-    if (cur.verdict === "fail" && prev.verdict === "pass") {
-      return {
-        id: cur.id,
-        previousVerdict: prev.verdict,
-        currentVerdict: cur.verdict,
-        status: "regressed" as const,
-        displayText: "退步 (通过 → 失败)",
-      };
-    }
-
-    // Any other transition (e.g. pass <-> inconclusive) is not a proven
-    // pass/fail change and must not masquerade as improvement or regression.
     return {
       id: cur.id,
       previousVerdict: prev.verdict,
       currentVerdict: cur.verdict,
-      status: "unchanged" as const,
-      displayText: `${prev.verdict} → ${cur.verdict}`,
+      status: "changed" as const,
+      displayText: `结果变化：${verdictLabel(prev.verdict)} → ${verdictLabel(cur.verdict)}`,
     };
   });
 
@@ -110,8 +116,11 @@ export function computeCheckComparison(
       id: prev.id,
       previousVerdict: prev.verdict,
       currentVerdict: null,
-      status: "missing",
-      displayText: "本次运行已移除该检查项",
+      status: prev.verdict === "inconclusive" ? "inconclusive" : "missing",
+      displayText:
+        prev.verdict === "inconclusive"
+          ? "无法排序：无法判定 → 未生成"
+          : `本次运行已移除该检查项（上次：${verdictLabel(prev.verdict)}）`,
     });
   }
 
@@ -162,14 +171,25 @@ export function computeReportComparison(
   const currentEstablished = isExecutionEstablished(current);
   const prevEstablished = isExecutionEstablished(previous);
 
-  // Inconclusive / blocked trials NEVER manufacture regressions or improvements
+  // Inconclusive / blocked trials NEVER manufacture ordering claims.
   if (!currentEstablished || !prevEstablished) {
     return {
-      status: "unchanged",
+      status: "inconclusive",
       displayText: "前置受阻，无有效判定比对",
       timingDeltaMs: null,
       displayTimingDelta: null,
       checkDeltas: [],
+    };
+  }
+
+  const checkDeltas = computeCheckComparison(current.checks, previous.checks);
+  if (hasInconclusiveCheck(current) || hasInconclusiveCheck(previous)) {
+    return {
+      status: "inconclusive",
+      displayText: "含无法判定项，不排序",
+      timingDeltaMs: null,
+      displayTimingDelta: null,
+      checkDeltas,
     };
   }
 
@@ -182,25 +202,10 @@ export function computeReportComparison(
   const timingDeltaMs = curDuration - prevDuration;
   const displayTimingDelta = formatTimingDelta(timingDeltaMs);
 
-  const checkDeltas = computeCheckComparison(current.checks, previous.checks);
-
-  const curScore = getVerdictScore(current.verdict);
-  const prevScore = getVerdictScore(previous.verdict);
-
-  if (curScore > prevScore) {
+  if (current.verdict !== previous.verdict) {
     return {
-      status: "improved",
-      displayText: "改善",
-      timingDeltaMs,
-      displayTimingDelta,
-      checkDeltas,
-    };
-  }
-
-  if (curScore < prevScore) {
-    return {
-      status: "regressed",
-      displayText: "退步",
+      status: "changed",
+      displayText: `结果变化：${verdictLabel(previous.verdict)} → ${verdictLabel(current.verdict)}`,
       timingDeltaMs,
       displayTimingDelta,
       checkDeltas,
@@ -209,7 +214,7 @@ export function computeReportComparison(
 
   return {
     status: "unchanged",
-    displayText: "持平",
+    displayText: `结果未变化：${verdictLabel(current.verdict)}`,
     timingDeltaMs,
     displayTimingDelta,
     checkDeltas,

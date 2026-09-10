@@ -35,15 +35,17 @@ describe("evals board per-check deltas and execution establishment", () => {
 
     const deltas = computeCheckComparison(after, before);
     expect(deltas.map((d) => [d.id, d.status])).toEqual([
-      ["a", "improved"],
-      ["b", "regressed"],
-      ["added", "new"],
+      ["a", "changed"],
+      ["b", "changed"],
+      ["added", "inconclusive"],
       ["dropped", "missing"],
     ]);
+    expect(deltas[0]?.displayText).toBe("结果变化：未通过 → 通过");
+    expect(deltas[2]?.displayText).toBe("无法排序：未生成 → 无法判定");
     expect(deltas[3]?.currentVerdict).toBeNull();
   });
 
-  it("does not treat pass <-> inconclusive flips as improvement or regression", () => {
+  it("does not order pass <-> inconclusive flips", () => {
     const before: CheckResult[] = [
       {
         id: "c",
@@ -57,8 +59,8 @@ describe("evals board per-check deltas and execution establishment", () => {
       { id: "c", grader: "model", verdict: "pass", reason: "r", evidence: [] },
     ];
     const deltas = computeCheckComparison(after, before);
-    expect(deltas[0]?.status).toBe("unchanged");
-    expect(deltas[0]?.displayText).toBe("inconclusive → pass");
+    expect(deltas[0]?.status).toBe("inconclusive");
+    expect(deltas[0]?.displayText).toBe("无法排序：无法判定 → 通过");
   });
 
   it("keeps execution established when a successful actor run has a hard failure and a grader error", () => {
@@ -74,7 +76,8 @@ describe("evals board per-check deltas and execution establishment", () => {
       established,
       mkReport({ checks: [codeCheck("csv-functional", "pass")] }),
     );
-    expect(comp.status).toBe("regressed");
+    expect(comp.status).toBe("changed");
+    expect(comp.displayText).toBe("结果变化：通过 → 未通过");
     expect(comp.displayText).not.toContain("受阻");
     expect(comp.timingDeltaMs).toBe(
       new Date(established.finishedAt).getTime() -
@@ -82,6 +85,23 @@ describe("evals board per-check deltas and execution establishment", () => {
         (new Date(base.finishedAt).getTime() -
           new Date(base.startedAt).getTime()),
     );
+  });
+
+  it("does not order established trials when a check is inconclusive", () => {
+    const current = mkReport({
+      verdict: "pass",
+      checks: [codeCheck("csv-functional", "inconclusive")],
+    });
+    const previous = mkReport({
+      verdict: "fail",
+      checks: [codeCheck("csv-functional", "fail")],
+    });
+
+    const comparison = computeReportComparison(current, previous);
+    expect(comparison.status).toBe("inconclusive");
+    expect(comparison.displayText).toBe("含无法判定项，不排序");
+    expect(comparison.timingDeltaMs).toBeNull();
+    expect(comparison.checkDeltas[0]?.status).toBe("inconclusive");
   });
 
   it("classifies an established run with an inconclusive check as 无法判定, not blocked", () => {

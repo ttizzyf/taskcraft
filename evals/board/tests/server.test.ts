@@ -38,6 +38,12 @@ describe("evals board server HTTP integration", () => {
     expect(resJs.headers.get("content-type")).toContain(
       "application/javascript",
     );
+
+    const resBatchesJs = await fetch(`${serverHandle.url}batches.js`);
+    expect(resBatchesJs.status).toBe(200);
+    expect(resBatchesJs.headers.get("content-type")).toContain(
+      "application/javascript",
+    );
   });
 
   it("serves JSON data at /api/data", async () => {

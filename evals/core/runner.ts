@@ -258,6 +258,12 @@ export function aggregate(
       summary: `no actor session completed (${phases || "none"}); execution is not established, so a partial or empty workspace is not treated as a genuine task failure. code checks: ${codeDetail || "none"}. model: ${modelDetail || "not-run"}.`,
     };
   }
+  if (codeChecks.length === 0) {
+    return {
+      verdict: "inconclusive",
+      summary: `no necessary code check was recorded (${phases || "none"}); an independent code check is required before pass/fail. model: ${modelDetail || "not-run"}.`,
+    };
+  }
   if (codeFail) {
     return {
       verdict: "fail",

@@ -4,8 +4,45 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { computeReportComparison, loadBoardData } from "../data.ts";
+import {
+  computeReportComparison,
+  formatBatchStatus,
+  formatBatchSummary,
+  formatBoardData,
+  loadBoardData,
+} from "../data.ts";
 import type { EvalReport } from "../../core/types.ts";
+
+describe("evals board batch display DTO", () => {
+  it("normalizes the five job counts and keeps batch data optional for old payloads", () => {
+    const batch = formatBatchSummary({
+      id: "batch-1",
+      status: "running",
+      createdAt: "2026-09-10T10:00:00.000Z",
+      caseIds: ["delivery", "recovery"],
+      total: 999,
+      pass: 2.8,
+      fail: -1,
+      inconclusive: 1,
+      pending: 3,
+      running: 2,
+      diagnostics: ["one job needs attention"],
+    });
+
+    expect(batch.total).toBe(8);
+    expect(batch.pass).toBe(2);
+    expect(batch.fail).toBe(0);
+    expect(batch.inconclusive).toBe(1);
+    expect(batch.pending).toBe(3);
+    expect(batch.running).toBe(2);
+    expect(batch.displayStatus).toBe("运行中");
+    expect(batch.displayCases).toBe("delivery、recovery");
+    expect(batch.displayDiagnostics).toContain("one job needs attention");
+    expect(formatBatchStatus("completed")).toBe("已完成");
+    expect(formatBoardData([], []).batches).toBeUndefined();
+    expect(formatBoardData([], [], [batch]).batches?.[0]?.total).toBe(8);
+  });
+});
 
 describe("evals board-data loader and comparison", () => {
   // Keep synthetic fixture reports out of the real evals/runs directory.
@@ -78,7 +115,7 @@ describe("evals board-data loader and comparison", () => {
     expect(actorSessions[0]?.hasUnrecognizedModelWarning).toBe(true);
   });
 
-  it("compares two matching trials: fail -> pass shows improved", () => {
+  it("compares two matching trials with a factual fail -> pass result change", () => {
     const baseProv = {
       caseFingerprint: "cfp",
       graderFingerprint: "gfp",
@@ -165,14 +202,14 @@ describe("evals board-data loader and comparison", () => {
     };
 
     const comp = computeReportComparison(trial2, trial1);
-    expect(comp.status).toBe("improved");
-    expect(comp.displayText).toBe("改善");
+    expect(comp.status).toBe("changed");
+    expect(comp.displayText).toBe("结果变化：未通过 → 通过");
     expect(comp.timingDeltaMs).toBe(-2000); // 8s vs 10s -> -2s
     expect(comp.displayTimingDelta).toBe("-2.0秒");
-    expect(comp.checkDeltas[0]?.status).toBe("improved");
+    expect(comp.checkDeltas[0]?.status).toBe("changed");
   });
 
-  it("compares pass -> fail as regressed and pass -> pass as unchanged", () => {
+  it("compares pass -> fail as a factual change and pass -> pass as unchanged", () => {
     const baseProv = {
       caseFingerprint: "cfp",
       graderFingerprint: "gfp",
@@ -252,13 +289,13 @@ describe("evals board-data loader and comparison", () => {
       ],
     };
 
-    const regressedComp = computeReportComparison(failTrial, passTrial);
-    expect(regressedComp.status).toBe("regressed");
-    expect(regressedComp.displayText).toBe("退步");
+    const failAfterPass = computeReportComparison(failTrial, passTrial);
+    expect(failAfterPass.status).toBe("changed");
+    expect(failAfterPass.displayText).toBe("结果变化：通过 → 未通过");
 
     const unchangedComp = computeReportComparison(passTrial, passTrial);
     expect(unchangedComp.status).toBe("unchanged");
-    expect(unchangedComp.displayText).toBe("持平");
+    expect(unchangedComp.displayText).toBe("结果未变化：通过");
   });
 
   it("never manufactures improvement or regression when either trial is inconclusive or blocked", () => {
@@ -336,11 +373,11 @@ describe("evals board-data loader and comparison", () => {
     };
 
     const comp1 = computeReportComparison(passTrial, blockedTrial);
-    expect(comp1.status).toBe("unchanged");
+    expect(comp1.status).toBe("inconclusive");
     expect(comp1.displayText).toBe("前置受阻，无有效判定比对");
 
     const comp2 = computeReportComparison(blockedTrial, passTrial);
-    expect(comp2.status).toBe("unchanged");
+    expect(comp2.status).toBe("inconclusive");
     expect(comp2.displayText).toBe("前置受阻，无有效判定比对");
   });
 

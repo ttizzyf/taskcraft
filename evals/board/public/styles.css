@@ -277,6 +277,111 @@ body {
   color: var(--text-muted);
 }
 
+/* Batch Runs */
+.batch-section {
+  margin-bottom: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.batch-empty {
+  padding: 18px 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.batches-table {
+  min-width: 1050px;
+}
+
+.batches-table td,
+.batches-table th {
+  white-space: nowrap;
+}
+
+.batch-cases,
+.batch-diagnostics {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.batch-pass {
+  color: var(--badge-success-text);
+  font-weight: 600;
+}
+
+.batch-fail {
+  color: var(--badge-fail-text);
+  font-weight: 600;
+}
+
+.batch-inconclusive {
+  color: var(--badge-inconclusive-text);
+  font-weight: 600;
+}
+
+.batch-cards {
+  display: none;
+  padding: 12px;
+  gap: 12px;
+  flex-direction: column;
+}
+
+.batch-card-mobile {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  background: #ffffff;
+}
+
+.batch-card-top,
+.batch-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.batch-card-cases {
+  margin: 8px 0 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.batch-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.batch-count {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 5px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.batch-card-meta {
+  flex-direction: column;
+  color: var(--text-muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+[hidden] {
+  display: none !important;
+}
+
 /* Scenarios Table */
 .main-section {
   background: var(--bg-card);
@@ -422,15 +527,15 @@ body {
   gap: 4px;
 }
 
-.comp-improved {
-  background-color: #ecfdf5;
-  color: #047857;
+.comp-changed {
+  background-color: #eff6ff;
+  color: #1d4ed8;
   font-weight: 600;
 }
 
-.comp-regressed {
-  background-color: #fef2f2;
-  color: #b91c1c;
+.comp-inconclusive {
+  background-color: #f5f3ff;
+  color: #6d28d9;
   font-weight: 600;
 }
 
@@ -897,6 +1002,18 @@ summary:hover {
   .overview-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
+  }
+
+  .batch-cards:not([hidden]) {
+    display: flex;
+  }
+
+  .batch-counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .batches-table {
+    min-width: 0;
   }
 
   .table-container {

@@ -180,7 +180,7 @@ test.describe("evals standalone board browser smoke", () => {
     await page.goto(serverHandle.url);
 
     // Desktop table should be hidden on narrow screens
-    await expect(page.locator(".table-container")).toBeHidden();
+    await expect(page.locator(".main-section .table-container")).toBeHidden();
 
     // Mobile cards should be visible
     const cards = page.locator(".scenario-card-mobile");
@@ -316,7 +316,7 @@ test.describe("evals synthetic trials comparison and diagnostics smoke", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test("detects progression (fail -> pass: improved), per-check changes, timing delta, and malformed files", async ({
+  test("shows factual fail -> pass changes, per-check changes, timing delta, and malformed files", async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP);
@@ -407,10 +407,12 @@ test.describe("evals synthetic trials comparison and diagnostics smoke", () => {
     // Click refresh button to trigger poll/reload
     await page.locator("#btn-refresh").click();
 
-    // Now latest status is "通过" and comparison shows "改善"!
+    // Now latest status is "通过" and the comparison records the observed result change.
     const deliveryRow = page.locator("#scenarios-tbody tr").nth(0);
     await expect(deliveryRow.locator(".badge-pass")).toHaveText("通过");
-    await expect(deliveryRow.locator(".comp-improved")).toHaveText("改善");
+    await expect(deliveryRow.locator(".comp-changed")).toHaveText(
+      "结果变化：未通过 → 通过",
+    );
 
     // Malformed banner is displayed
     const alert = page.locator("#malformed-alert");
@@ -433,8 +435,10 @@ test.describe("evals synthetic trials comparison and diagnostics smoke", () => {
     const historyBtns = page.locator(".history-item-btn");
     await expect(historyBtns).toHaveCount(2);
 
-    // Check comparison in drilldown shows "改善" and "-2.0秒"
-    await expect(page.locator("#run-drilldown-content")).toContainText("改善");
+    // Check comparison in drilldown shows the factual result change and timing delta.
+    await expect(page.locator("#run-drilldown-content")).toContainText(
+      "结果变化：未通过 → 通过",
+    );
     await expect(page.locator("#run-drilldown-content")).toContainText(
       "-2.0秒",
     );
@@ -442,7 +446,7 @@ test.describe("evals synthetic trials comparison and diagnostics smoke", () => {
     // The per-check delta for csv-functional (fail -> pass) is shown inline on
     // the matching check row, not as a bare aggregate number.
     await expect(page.locator("#run-drilldown-content")).toContainText(
-      "改善 (失败 → 通过)",
+      "结果变化：未通过 → 通过",
     );
 
     // Click first trial in history

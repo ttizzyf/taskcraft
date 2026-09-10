@@ -3,10 +3,15 @@ import { join } from "node:path";
 
 import { CASES } from "../cases/index.ts";
 import { isLoadableReport } from "./report.ts";
+import {
+  formatBatchSummaries,
+  type BoardBatchDisplay,
+  type BoardBatchSummary,
+} from "./batches.ts";
+import { formatTimeDisplay } from "./format.ts";
 import { getScenarioGuide } from "./guide.ts";
 import type { ScenarioGuide } from "./guide.ts";
 import {
-  computeCheckComparison,
   computeReportComparison,
   isExecutionEstablished,
 } from "./comparison.ts";
@@ -17,7 +22,14 @@ export {
   computeCheckComparison,
   computeReportComparison,
   isExecutionEstablished,
-};
+} from "./comparison.ts";
+export {
+  formatBatchStatus,
+  formatBatchSummary,
+  formatBatchSummaries,
+} from "./batches.ts";
+export { formatTimeDisplay } from "./format.ts";
+export type { BoardBatchDisplay, BoardBatchSummary } from "./batches.ts";
 export type { ComparisonStatus, ReportComparisonResult };
 
 export interface BoardOverview {
@@ -95,6 +107,7 @@ export interface BoardPayload {
   overview: BoardOverview;
   scenarios: ScenarioRowData[];
   reports: FormattedReport[];
+  batches?: BoardBatchDisplay[];
   malformedDiagnostics?: Array<{ filename: string; error: string }>;
 }
 
@@ -102,23 +115,6 @@ export function formatDurationMs(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   const sec = (ms / 1000).toFixed(1);
   return `${sec}秒`;
-}
-
-export function formatTimeDisplay(isoString: string): string {
-  try {
-    const d = new Date(isoString);
-    if (Number.isNaN(d.getTime())) return isoString;
-    return d.toLocaleString("zh-CN", {
-      hour12: false,
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  } catch {
-    return isoString;
-  }
 }
 
 function checkHasUnrecognizedModelWarning(session: ActorSession): boolean {
@@ -250,6 +246,7 @@ export function formatReport(
 export function formatBoardData(
   reports: EvalReport[],
   diagnostics: Array<{ filename: string; error: string }> = [],
+  batches?: readonly BoardBatchSummary[],
 ): BoardPayload {
   const sortedReports = [...reports].sort((a, b) => {
     return (
@@ -373,12 +370,16 @@ export function formatBoardData(
     lastUpdated,
   };
 
-  return {
+  const payload: BoardPayload = {
     overview,
     scenarios,
     reports: formattedReports,
     malformedDiagnostics: diagnostics,
   };
+  if (batches !== undefined) {
+    payload.batches = formatBatchSummaries(batches);
+  }
+  return payload;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

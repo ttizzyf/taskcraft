@@ -5,6 +5,7 @@ import {
   renderScenarioGuide,
   preserveReadingState,
 } from "./guide.js";
+import { renderBatchSection } from "./batches.js";
 
 // Taskcraft Evals Standalone Board Client
 (function () {
@@ -34,8 +35,8 @@ import {
 
   function getCompBadgeClass(status) {
     const classes = {
-      improved: "comp-improved",
-      regressed: "comp-regressed",
+      changed: "comp-changed",
+      inconclusive: "comp-inconclusive",
       unchanged: "comp-unchanged",
     };
     return classes[status] || "comp-muted";
@@ -77,6 +78,8 @@ import {
       boardData.overview.inconclusiveScenarios;
     document.getElementById("stat-unrun").textContent =
       boardData.overview.unrunScenarios;
+
+    renderBatchSection(boardData.batches || []);
 
     // Render Timestamp
     const updateEl = document.getElementById("update-timestamp");
@@ -301,11 +304,8 @@ import {
     let comparisonHtml;
     if (comp.status === "none") {
       comparisonHtml = `<div class="meta-item"><span class="meta-key">比对结果：</span><span class="meta-val comp-muted">首次运行，暂无可比历史</span></div>`;
-    } else if (
-      comp.status === "missing_metadata" ||
-      comp.status === "condition_mismatch"
-    ) {
-      comparisonHtml = `<div class="meta-item"><span class="meta-key">比对状态：</span><span class="meta-val comp-muted">${escapeHtml(comp.displayText)}</span></div>`;
+    } else if (comp.status === "inconclusive") {
+      comparisonHtml = `<div class="meta-item"><span class="meta-key">比对状态：</span><span class="meta-val comp-inconclusive">${escapeHtml(comp.displayText)}</span></div>`;
     } else {
       comparisonHtml = `
         <div class="meta-item">

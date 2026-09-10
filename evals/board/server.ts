@@ -91,7 +91,11 @@ export async function startBoardServer(
     } else if (cleanPath === "/styles.css") {
       filePath = join(PUBLIC_DIR, "styles.css");
       contentType = "text/css; charset=utf-8";
-    } else if (cleanPath === "/app.js" || cleanPath === "/guide.js") {
+    } else if (
+      cleanPath === "/app.js" ||
+      cleanPath === "/guide.js" ||
+      cleanPath === "/batches.js"
+    ) {
       filePath = join(PUBLIC_DIR, cleanPath.slice(1));
       contentType = "application/javascript; charset=utf-8";
     }

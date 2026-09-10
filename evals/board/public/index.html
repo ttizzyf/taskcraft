@@ -135,6 +135,41 @@
         </div>
       </section>
 
+      <!-- Batch Runs Section -->
+      <section class="batch-section" id="batches-section" aria-label="评测批次">
+        <div class="section-header">
+          <h2 class="section-title">批次运行</h2>
+          <span class="section-note" id="batches-summary">暂无批次</span>
+        </div>
+        <div class="batch-empty" id="batches-empty">
+          当前没有批次记录。单案例历史报告仍保留在下方场景列表中。
+        </div>
+        <div class="table-container" id="batches-table-container" hidden>
+          <table
+            class="scenarios-table batches-table"
+            aria-label="评测批次列表"
+          >
+            <thead>
+              <tr>
+                <th scope="col">批次</th>
+                <th scope="col">状态</th>
+                <th scope="col">案例</th>
+                <th scope="col">总数</th>
+                <th scope="col">通过</th>
+                <th scope="col">未通过</th>
+                <th scope="col">无法判定</th>
+                <th scope="col">待运行</th>
+                <th scope="col">运行中</th>
+                <th scope="col">创建时间</th>
+                <th scope="col">诊断</th>
+              </tr>
+            </thead>
+            <tbody id="batches-tbody"></tbody>
+          </table>
+        </div>
+        <div class="batch-cards" id="batches-cards" hidden></div>
+      </section>
+
       <!-- Scenarios Section -->
       <main class="main-section">
         <div class="section-header">
