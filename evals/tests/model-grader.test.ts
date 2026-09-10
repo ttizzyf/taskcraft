@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import type { EvalContext, HostRun } from "../core/types.ts";
+import type { EvalContext, HostRun, HostRunRequest } from "../core/types.ts";
 import { parseModelOutput, runModelGrader } from "../graders/model.ts";
-import type { ModelCriteria } from "../core/types.ts";
+import type { CheckResult, ModelCriteria } from "../core/types.ts";
+import {
+  MODEL_PROMPT_SAMPLES,
+  type ModelPromptSample,
+} from "./fixtures/model-grader-samples.ts";
 
 const CRITERIA: ModelCriteria[] = [
   { id: "requirements", question: "requirements met?" },
@@ -40,6 +44,28 @@ function hostSuccess(resultText: string): HostRun {
   };
 }
 
+async function capturePrompt(
+  sample: ModelPromptSample,
+  codeChecks: CheckResult[] = [],
+): Promise<{ prompt: string; request: HostRunRequest }> {
+  let request: HostRunRequest | undefined;
+  const context = fakeContext(hostSuccess(JSON.stringify(VALID_OUTPUT)));
+  context.host.run = async (candidate) => {
+    request = candidate;
+    return hostSuccess(JSON.stringify(VALID_OUTPUT));
+  };
+  await runModelGrader({
+    context,
+    workspace: process.cwd(),
+    criteria: CRITERIA,
+    codeChecks,
+    ...sample,
+    timeoutMs: 1_000,
+  });
+  if (request === undefined) throw new Error("model grader request was absent");
+  return { prompt: request.prompt, request };
+}
+
 const VALID_OUTPUT = {
   verdict: "pass",
   reason: "evidence supports the claim",
@@ -58,6 +84,10 @@ const VALID_OUTPUT = {
     },
   ],
 };
+
+const SAMPLE_ENTRIES = Object.entries(MODEL_PROMPT_SAMPLES) as Array<
+  [string, ModelPromptSample]
+>;
 
 describe("parseModelOutput", () => {
   it("accepts a complete structured judgment", () => {
@@ -278,4 +308,56 @@ describe("runModelGrader", () => {
     expect(prompt).toContain("src/csv-summary.mjs");
     expect(prompt).toContain("export {};");
   });
+
+  it("keeps external code-check verdicts, reasons, evidence, and scores out of the prompt", async () => {
+    const { prompt } = await capturePrompt(MODEL_PROMPT_SAMPLES.complete!, [
+      {
+        id: "csv-functional",
+        grader: "code",
+        verdict: "fail",
+        reason: "SECRET_CODE_REASON",
+        evidence: ["SECRET_CODE_EVIDENCE"],
+      },
+    ]);
+    expect(prompt).not.toContain("SECRET_CODE_REASON");
+    expect(prompt).not.toContain("SECRET_CODE_EVIDENCE");
+    expect(prompt).not.toContain('"codeChecks"');
+    expect(prompt).not.toContain("aggregate score: 0");
+  });
+
+  it.each(SAMPLE_ENTRIES)(
+    "preserves %s sample evidence channels for independent review",
+    async (_name, sample) => {
+      if (sample === undefined)
+        throw new Error("model prompt sample was absent");
+      const { prompt, request } = await capturePrompt(sample);
+      expect(prompt).toContain(sample.requirements);
+      for (const artifact of sample.artifacts) {
+        expect(prompt).toContain(artifact.path);
+        expect(prompt).toContain(JSON.stringify(artifact.content));
+      }
+      for (const run of sample.actorRuns) {
+        expect(prompt).toContain(run.phase);
+        expect(prompt).toContain(`"status": "${run.status}"`);
+        expect(prompt).toContain(`"exitCode": ${String(run.exitCode)}`);
+        expect(prompt).toContain(`"callCount": ${String(run.callCount)}`);
+        if (run.signal !== null) expect(prompt).toContain(run.signal);
+        if (run.resultText !== null) expect(prompt).toContain(run.resultText);
+      }
+      if (sample.checkpoint !== undefined) {
+        expect(prompt).toContain(sample.checkpoint.reason);
+        expect(prompt).toContain(sample.checkpoint.attemptIds[0]!);
+      }
+      if (sample.task.snapshot !== null) {
+        expect(prompt).toContain(sample.task.snapshot.taskId);
+        expect(prompt).toContain("fact-");
+      } else {
+        expect(prompt).toContain(sample.task.error!);
+      }
+      expect(request.tools).toBe("");
+      expect(request.allowedTools).toEqual([]);
+      expect(request.jsonSchema).toContain('"additionalProperties":false');
+      expect(request.jsonSchema).toContain('"verdict"');
+    },
+  );
 });
