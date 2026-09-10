@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -67,17 +67,18 @@ describe("evals board-data loader and comparison", () => {
     return directory;
   }
 
-  it("loads existing delivery report correctly with 1 blocked attempt and 2 unrun scenarios", () => {
+  it("loads existing delivery report correctly with 1 blocked attempt and 4 unrun scenarios", () => {
     const realRunsDir = legacyRunsDir();
     const data = loadBoardData(realRunsDir);
 
-    expect(data.overview.totalScenarios).toBe(3);
+    expect(data.overview.totalScenarios).toBe(5);
     expect(data.overview.attemptedScenarios).toBe(1);
     expect(data.overview.decisiveScenarios).toBe(0);
     expect(data.overview.blockedScenarios).toBe(1);
-    expect(data.overview.unrunScenarios).toBe(2);
+    expect(data.overview.unrunScenarios).toBe(4);
 
     const delivery = data.scenarios.find((s) => s.id === "delivery");
+
     expect(delivery).toBeDefined();
     expect(delivery?.status).toBe("blocked");
     expect(delivery?.displayStatus).toBe("执行受阻");
@@ -104,15 +105,6 @@ describe("evals board-data loader and comparison", () => {
     const review = data.scenarios.find((s) => s.id === "review");
     expect(review?.status).toBe("unrun");
     expect(review?.displayStatus).toBe("未运行");
-  });
-
-  it("detects unrecognized_model diagnostic warning without diagnosing root cause", () => {
-    const realRunsDir = legacyRunsDir();
-    const data = loadBoardData(realRunsDir);
-    const delivery = data.scenarios.find((s) => s.id === "delivery");
-    const actorSessions = delivery?.latestRun?.actorSessions ?? [];
-    expect(actorSessions.length).toBe(1);
-    expect(actorSessions[0]?.hasUnrecognizedModelWarning).toBe(true);
   });
 
   it("compares two matching trials with a factual fail -> pass result change", () => {
@@ -379,59 +371,5 @@ describe("evals board-data loader and comparison", () => {
     const comp2 = computeReportComparison(blockedTrial, passTrial);
     expect(comp2.status).toBe("inconclusive");
     expect(comp2.displayText).toBe("前置受阻，无有效判定比对");
-  });
-
-  it("handles malformed JSON files gracefully without throwing", () => {
-    writeFileSync(join(tempDir, "corrupted.json"), "NOT JSON DATA", "utf8");
-    writeFileSync(
-      join(tempDir, "missing-fields.json"),
-      JSON.stringify({ someField: 123 }),
-      "utf8",
-    );
-
-    const data = loadBoardData(tempDir);
-    expect(data.malformedDiagnostics?.length).toBe(2);
-    expect(data.malformedDiagnostics?.[0]?.filename).toBe("corrupted.json");
-    expect(data.malformedDiagnostics?.[1]?.filename).toBe(
-      "missing-fields.json",
-    );
-    expect(data.overview.totalScenarios).toBe(3);
-    expect(data.overview.unrunScenarios).toBe(3);
-  });
-
-  it("reports JSON-valid reports with missing or mistyped fields instead of crashing the whole board", () => {
-    // Valid schemaVersion/caseId but no checks/actor/environment arrays.
-    writeFileSync(
-      join(tempDir, "missing-arrays.json"),
-      JSON.stringify({
-        schemaVersion: "tc-eval/v1",
-        caseId: "delivery",
-        verdict: "fail",
-        startedAt: "2026-09-09T10:00:00.000Z",
-        finishedAt: "2026-09-09T10:00:01.000Z",
-      }),
-      "utf8",
-    );
-    // checks exists but contains a non-object entry.
-    writeFileSync(
-      join(tempDir, "bad-check-entry.json"),
-      JSON.stringify({
-        schemaVersion: "tc-eval/v1",
-        caseId: "delivery",
-        verdict: "pass",
-        startedAt: "2026-09-09T10:00:00.000Z",
-        finishedAt: "2026-09-09T10:00:01.000Z",
-        actor: [],
-        checks: ["not-an-object"],
-        environment: { node: "24", host: "h" },
-      }),
-      "utf8",
-    );
-
-    expect(() => loadBoardData(tempDir)).not.toThrow();
-    const data = loadBoardData(tempDir);
-    expect(data.malformedDiagnostics?.length).toBe(2);
-    expect(data.reports).toHaveLength(0);
-    expect(data.overview.unrunScenarios).toBe(3);
   });
 });

@@ -126,11 +126,13 @@ describe("verdict aggregation", () => {
 });
 
 describe("case registry", () => {
-  it("exposes exactly the three approved cases", () => {
+  it("exposes the five approved cases", () => {
     expect(CASES.map((candidate) => candidate.id).sort()).toEqual([
       "delivery",
+      "l2-review",
       "recovery",
       "review",
+      "session-resume",
     ]);
   });
 

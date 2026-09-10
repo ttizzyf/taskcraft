@@ -109,7 +109,13 @@ describe("eval CLI options", () => {
     ).rejects.toBe(STOP_BATCH);
     expect(execute).not.toHaveBeenCalled();
     expect(executeBatch).toHaveBeenCalledWith({
-      caseIds: ["delivery", "recovery", "review"],
+      caseIds: [
+        "delivery",
+        "recovery",
+        "review",
+        "l2-review",
+        "session-resume",
+      ],
       repeat: 2,
       concurrency: 3,
       actorTimeoutMs: 180_000,

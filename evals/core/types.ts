@@ -98,9 +98,16 @@ export interface CaseSetup {
   metadata: Record<string, unknown>;
 }
 
+export interface CaseJudgeEvidence {
+  kind: string;
+  [key: string]: unknown;
+}
+
 export interface CaseExecution {
   hostRuns: HostRun[];
   checkpoint?: CheckpointEvidence;
+  /** Case-owned, quoted execution facts for the blind semantic judge. */
+  judgeEvidence?: CaseJudgeEvidence;
 }
 
 export interface EvalContext {
@@ -211,6 +218,7 @@ export interface EvalReport {
     observedThinkingLevel?: string | null;
   };
   checkpoint?: CheckpointEvidence;
+  judgeEvidence?: CaseJudgeEvidence;
   task: TaskSnapshot | null;
   taskReadError: string | null;
   environment: {

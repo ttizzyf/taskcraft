@@ -1,8 +1,6 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { CASES } from "../cases/index.ts";
-import { isLoadableReport } from "./report.ts";
+import { loadBatches, toBoardBatchSummary } from "./batch-data.ts";
+import { loadReports } from "./report-data.ts";
 import {
   formatBatchSummaries,
   type BoardBatchDisplay,
@@ -28,6 +26,7 @@ export {
   formatBatchSummary,
   formatBatchSummaries,
 } from "./batches.ts";
+export { toBoardBatchSummary } from "./batch-data.ts";
 export { formatTimeDisplay } from "./format.ts";
 export type { BoardBatchDisplay, BoardBatchSummary } from "./batches.ts";
 export type { ComparisonStatus, ReportComparisonResult };
@@ -382,44 +381,14 @@ export function formatBoardData(
   return payload;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 export function loadBoardData(runDir: string): BoardPayload {
   const diagnostics: Array<{ filename: string; error: string }> = [];
-  const reports: EvalReport[] = [];
-
-  if (!existsSync(runDir)) {
-    return formatBoardData([], diagnostics);
-  }
-
-  const entries = readdirSync(runDir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (entry.isFile() && entry.name.endsWith(".json")) {
-      const fullPath = join(runDir, entry.name);
-      try {
-        const raw = readFileSync(fullPath, "utf8");
-        const parsed = JSON.parse(raw);
-        if (
-          !isRecord(parsed) ||
-          parsed.schemaVersion !== "tc-eval/v1" ||
-          !isLoadableReport(parsed)
-        ) {
-          diagnostics.push({
-            filename: entry.name,
-            error:
-              "缺少必要的 schemaVersion 'tc-eval/v1'、caseId，或 checks/actor/environment 字段缺失、类型不符",
-          });
-          continue;
-        }
-        reports.push(parsed);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        diagnostics.push({ filename: entry.name, error: msg });
-      }
-    }
-  }
-
-  return formatBoardData(reports, diagnostics);
+  const reports = loadReports(runDir, diagnostics);
+  const loadedBatches = loadBatches(runDir, diagnostics);
+  reports.push(...loadedBatches.reports);
+  return formatBoardData(
+    reports,
+    diagnostics,
+    loadedBatches.records.map(toBoardBatchSummary),
+  );
 }

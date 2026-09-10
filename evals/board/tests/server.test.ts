@@ -55,7 +55,7 @@ describe("evals board server HTTP integration", () => {
     expect(data).toHaveProperty("overview");
     expect(data).toHaveProperty("scenarios");
     expect(data).toHaveProperty("reports");
-    expect(data.overview.totalScenarios).toBe(3);
+    expect(data.overview.totalScenarios).toBe(5);
   });
 
   it("strictly rejects non-GET/HEAD methods with 405 Method Not Allowed", async () => {

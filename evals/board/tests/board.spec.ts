@@ -35,7 +35,7 @@ test.describe("evals standalone board browser smoke", () => {
     rmSync(legacyRunsDir, { recursive: true, force: true });
   });
 
-  test("desktop: verifies hierarchy, real blocked sample, 2 unrun scenarios, drilldown & diagnostics", async ({
+  test("desktop: verifies hierarchy, real blocked sample, 4 unrun scenarios, drilldown & diagnostics", async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP);
@@ -45,17 +45,17 @@ test.describe("evals standalone board browser smoke", () => {
     await expect(page).toHaveTitle("Taskcraft Evals 评测看板");
     await expect(page.locator(".brand-title")).toHaveText("Taskcraft Evals");
 
-    // Verify overview metrics: 1 blocked, 2 unrun, 0 decisive, total 3
-    await expect(page.locator("#stat-total")).toHaveText("3");
+    // Verify overview metrics: 1 blocked, 4 unrun, 0 decisive, total 5
+    await expect(page.locator("#stat-total")).toHaveText("5");
     await expect(page.locator("#stat-attempted")).toHaveText("1");
     await expect(page.locator("#stat-decisive")).toHaveText("0");
     await expect(page.locator("#stat-blocked")).toHaveText("1");
     await expect(page.locator("#stat-inconclusive")).toHaveText("0");
-    await expect(page.locator("#stat-unrun")).toHaveText("2");
+    await expect(page.locator("#stat-unrun")).toHaveText("4");
 
-    // Verify 3 scenarios visible in table
+    // Verify 5 scenarios visible in table
     const rows = page.locator("#scenarios-tbody tr");
-    await expect(rows).toHaveCount(3);
+    await expect(rows).toHaveCount(5);
 
     // Delivery row: blocked
     const deliveryRow = rows.nth(0);
@@ -64,7 +64,7 @@ test.describe("evals standalone board browser smoke", () => {
     await expect(deliveryRow.locator(".badge-blocked")).toHaveText("执行受阻");
     await expect(deliveryRow).toContainText("执行未完成，尚无可验收结果");
 
-    // Recovery & Review rows: unrun
+    // Recovery, Review, L2 Review and normal-session resume are unrun
     const recoveryRow = rows.nth(1);
     await expect(recoveryRow).toContainText("冷启动恢复");
     await expect(recoveryRow.locator(".badge-unrun")).toHaveText("未运行");
@@ -72,6 +72,14 @@ test.describe("evals standalone board browser smoke", () => {
     const reviewRow = rows.nth(2);
     await expect(reviewRow).toContainText("审查修复");
     await expect(reviewRow.locator(".badge-unrun")).toHaveText("未运行");
+
+    const l2Row = rows.nth(3);
+    await expect(l2Row).toContainText("L2 Review 回流");
+    await expect(l2Row.locator(".badge-unrun")).toHaveText("未运行");
+
+    const sessionResumeRow = rows.nth(4);
+    await expect(sessionResumeRow).toContainText("正常会话恢复");
+    await expect(sessionResumeRow.locator(".badge-unrun")).toHaveText("未运行");
 
     // Take screenshot of desktop overview in git-ignored test-results
     await page.screenshot({
@@ -184,7 +192,7 @@ test.describe("evals standalone board browser smoke", () => {
 
     // Mobile cards should be visible
     const cards = page.locator(".scenario-card-mobile");
-    await expect(cards).toHaveCount(3);
+    await expect(cards).toHaveCount(5);
     await expect(cards.nth(0)).toContainText("功能交付");
     await expect(cards.nth(0)).toContainText("执行受阻");
     await expect(cards.nth(0)).toContainText("按姓名合计金额的 CSV 小工具");

@@ -62,6 +62,7 @@ export async function runEval(options: RunEvalOptions): Promise<RunEvalResult> {
   let graderError: string | null = null;
   let checks: CheckResult[] = [];
   let modelGrade: ModelGrade | null = null;
+  let judgeEvidence: EvalReport["judgeEvidence"];
   let hostRuns: HostRun[] = [];
   let requirements = "";
   let task: TaskReadResult = { snapshot: null, error: null };
@@ -92,6 +93,7 @@ export async function runEval(options: RunEvalOptions): Promise<RunEvalResult> {
     }
 
     if (execution !== undefined) {
+      judgeEvidence = execution.judgeEvidence;
       let codeChecks: CheckResult[] | undefined;
       try {
         codeChecks = await caseDefinition.grade(
@@ -116,12 +118,14 @@ export async function runEval(options: RunEvalOptions): Promise<RunEvalResult> {
               setup.modelCriteria.length > 0
                 ? setup.modelCriteria
                 : caseDefinition.modelCriteria,
-            codeChecks,
             actorRuns: hostRuns,
             actorResult: lastResultText(hostRuns),
             artifacts: collectArtifacts(workspace),
             ...(checkpoint === undefined ? {} : { checkpoint }),
             task,
+            ...(execution.judgeEvidence === undefined
+              ? {}
+              : { judgeEvidence: execution.judgeEvidence }),
             timeoutMs: options.judgeTimeoutMs,
             ...(judgeModel === undefined ? {} : { model: judgeModel }),
           });
@@ -171,6 +175,7 @@ export async function runEval(options: RunEvalOptions): Promise<RunEvalResult> {
     ...(checkpoint === undefined ? {} : { checkpoint }),
     task: task.snapshot,
     taskReadError: task.error,
+    ...(judgeEvidence === undefined ? {} : { judgeEvidence }),
     environment: {
       node: process.version,
       host: hostname(),

@@ -1,6 +1,7 @@
 import type {
   CheckResult,
   CheckpointEvidence,
+  CaseJudgeEvidence,
   EvalContext,
   HostRun,
   ModelCriteria,
@@ -20,18 +21,15 @@ export async function runModelGrader(input: {
   workspace: string;
   requirements: string;
   criteria: ModelCriteria[];
-  codeChecks: CheckResult[];
   actorRuns: HostRun[];
   actorResult: string | null;
   artifacts: GraderArtifact[];
   checkpoint?: CheckpointEvidence;
   task: TaskReadResult;
+  judgeEvidence?: CaseJudgeEvidence;
   timeoutMs: number;
   model?: string;
 }): Promise<ModelGrade> {
-  // The runner still supplies this field for compatibility. Blind judging must
-  // never receive code-check verdicts, reasons, evidence, or aggregate scores.
-  void input.codeChecks;
   const schema = JSON.stringify(modelSchema(input.criteria));
   const prompt = buildPrompt({
     requirements: input.requirements,
@@ -41,6 +39,9 @@ export async function runModelGrader(input: {
     artifacts: input.artifacts,
     ...(input.checkpoint === undefined ? {} : { checkpoint: input.checkpoint }),
     task: input.task,
+    ...(input.judgeEvidence === undefined
+      ? {}
+      : { judgeEvidence: input.judgeEvidence }),
   });
   const host = await input.context.host.run(
     {
@@ -119,6 +120,7 @@ interface PromptInput {
   artifacts: GraderArtifact[];
   checkpoint?: CheckpointEvidence;
   task: TaskReadResult;
+  judgeEvidence?: CaseJudgeEvidence;
 }
 
 function buildPrompt(input: PromptInput): string {
@@ -133,6 +135,7 @@ function buildPrompt(input: PromptInput): string {
       content: artifact.content,
     })),
     checkpoint: input.checkpoint ?? null,
+    judgeEvidence: input.judgeEvidence ?? null,
     task: input.task.snapshot,
     taskReadError: input.task.error,
   };

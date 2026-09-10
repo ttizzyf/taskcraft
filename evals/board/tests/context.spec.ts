@@ -15,10 +15,12 @@ test("unrun scenarios expose full context and preserve reading state when pollin
     await page.clock.install();
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(server.url);
-    await expect(page.locator("#stat-unrun")).toHaveText("3");
-    for (const [index, title, step] of [
-      [1, "冷启动恢复", "没有旧聊天的新会话"],
-      [2, "审查修复", "框架独立验收产物"],
+    await expect(page.locator("#stat-unrun")).toHaveText("5");
+    for (const [index, title, step, criteriaCount] of [
+      [1, "冷启动恢复", "没有旧聊天的新会话", 12],
+      [2, "审查修复", "框架独立验收产物", 12],
+      [3, "L2 Review 回流", "新的独立 reviewer", 20],
+      [4, "正常会话恢复", "读取 README", 14],
     ] as const) {
       await page.locator("#scenarios-tbody tr").nth(index).click();
       await expect(page.locator("#drawer-title")).toContainText(title);
@@ -33,8 +35,10 @@ test("unrun scenarios expose full context and preserve reading state when pollin
       await page
         .locator('[data-disclosure="guide-criteria"] > summary')
         .click();
-      await expect(page.locator(".guide-criteria > li")).toHaveCount(12);
-      if (index === 1) await page.locator("#btn-close-drawer").click();
+      await expect(page.locator(".guide-criteria > li")).toHaveCount(
+        criteriaCount,
+      );
+      if (index !== 4) await page.locator("#btn-close-drawer").click();
     }
 
     const body = page.locator(".drawer-body");

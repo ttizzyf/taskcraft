@@ -31,17 +31,31 @@ function sourceFingerprint(paths: string[]): string {
   );
 }
 
+function caseSourcePaths(caseId: string): string[] {
+  const paths = [
+    `../cases/${caseId}.ts`,
+    "../cases/csv.ts",
+    "../cases/utils.ts",
+    "../hosts/claude.ts",
+    "../hosts/pi.ts",
+    "../hosts/pi-worker.ts",
+    "../core/workspace.ts",
+  ];
+  if (caseId === "l2-review") {
+    paths.push(
+      "../cases/l2-review-flow.ts",
+      "../cases/l2-review-grade.ts",
+      "../cases/l2-review-evidence.ts",
+      "../core/tc.ts",
+      "../core/types.ts",
+    );
+  }
+  return paths;
+}
+
 export function computeCaseFingerprint(caseDefinition: EvalCase): string {
   const payload = {
-    implementation: sourceFingerprint([
-      `../cases/${caseDefinition.id}.ts`,
-      "../cases/csv.ts",
-      "../cases/utils.ts",
-      "../hosts/claude.ts",
-      "../hosts/pi.ts",
-      "../hosts/pi-worker.ts",
-      "../core/workspace.ts",
-    ]),
+    implementation: sourceFingerprint(caseSourcePaths(caseDefinition.id)),
     id: caseDefinition.id,
     title: caseDefinition.title,
     description: caseDefinition.description,
@@ -52,19 +66,27 @@ export function computeCaseFingerprint(caseDefinition: EvalCase): string {
 }
 
 export function computeGraderFingerprint(caseDefinition: EvalCase): string {
+  const implementationPaths = [
+    `../cases/${caseDefinition.id}.ts`,
+    "../cases/csv.ts",
+    "../cases/utils.ts",
+    "../graders/model.ts",
+    "../hosts/pi.ts",
+    "../hosts/pi-worker.ts",
+    "../core/runner.ts",
+    "../graders/artifacts.ts",
+    "../core/tc.ts",
+  ];
+  if (caseDefinition.id === "l2-review") {
+    implementationPaths.push(
+      "../cases/l2-review-flow.ts",
+      "../cases/l2-review-grade.ts",
+      "../cases/l2-review-evidence.ts",
+      "../core/types.ts",
+    );
+  }
   const payload = {
-    // Test vectors alone cannot detect changes to assertions or judge prompts.
-    implementation: sourceFingerprint([
-      `../cases/${caseDefinition.id}.ts`,
-      "../cases/csv.ts",
-      "../cases/utils.ts",
-      "../graders/model.ts",
-      "../hosts/pi.ts",
-      "../hosts/pi-worker.ts",
-      "../core/runner.ts",
-      "../graders/artifacts.ts",
-      "../core/tc.ts",
-    ]),
+    implementation: sourceFingerprint(implementationPaths),
     caseId: caseDefinition.id,
     codeOracle: {
       checks: [

@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import type { EvalContext, HostRun, HostRunRequest } from "../core/types.ts";
+import type {
+  CaseJudgeEvidence,
+  EvalContext,
+  HostRun,
+  HostRunRequest,
+} from "../core/types.ts";
 import { parseModelOutput, runModelGrader } from "../graders/model.ts";
-import type { CheckResult, ModelCriteria } from "../core/types.ts";
+import type { ModelCriteria } from "../core/types.ts";
 import {
   MODEL_PROMPT_SAMPLES,
   type ModelPromptSample,
@@ -46,7 +51,7 @@ function hostSuccess(resultText: string): HostRun {
 
 async function capturePrompt(
   sample: ModelPromptSample,
-  codeChecks: CheckResult[] = [],
+  judgeEvidence?: CaseJudgeEvidence,
 ): Promise<{ prompt: string; request: HostRunRequest }> {
   let request: HostRunRequest | undefined;
   const context = fakeContext(hostSuccess(JSON.stringify(VALID_OUTPUT)));
@@ -58,8 +63,8 @@ async function capturePrompt(
     context,
     workspace: process.cwd(),
     criteria: CRITERIA,
-    codeChecks,
     ...sample,
+    ...(judgeEvidence === undefined ? {} : { judgeEvidence }),
     timeoutMs: 1_000,
   });
   if (request === undefined) throw new Error("model grader request was absent");
@@ -204,7 +209,6 @@ describe("runModelGrader", () => {
       workspace: process.cwd(),
       requirements: "req",
       criteria: CRITERIA,
-      codeChecks: [],
       actorRuns: [],
       actorResult: null,
       artifacts: [],
@@ -221,7 +225,6 @@ describe("runModelGrader", () => {
       workspace: process.cwd(),
       requirements: "req",
       criteria: CRITERIA,
-      codeChecks: [],
       actorRuns: [],
       actorResult: null,
       artifacts: [],
@@ -243,7 +246,6 @@ describe("runModelGrader", () => {
       workspace: process.cwd(),
       requirements: "req",
       criteria: CRITERIA,
-      codeChecks: [],
       actorRuns: [],
       actorResult: null,
       artifacts: [],
@@ -262,7 +264,6 @@ describe("runModelGrader", () => {
       workspace: process.cwd(),
       requirements: "req",
       criteria: CRITERIA,
-      codeChecks: [],
       actorRuns: [],
       actorResult: null,
       artifacts: [],
@@ -286,7 +287,6 @@ describe("runModelGrader", () => {
       workspace: process.cwd(),
       requirements: "csv contract",
       criteria: CRITERIA,
-      codeChecks: [],
       actorRuns: [
         {
           phase: "delivery-actor",
@@ -309,17 +309,24 @@ describe("runModelGrader", () => {
     expect(prompt).toContain("export {};");
   });
 
-  it("keeps external code-check verdicts, reasons, evidence, and scores out of the prompt", async () => {
-    const { prompt } = await capturePrompt(MODEL_PROMPT_SAMPLES.complete!, [
-      {
-        id: "csv-functional",
-        grader: "code",
-        verdict: "fail",
-        reason: "SECRET_CODE_REASON",
-        evidence: ["SECRET_CODE_EVIDENCE"],
+  it("passes case-owned judge evidence as quoted data", async () => {
+    const { prompt } = await capturePrompt(MODEL_PROMPT_SAMPLES.complete!, {
+      kind: "l2-review",
+      reviewStarts: {
+        first: {
+          capability: "context-only",
+          independenceStatus: "unverified",
+        },
       },
-    ]);
-    expect(prompt).not.toContain("SECRET_CODE_REASON");
+      final: { findings: [{ reviewAttemptId: "review-1" }] },
+    });
+    expect(prompt).toContain('"kind": "l2-review"');
+    expect(prompt).toContain('"capability": "context-only"');
+    expect(prompt).toContain('"reviewAttemptId": "review-1"');
+  });
+
+  it("keeps external code-check verdicts, reasons, evidence, and scores out of the prompt", async () => {
+    const { prompt } = await capturePrompt(MODEL_PROMPT_SAMPLES.complete!);
     expect(prompt).not.toContain("SECRET_CODE_EVIDENCE");
     expect(prompt).not.toContain('"codeChecks"');
     expect(prompt).not.toContain("aggregate score: 0");

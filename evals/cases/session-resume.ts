@@ -125,6 +125,10 @@ export const sessionResumeCase: EvalCase = {
     return { hostRuns: [first, second] };
   },
   grade: async (_context, setup, execution, task) => {
+    const sessionSetup = asSessionResumeSetup(setup);
+    if (sessionSetup.metadata.sessionResume.evidence?.established !== true) {
+      return gradeSessionResume(sessionSetup, execution, task);
+    }
     const artifactChecks = await gradeCsvArtifact(setup.workspace);
     const taskChecks = gradeTaskContract(
       task.snapshot,
@@ -134,7 +138,7 @@ export const sessionResumeCase: EvalCase = {
     return [
       ...artifactChecks,
       ...taskChecks,
-      ...gradeSessionResume(asSessionResumeSetup(setup), execution, task),
+      ...gradeSessionResume(sessionSetup, execution, task),
     ];
   },
 };

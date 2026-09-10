@@ -19,9 +19,14 @@ import {
   type L2ReviewTrace,
 } from "./l2-review-flow.ts";
 import { gradeL2Review } from "./l2-review-grade.ts";
+import {
+  buildL2ReviewJudgeEvidence,
+  type L2ReviewJudgeEvidence,
+} from "./l2-review-evidence.ts";
 
 export interface L2ReviewExecution extends CaseExecution {
   reviewTrace: L2ReviewTrace;
+  judgeEvidence: L2ReviewJudgeEvidence;
 }
 
 export const l2ReviewCase = {
@@ -84,7 +89,11 @@ export const l2ReviewCase = {
         "changes_requested",
       )
     ) {
-      return { hostRuns, reviewTrace: trace };
+      return {
+        hostRuns,
+        reviewTrace: trace,
+        judgeEvidence: buildL2ReviewJudgeEvidence(trace),
+      };
     }
 
     hostRuns.push(
@@ -100,7 +109,11 @@ export const l2ReviewCase = {
     );
     trace.repairTask = await context.readTask(setup.workspace, setup.taskId);
     if (!hasAttempt(trace.repairTask, successor, "execute-1", "success")) {
-      return { hostRuns, reviewTrace: trace };
+      return {
+        hostRuns,
+        reviewTrace: trace,
+        judgeEvidence: buildL2ReviewJudgeEvidence(trace),
+      };
     }
 
     const secondReview = await startReview(
@@ -133,11 +146,19 @@ export const l2ReviewCase = {
         "passed",
       )
     ) {
-      return { hostRuns, reviewTrace: trace };
+      return {
+        hostRuns,
+        reviewTrace: trace,
+        judgeEvidence: buildL2ReviewJudgeEvidence(trace),
+      };
     }
 
     trace.finalTask = await ensureRecord(context, setup);
-    return { hostRuns, reviewTrace: trace };
+    return {
+      hostRuns,
+      reviewTrace: trace,
+      judgeEvidence: buildL2ReviewJudgeEvidence(trace),
+    };
   },
   grade: (
     _context: EvalContext,

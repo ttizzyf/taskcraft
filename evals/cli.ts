@@ -18,7 +18,7 @@ export function createProgram(
 ): Command {
   return new Command()
     .name("eval")
-    .description("run Taskcraft evals (delivery, recovery, review)")
+    .description("run Taskcraft evals (five cases)")
     .option("--list", "list available cases and exit")
     .option("--case <id>", "run one case by id")
     .option("--all", "run all available cases as a batch")

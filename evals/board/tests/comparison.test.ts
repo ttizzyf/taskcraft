@@ -116,7 +116,7 @@ describe("evals board per-check deltas and execution establishment", () => {
     expect(data.overview.inconclusiveScenarios).toBe(1);
     expect(data.overview.blockedScenarios).toBe(0);
     expect(data.overview.decisiveScenarios).toBe(0);
-    expect(data.overview.unrunScenarios).toBe(2);
+    expect(data.overview.unrunScenarios).toBe(4);
   });
 
   it("does not treat an actor error as established execution", () => {

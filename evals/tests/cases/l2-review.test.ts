@@ -310,6 +310,38 @@ describe("l2-review case", () => {
       }),
     ]);
     expect(execution.reviewTrace.finalTask?.snapshot?.status).toBe("done");
+    expect(execution.judgeEvidence).toMatchObject({
+      kind: "l2-review",
+      reviewStarts: {
+        first: {
+          reviewAttemptId: execution.reviewTrace.firstReview.reviewAttemptId,
+          reviewedAttemptId: execution.reviewTrace.initialExecuteAttemptId,
+          capability: "context-only",
+          independenceStatus: "unverified",
+        },
+        second: {
+          reviewedAttemptId: execution.reviewTrace.successorExecuteAttemptId,
+          capability: "context-only",
+          independenceStatus: "unverified",
+        },
+      },
+      stageReviewContexts: {
+        first: expect.objectContaining({
+          reviewedAttemptId: execution.reviewTrace.initialExecuteAttemptId,
+        }),
+        second: expect.objectContaining({
+          reviewedAttemptId: execution.reviewTrace.successorExecuteAttemptId,
+        }),
+      },
+      final: {
+        status: "done",
+        findings: expect.arrayContaining([
+          expect.objectContaining({
+            reviewAttemptId: execution.reviewTrace.firstReview.reviewAttemptId,
+          }),
+        ]),
+      },
+    });
   });
 
   it("does not pass when the reviewer omits the required changes_requested stage", async () => {
