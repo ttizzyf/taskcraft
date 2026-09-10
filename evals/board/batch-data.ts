@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import {
@@ -8,7 +8,7 @@ import {
   type BatchRecord,
 } from "../reporting/batch.ts";
 import type { EvalReport } from "../core/types.ts";
-import { isLoadableReport } from "./report.ts";
+import { parseEvalReport } from "../reporting/report.ts";
 import type { BoardBatchSummary } from "./batches.ts";
 
 export function toBoardBatchSummary(batch: BatchRecord): BoardBatchSummary {
@@ -101,17 +101,14 @@ function loadBatchReports(
       let jsonPath: string;
       let markdownPath: string;
       try {
-        jsonPath = resolveBatchPath(batchPath, reference.jsonPath);
-        markdownPath = resolveBatchPath(batchPath, reference.markdownPath);
-        const attemptRoot = resolve(dirname(batchPath), attempt.directory);
-        if (!pathWithin(attemptRoot, jsonPath)) {
-          throw new Error("report path is outside its saved attempt directory");
-        }
-        if (!pathWithin(attemptRoot, markdownPath)) {
-          throw new Error(
-            "markdown report path is outside its saved attempt directory",
-          );
-        }
+        const paths = resolveSafeReportPaths(
+          batchPath,
+          attempt.directory,
+          reference.jsonPath,
+          reference.markdownPath,
+        );
+        jsonPath = paths.jsonPath;
+        markdownPath = paths.markdownPath;
       } catch (error) {
         diagnostics.push({
           filename: label,
@@ -120,20 +117,15 @@ function loadBatchReports(
         continue;
       }
       try {
-        const report = JSON.parse(readFileSync(jsonPath, "utf8")) as unknown;
-        if (
-          !isRecord(report) ||
-          report.schemaVersion !== "tc-eval/v1" ||
-          !isLoadableReport(report)
-        ) {
-          throw new Error("batch report is not a loadable tc-eval/v1 report");
-        }
+        const report = parseEvalReport(
+          JSON.parse(readFileSync(jsonPath, "utf8")) as unknown,
+        );
         if (report.caseId !== job.caseId) {
           throw new Error(
             `report case ${report.caseId} does not match job ${job.caseId}`,
           );
         }
-        if (attempt.verdict !== null && report.verdict !== attempt.verdict) {
+        if (report.verdict !== attempt.verdict) {
           throw new Error(
             `report verdict ${report.verdict} does not match attempt ${attempt.verdict}`,
           );
@@ -153,11 +145,42 @@ function loadBatchReports(
   return reports;
 }
 
-function pathWithin(root: string, target: string): boolean {
-  const value = relative(resolve(root), resolve(target));
-  return value !== "" && !value.startsWith(`..${sep}`) && !isAbsolute(value);
+function resolveSafeReportPaths(
+  batchPath: string,
+  attemptDirectory: string,
+  storedJsonPath: string,
+  storedMarkdownPath: string,
+): { jsonPath: string; markdownPath: string } {
+  const batchRoot = dirname(batchPath);
+  const attemptRoot = resolve(batchRoot, attemptDirectory);
+  const attemptReal = realpathSync(attemptRoot);
+  if (attemptReal !== attemptRoot) {
+    throw new Error("batch attempt directory must not be a symlink");
+  }
+  const jsonPath = resolveBatchPath(batchPath, storedJsonPath);
+  const markdownPath = resolveBatchPath(batchPath, storedMarkdownPath);
+  const jsonReal = realpathSync(jsonPath);
+  const markdownReal = realpathSync(markdownPath);
+  if (jsonReal !== jsonPath || markdownReal !== markdownPath) {
+    throw new Error("batch report references must not be symlinks");
+  }
+  if (!pathWithin(attemptReal, jsonReal)) {
+    throw new Error("report path is outside its saved attempt directory");
+  }
+  if (!pathWithin(attemptReal, markdownReal)) {
+    throw new Error(
+      "markdown report path is outside its saved attempt directory",
+    );
+  }
+  return { jsonPath: jsonReal, markdownPath: markdownReal };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function pathWithin(root: string, target: string): boolean {
+  const value = relative(resolve(root), resolve(target));
+  return (
+    value !== "" &&
+    value !== ".." &&
+    !value.startsWith(`..${sep}`) &&
+    !isAbsolute(value)
+  );
 }

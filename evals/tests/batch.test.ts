@@ -135,6 +135,24 @@ describe("batch persistence and scheduling", () => {
     expect(resumed.batch.jobs[1]?.attempts[1]?.report).not.toBeNull();
   });
 
+  it("settles a malformed finished report as inconclusive", async () => {
+    const fixture = fixtureWorker("malformed-report");
+    const first = await runBatch({
+      runDir: fixture.runDir,
+      caseIds: ["delivery"],
+      workerPath: fixture.workerPath,
+    });
+    expect(first.batch.jobs[0]?.status).toBe("inconclusive");
+    expect(first.batch.jobs[0]?.attempts[0]?.report).toBeNull();
+    const resumed = await runBatch({
+      runDir: fixture.runDir,
+      resumeBatchId: first.batch.id,
+      workerPath: fixture.workerPath,
+    });
+    expect(resumed.batch.jobs[0]?.status).toBe("inconclusive");
+    expect(resumed.batch.jobs[0]?.attempts).toHaveLength(1);
+  });
+
   it("rejects a second dispatcher while the first owner is active", async () => {
     const fixture = fixtureWorker("long");
     const controller = new AbortController();
@@ -155,6 +173,26 @@ describe("batch persistence and scheduling", () => {
     ).rejects.toThrow("already active");
     controller.abort();
     await running;
+  });
+
+  it("rejects traversal batch ids before reading or writing", async () => {
+    const fixture = fixtureWorker("normal");
+    await expect(
+      runBatch({
+        runDir: fixture.runDir,
+        resumeBatchId: "../../outside",
+        workerPath: fixture.workerPath,
+      }),
+    ).rejects.toThrow("batch id");
+    await expect(
+      runBatch({
+        runDir: fixture.runDir,
+        caseIds: ["delivery"],
+        batchId: "../outside",
+        workerPath: fixture.workerPath,
+      }),
+    ).rejects.toThrow("batch id");
+    expect(existsSync(join(fixture.runDir, "batches"))).toBe(false);
   });
 
   it("terminates a worker's detached descendant on cancellation", async () => {
@@ -265,7 +303,58 @@ if (mode === "descendant") {
   await new Promise((resolve) => setTimeout(resolve, delay));
   const verdict = mode === "fail-recovery" && request.caseId === "recovery" ? "fail" : "pass";
   mkdirSync(request.attemptDir, { recursive: true });
-  const report = { caseId: request.caseId, verdict };
+  const startedAt = new Date().toISOString();
+  const report = {
+    schemaVersion: "tc-eval/v1",
+    caseId: request.caseId,
+    title: "Fixture batch report",
+    verdict,
+    summary: "fixture report",
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    workspace: request.attemptDir,
+    requirements: "fixture",
+    setupError: null,
+    executionError: null,
+    gradingError: null,
+    graderError: null,
+    actor: [
+      {
+        phase: "fixture",
+        status: "success",
+        elapsedMs: 1,
+        callCount: 1,
+        diagnostics: [],
+        hostVersion: null,
+        model: null,
+        resultMetadata: null,
+      },
+    ],
+    checks: [
+      {
+        id: "fixture",
+        grader: "code",
+        verdict,
+        reason: "fixture",
+        evidence: [],
+      },
+    ],
+    model: {
+      status: "not-run",
+      elapsedMs: null,
+      callCount: null,
+      diagnostics: [],
+    },
+    task: null,
+    taskReadError: null,
+    environment: {
+      node: process.version,
+      host: "fixture",
+      model: null,
+      judgeModel: null,
+    },
+  };
+  if (mode === "malformed-report") delete report.schemaVersion;
   const jsonPath = join(request.attemptDir, "report.json");
   const markdownPath = join(request.attemptDir, "report.md");
   writeFileSync(jsonPath, JSON.stringify(report));

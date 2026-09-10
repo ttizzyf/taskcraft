@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { aggregate } from "../../core/runner.ts";
 import { readTaskSnapshot, runTcCommand } from "../../core/tc.ts";
 import type {
   CaseSetup,
@@ -342,6 +343,19 @@ describe("l2-review case", () => {
         ]),
       },
     });
+
+    const unavailableChecks = await l2ReviewCase.grade(
+      context,
+      setup,
+      execution,
+      { snapshot: null, error: "final task show unavailable" },
+    );
+    expect(
+      unavailableChecks.find((check) => check.id === "l2-task-done")?.verdict,
+    ).toBe("inconclusive");
+    expect(aggregate(execution.hostRuns, unavailableChecks).verdict).toBe(
+      "inconclusive",
+    );
   });
 
   it("does not pass when the reviewer omits the required changes_requested stage", async () => {

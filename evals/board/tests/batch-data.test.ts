@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -148,5 +148,28 @@ describe("evals board batch report loading", () => {
     expect(
       data.scenarios.find((scenario) => scenario.id === "delivery")?.status,
     ).toBe("pass");
+
+    const outsideDir = join(tempDir, "outside");
+    mkdirSync(outsideDir, { recursive: true });
+    writeFileSync(
+      join(outsideDir, "report.json"),
+      JSON.stringify(report),
+      "utf8",
+    );
+    writeFileSync(join(outsideDir, "report.md"), "# outside\n", "utf8");
+    rmSync(join(attemptDir, "report.json"));
+    rmSync(join(attemptDir, "report.md"));
+    symlinkSync(
+      join(outsideDir, "report.json"),
+      join(attemptDir, "report.json"),
+    );
+    symlinkSync(join(outsideDir, "report.md"), join(attemptDir, "report.md"));
+    const symlinkData = loadBoardData(tempDir);
+    expect(symlinkData.reports).toHaveLength(0);
+    expect(
+      symlinkData.malformedDiagnostics?.some((entry) =>
+        entry.error.includes("symlink"),
+      ),
+    ).toBe(true);
   });
 });

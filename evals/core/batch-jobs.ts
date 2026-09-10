@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdirSync, readFileSync, realpathSync } from "node:fs";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
 import {
   toBatchRelativePath,
@@ -7,6 +7,7 @@ import {
   type BatchJobRecord,
   type BatchRecord,
 } from "../reporting/batch.ts";
+import { parseEvalReport } from "../reporting/report.ts";
 import {
   isProcessAlive,
   readJobResult,
@@ -221,13 +222,10 @@ function validateBatchReport(
       attemptRoot,
       paths.markdownPath,
     );
-    if (!existsSync(jsonPath) || !existsSync(markdownPath)) return null;
-    const report = JSON.parse(readFileSync(jsonPath, "utf8")) as unknown;
-    if (
-      !isRecord(report) ||
-      report.caseId !== job.caseId ||
-      report.verdict !== verdict
-    ) {
+    const report = parseEvalReport(
+      JSON.parse(readFileSync(jsonPath, "utf8")) as unknown,
+    );
+    if (report.caseId !== job.caseId || report.verdict !== verdict) {
       return null;
     }
     return {
@@ -243,12 +241,33 @@ function resolveReportInAttempt(
   attemptRoot: string,
   storedPath: string,
 ): string {
-  const candidate = resolve(attemptRoot, storedPath);
   const root = resolve(attemptRoot);
-  if (candidate !== root && !candidate.startsWith(`${root}${separator()}`)) {
+  const candidate = resolve(root, storedPath);
+  if (!pathWithin(root, candidate)) {
     throw new Error("report path escapes attempt directory");
   }
-  return candidate;
+  const realRoot = realpathSync(root);
+  if (realRoot !== root) {
+    throw new Error("batch attempt directory must not be a symlink");
+  }
+  const realCandidate = realpathSync(candidate);
+  if (realCandidate !== candidate) {
+    throw new Error("batch report references must not be symlinks");
+  }
+  if (!pathWithin(realRoot, realCandidate)) {
+    throw new Error("report path escapes attempt directory");
+  }
+  return realCandidate;
+}
+
+function pathWithin(root: string, target: string): boolean {
+  const value = relative(resolve(root), resolve(target));
+  return (
+    value !== "" &&
+    value !== ".." &&
+    !value.startsWith(`..${sep}`) &&
+    !isAbsolute(value)
+  );
 }
 
 function settleAsInconclusive(
@@ -264,12 +283,4 @@ function settleAsInconclusive(
   attempt.diagnostics.push(...messages);
   job.diagnostics.push(...messages);
   job.status = "inconclusive";
-}
-
-function separator(): string {
-  return process.platform === "win32" ? "\\" : "/";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

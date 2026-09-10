@@ -12,17 +12,19 @@ import {
   writeSync,
 } from "node:fs";
 import { randomBytes } from "node:crypto";
-import {
-  dirname,
-  isAbsolute,
-  join,
-  normalize,
-  relative,
-  resolve,
-  sep,
-} from "node:path";
+import { dirname, isAbsolute, join, normalize, resolve, sep } from "node:path";
+
+import { batchFilePath, resolveBatchPath } from "./batch-paths.ts";
 
 import type { HostAdapter, Verdict } from "../core/types.ts";
+
+export {
+  batchDirectory,
+  batchFilePath,
+  resolveBatchPath,
+  toBatchRelativePath,
+  validateBatchId,
+} from "./batch-paths.ts";
 
 export const BATCH_SCHEMA_VERSION = "tc-eval/batch-v1" as const;
 
@@ -78,14 +80,6 @@ export interface BatchRecord {
   config: BatchExecutionConfig;
   jobs: BatchJobRecord[];
   diagnostics: string[];
-}
-
-export function batchDirectory(runDir: string, batchId: string): string {
-  return join(resolve(runDir), "batches", batchId);
-}
-
-export function batchFilePath(runDir: string, batchId: string): string {
-  return join(batchDirectory(runDir, batchId), "batch.json");
 }
 
 export function parseBatchRecord(value: unknown): BatchRecord {
@@ -211,33 +205,6 @@ export function writeJsonAtomic(path: string, value: unknown): void {
     }
     throw error;
   }
-}
-
-export function resolveBatchPath(
-  batchPath: string,
-  storedPath: string,
-): string {
-  if (isAbsolute(storedPath)) {
-    throw new Error(`batch path must be relative: ${storedPath}`);
-  }
-  const root = resolve(dirname(batchPath));
-  const candidate = resolve(root, storedPath);
-  if (candidate !== root && !candidate.startsWith(`${root}${sep}`)) {
-    throw new Error(`batch path escapes batch directory: ${storedPath}`);
-  }
-  return candidate;
-}
-
-export function toBatchRelativePath(
-  batchPath: string,
-  targetPath: string,
-): string {
-  const root = resolve(dirname(batchPath));
-  const target = resolve(targetPath);
-  if (target !== root && !target.startsWith(`${root}${sep}`)) {
-    throw new Error(`report path escapes batch directory: ${targetPath}`);
-  }
-  return relative(root, target).split(sep).join("/");
 }
 
 function parseConfig(value: unknown): BatchExecutionConfig {

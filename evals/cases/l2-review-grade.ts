@@ -16,6 +16,12 @@ export async function gradeL2Review(
   const checks = await gradeCsvArtifact(setup.workspace);
   const trace = traceOf(execution);
   const snapshot = task.snapshot;
+  const taskDoneVerdict =
+    snapshot === null
+      ? "inconclusive"
+      : snapshot.status === "done"
+        ? "pass"
+        : "fail";
   checks.push(
     check(
       "l2-host-sessions",
@@ -27,10 +33,12 @@ export async function gradeL2Review(
     ),
     check(
       "l2-task-done",
-      snapshot?.status === "done" ? "pass" : "fail",
-      snapshot?.status === "done"
-        ? "Taskcraft projected the reviewed task as done"
-        : `Taskcraft projected ${snapshot?.status ?? "no task"}, not done`,
+      taskDoneVerdict,
+      snapshot === null
+        ? "the final Taskcraft snapshot was unavailable; completion cannot be determined"
+        : snapshot.status === "done"
+          ? "Taskcraft projected the reviewed task as done"
+          : `Taskcraft projected ${snapshot.status}, not done`,
       snapshot === null
         ? (task.error ?? "task show failed")
         : `task=${snapshot.taskId}`,

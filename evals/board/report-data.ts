@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { EvalReport } from "../core/types.ts";
-import { isLoadableReport } from "./report.ts";
+import { parseEvalReport } from "../reporting/report.ts";
 
 export function loadReports(
   runDir: string,
@@ -16,19 +16,14 @@ export function loadReports(
     const fullPath = join(runDir, entry.name);
     try {
       const parsed = JSON.parse(readFileSync(fullPath, "utf8")) as unknown;
-      if (
-        !isRecord(parsed) ||
-        parsed.schemaVersion !== "tc-eval/v1" ||
-        !isLoadableReport(parsed)
-      ) {
+      try {
+        reports.push(parseEvalReport(parsed));
+      } catch (error) {
         diagnostics.push({
           filename: entry.name,
-          error:
-            "缺少必要的 schemaVersion 'tc-eval/v1'、caseId，或 checks/actor/environment 字段缺失、类型不符",
+          error: error instanceof Error ? error.message : String(error),
         });
-        continue;
       }
-      reports.push(parsed);
     } catch (error) {
       diagnostics.push({
         filename: entry.name,
@@ -37,8 +32,4 @@ export function loadReports(
     }
   }
   return reports;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

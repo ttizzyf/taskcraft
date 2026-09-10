@@ -33,6 +33,27 @@ const MODEL_CRITERIA: ModelCriteria[] = [
 
 type SourceFile = Awaited<ReturnType<EvalContext["hashSources"]>>[number];
 
+export interface SessionResumeJudgeEvidence {
+  kind: "session-resume";
+  [key: string]: unknown;
+  established: boolean;
+  taskId: string;
+  firstHostPhase: string;
+  firstHostStatus: HostRun["status"];
+  firstTaskStatus: string | null;
+  firstAttemptId: string | null;
+  sourceFilesBefore: SourceFile[];
+  sourceFilesAfterFirst: SourceFile[];
+  handoffFactId: string | null;
+  reason: string;
+  finalTask: {
+    available: boolean;
+    taskId: string | null;
+    status: string | null;
+    error: string | null;
+  };
+}
+
 type SessionResumeSetup = CaseSetup & {
   metadata: CaseSetup["metadata"] & {
     sessionResume: SessionResumeMetadata;
@@ -109,8 +130,9 @@ export const sessionResumeCase: EvalCase = {
     );
     sessionSetup.metadata.sessionResume.evidence = evidence;
 
+    const judgeEvidence = buildJudgeEvidence(evidence, first, firstTask);
     if (!evidence.established) {
-      return { hostRuns: [first] };
+      return { hostRuns: [first], judgeEvidence };
     }
 
     const second = await context.host.run(
@@ -122,7 +144,11 @@ export const sessionResumeCase: EvalCase = {
       },
       "session-resume-second-session",
     );
-    return { hostRuns: [first, second] };
+    const finalTask = await context.readTask(setup.workspace, setup.taskId);
+    return {
+      hostRuns: [first, second],
+      judgeEvidence: buildJudgeEvidence(evidence, first, finalTask),
+    };
   },
   grade: async (_context, setup, execution, task) => {
     const sessionSetup = asSessionResumeSetup(setup);
@@ -198,6 +224,32 @@ function establishEvidence(
           handoffFact,
           task.error,
         ),
+  };
+}
+
+function buildJudgeEvidence(
+  evidence: SessionResumeEvidence,
+  first: HostRun,
+  finalTask: TaskReadResult,
+): SessionResumeJudgeEvidence {
+  return {
+    kind: "session-resume",
+    established: evidence.established,
+    taskId: evidence.taskId,
+    firstHostPhase: first.phase,
+    firstHostStatus: first.status,
+    firstTaskStatus: evidence.firstTaskStatus,
+    firstAttemptId: evidence.firstAttemptId,
+    sourceFilesBefore: evidence.initialSourceFiles,
+    sourceFilesAfterFirst: evidence.sourceFilesAfterFirst,
+    handoffFactId: evidence.handoffFactId,
+    reason: evidence.reason,
+    finalTask: {
+      available: finalTask.snapshot !== null,
+      taskId: finalTask.snapshot?.taskId ?? null,
+      status: finalTask.snapshot?.status ?? null,
+      error: finalTask.error,
+    },
   };
 }
 

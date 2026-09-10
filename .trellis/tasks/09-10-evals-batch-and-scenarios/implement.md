@@ -39,6 +39,14 @@ User approved queues A–E, Luna/max subagents, new feature branch, final commit
 - Real HTTP smoke: `GET /` and `GET /api/data` both returned 200; API contained 5 scenarios and 6 historical reports.
 - `git diff --check`: passed. No paid Actor/Judge calls were made. Parent owns final branch push and task archival.
 
+## Reviewer fix round
+
+- Added a shared strict `tc-eval/v1` decoder for board loading and batch producer settlement; unknown verdicts, invalid grader/status values, and non-string diagnostics now become malformed/inconclusive instead of decisive results or loader exceptions.
+- Restricted batch IDs to one directory name, added realpath/symlink containment for batch report references, and made malformed finished reports settle as `inconclusive` rather than terminal `pass`/`fail`.
+- Cancellation cleanup now tracks known descendants through worker close and continues grace/SIGKILL cleanup for detached descendants; the regression fixture covers a SIGTERM-ignoring child.
+- L2 task completion is inconclusive when the final snapshot is unavailable; normal `session-resume` now forwards typed first-session handoff/source/task/attempt evidence to the blind judge/report on both established and unestablished paths.
+- Focused reviewer regression checks passed: 6 Evals test files / 21 tests, board data and server tests, Evals typecheck, affected ESLint/Prettier, and `git diff --check`.
+
 ## Recovery
 
 Lane reports use managed subagent artifacts. Git commits and worktree identity are durable handoffs. Do not delete an active or dirty worktree. If launch or child runtime fails, capture exact status and diff and use a same-protocol recovery only. No force push, reset, or deletion of unrelated changes.

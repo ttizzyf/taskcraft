@@ -72,10 +72,82 @@ describe("evals board legacy report loading", () => {
       }),
       "utf8",
     );
+    const validReport = {
+      schemaVersion: "tc-eval/v1",
+      caseId: "delivery",
+      title: "Fixture",
+      verdict: "pass",
+      summary: "fixture",
+      startedAt: "2026-09-09T10:00:00.000Z",
+      finishedAt: "2026-09-09T10:00:01.000Z",
+      workspace: runDir,
+      requirements: "fixture",
+      setupError: null,
+      executionError: null,
+      gradingError: null,
+      graderError: null,
+      actor: [
+        {
+          phase: "fixture",
+          status: "success",
+          elapsedMs: 1,
+          callCount: 1,
+          diagnostics: [],
+          hostVersion: null,
+          model: null,
+          resultMetadata: null,
+        },
+      ],
+      checks: [
+        {
+          id: "fixture",
+          grader: "code",
+          verdict: "pass",
+          reason: "fixture",
+          evidence: [],
+        },
+      ],
+      model: {
+        status: "not-run",
+        elapsedMs: null,
+        callCount: null,
+        diagnostics: [],
+      },
+      task: null,
+      taskReadError: null,
+      environment: {
+        node: "24",
+        host: "fixture",
+        model: null,
+        judgeModel: null,
+      },
+    };
+    writeFileSync(
+      join(runDir, "unknown-verdict.json"),
+      JSON.stringify({ ...validReport, verdict: "unknown" }),
+      "utf8",
+    );
+    writeFileSync(
+      join(runDir, "bad-diagnostics.json"),
+      JSON.stringify({
+        ...validReport,
+        actor: [{ ...validReport.actor[0], diagnostics: [1] }],
+      }),
+      "utf8",
+    );
+    writeFileSync(
+      join(runDir, "unknown-check-verdict.json"),
+      JSON.stringify({
+        ...validReport,
+        checks: [{ ...validReport.checks[0], verdict: "unknown" }],
+      }),
+      "utf8",
+    );
 
     const data = loadBoardData(runDir);
-    expect(data.malformedDiagnostics).toHaveLength(4);
+    expect(data.malformedDiagnostics).toHaveLength(7);
     expect(data.reports).toHaveLength(0);
     expect(data.overview.totalScenarios).toBe(5);
+    expect(data.overview.decisiveScenarios).toBe(0);
   });
 });

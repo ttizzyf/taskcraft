@@ -73,6 +73,20 @@ describe("session-resume case", () => {
       "success",
     ]);
     expect(evidence.established).toBe(true);
+    expect(execution.judgeEvidence).toMatchObject({
+      kind: "session-resume",
+      established: true,
+      taskId: setup.taskId,
+      firstHostStatus: "success",
+      firstTaskStatus: "active",
+      firstAttemptId: evidence.firstAttemptId,
+      handoffFactId: evidence.handoffFactId,
+      finalTask: {
+        available: true,
+        taskId: setup.taskId,
+        status: "done",
+      },
+    });
     expect(prompts[1]).toContain("tc task list --json");
     expect(prompts[1]).toContain("tc task show <task-id> --json");
     expect(prompts[1]).not.toContain(setup.taskId);
@@ -116,6 +130,15 @@ describe("session-resume case", () => {
     );
 
     expect(hostCalls).toBe(1);
+    expect(execution.judgeEvidence).toMatchObject({
+      kind: "session-resume",
+      established: false,
+      firstHostStatus: "success",
+      finalTask: {
+        available: true,
+        status: "queued",
+      },
+    });
     expect(sessionEvidence(setup).established).toBe(false);
     expect(
       checks.find((check) => check.id === "session-resume-handoff")?.verdict,

@@ -74,13 +74,24 @@ export function spawnEvalJob(
   let stdout = "";
   let stderr = "";
   let spawnError: string | null = null;
-  let forceKillTimer: NodeJS.Timeout | undefined;
+  let cleanupPromise: Promise<void> | undefined;
+
+  const beginCleanup = (): Promise<void> => {
+    if (pid === null) return Promise.resolve();
+    if (cleanupPromise !== undefined) return cleanupPromise;
+    const knownPids = [pid, ...processDescendants(pid)];
+    cleanupPromise = stopProcessTree(pid, JOB_TERMINATION_GRACE_MS, knownPids);
+    return cleanupPromise;
+  };
 
   const result = new Promise<JobProcessResult>((resolveResult) => {
-    const finish = (exitCode: number | null, signal: string | null): void => {
+    const finish = async (
+      exitCode: number | null,
+      signal: string | null,
+    ): Promise<void> => {
       if (settled) return;
       settled = true;
-      if (forceKillTimer !== undefined) clearTimeout(forceKillTimer);
+      if (cancelled) await beginCleanup();
       const diagnostics = [] as string[];
       if (spawnError !== null) diagnostics.push(spawnError);
       if (stderr.trim() !== "") diagnostics.push(`stderr: ${truncate(stderr)}`);
@@ -120,10 +131,10 @@ export function spawnEvalJob(
     });
     child.on("error", (error) => {
       spawnError = `job worker spawn failed: ${describe(error)}`;
-      finish(null, null);
+      void finish(null, null);
     });
     child.on("close", (exitCode, signal) => {
-      finish(exitCode, signal);
+      void finish(exitCode, signal);
     });
     child.stdin?.on("error", (error: Error) => {
       spawnError = `job worker stdin failed: ${describe(error)}`;
@@ -138,11 +149,13 @@ export function spawnEvalJob(
       if (settled || cancelled) return;
       cancelled = true;
       if (pid !== null) {
+        const knownPids = [pid, ...processDescendants(pid)];
         killProcessTree(pid, "SIGTERM");
-        forceKillTimer = setTimeout(() => {
-          if (!settled) killProcessTree(pid, "SIGKILL");
-        }, JOB_TERMINATION_GRACE_MS);
-        forceKillTimer.unref();
+        cleanupPromise = stopProcessTree(
+          pid,
+          JOB_TERMINATION_GRACE_MS,
+          knownPids,
+        );
       }
     },
   };
@@ -249,15 +262,69 @@ export function isProcessAlive(pid: number | null): boolean {
 export async function stopProcessTree(
   pid: number | null,
   graceMs = JOB_TERMINATION_GRACE_MS,
+  initialPids: readonly number[] = [],
 ): Promise<void> {
   if (pid === null || pid === process.pid) return;
-  if (!isProcessAlive(pid)) return;
-  killProcessTree(pid as number, "SIGTERM");
+  const tracked = new Set<number>(initialPids);
+  tracked.add(pid);
+  discoverDescendants(tracked);
+  signalTracked(tracked, "SIGTERM");
+  signalProcessGroup(pid, "SIGTERM");
+
   const deadline = Date.now() + graceMs;
-  while (Date.now() < deadline && isProcessAlive(pid)) {
+  while (Date.now() < deadline) {
+    discoverDescendants(tracked);
+    signalTracked(tracked, "SIGTERM");
+    signalProcessGroup(pid, "SIGTERM");
+    if (![...tracked].some(isProcessAlive)) return;
     await sleep(25);
   }
-  if (isProcessAlive(pid)) killProcessTree(pid as number, "SIGKILL");
+
+  discoverDescendants(tracked);
+  signalTracked(tracked, "SIGKILL");
+  signalProcessGroup(pid, "SIGKILL");
+  const killDeadline = Date.now() + Math.min(graceMs, 250);
+  while (Date.now() < killDeadline) {
+    if (![...tracked].some(isProcessAlive)) return;
+    await sleep(10);
+  }
+}
+
+function discoverDescendants(tracked: Set<number>): void {
+  for (const candidate of [...tracked]) {
+    for (const descendant of processDescendants(candidate)) {
+      tracked.add(descendant);
+    }
+  }
+}
+
+function signalTracked(tracked: Set<number>, signal: NodeJS.Signals): void {
+  for (const candidate of tracked) {
+    try {
+      process.kill(candidate, signal);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
+        // Processes can disappear between discovery and signaling.
+      }
+    }
+  }
+}
+
+function signalProcessGroup(pid: number, signal: NodeJS.Signals): void {
+  try {
+    process.kill(-pid, signal);
+  } catch (error) {
+    if (
+      (error as NodeJS.ErrnoException).code !== "ESRCH" &&
+      pid !== process.pid
+    ) {
+      try {
+        process.kill(pid, signal);
+      } catch {
+        // The process may have exited between the tree snapshot and signal.
+      }
+    }
+  }
 }
 
 function processDescendants(rootPid: number): number[] {
