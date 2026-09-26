@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { dirname, join, normalize } from "node:path";
+import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadBoardData } from "./data.ts";
@@ -43,10 +43,14 @@ export async function startBoardServer(
 
     const parsedUrl = new URL(req.url ?? "/", `http://${host}:${port}`);
     const rawPath = parsedUrl.pathname;
-    const cleanPath = normalize(rawPath);
+    // URL paths are POSIX-shaped on every platform. The platform normalize()
+    // rewrites "/" to "\" on Windows, which made every route below miss and
+    // the board serve 404 for its own assets.
+    const cleanPath = posix.normalize(rawPath);
 
-    // Path traversal check
-    if (cleanPath.includes("..")) {
+    // Path traversal check. The raw form is checked too because posix
+    // normalize collapses "/../x" above the root into "/x".
+    if (rawPath.includes("..") || cleanPath.includes("..")) {
       res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
       res.end("Forbidden");
       return;

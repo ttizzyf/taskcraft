@@ -1,4 +1,10 @@
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -6,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { computeReportComparison, loadBoardData } from "../data.ts";
 import type { EvalReport } from "../../core/types.ts";
+import { blockedLegacyReport } from "./fixtures/blocked-legacy-report.ts";
 
 describe("evals board-data loader and comparison", () => {
   // Keep synthetic fixture reports out of the real evals/runs directory.
@@ -19,13 +26,25 @@ describe("evals board-data loader and comparison", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
+  const LEGACY_REPORT = "delivery-2026-09-09T11-29-30-582Z.json";
+
+  /** The historical report is a git-ignored run artifact, so it only exists on
+   * the machine that produced it. Prefer the real file when present and fall
+   * back to a fixture with the same observable shape — one delivery attempt
+   * that never completed, carrying the `unrecognized_model` warning — so the
+   * board's blocked/derived-inconclusive behaviour is asserted identically on
+   * every checkout and platform. */
   function legacyRunsDir(): string {
     const directory = join(tempDir, "legacy-runs");
     mkdirSync(directory, { recursive: true });
-    const filename = "delivery-2026-09-09T11-29-30-582Z.json";
-    copyFileSync(
-      join(process.cwd(), "evals", "runs", filename),
-      join(directory, filename),
+    const source = join(process.cwd(), "evals", "runs", LEGACY_REPORT);
+    if (existsSync(source)) {
+      copyFileSync(source, join(directory, LEGACY_REPORT));
+      return directory;
+    }
+    writeFileSync(
+      join(directory, LEGACY_REPORT),
+      `${JSON.stringify(blockedLegacyReport(), null, 2)}\n`,
     );
     return directory;
   }

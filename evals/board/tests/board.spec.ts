@@ -1,4 +1,10 @@
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -7,9 +13,30 @@ import { expect, test } from "playwright/test";
 import { startBoardServer } from "../server.ts";
 import type { BoardServerHandle } from "../server.ts";
 import type { EvalReport } from "../../core/types.ts";
+import { blockedLegacyReport } from "./fixtures/blocked-legacy-report.ts";
 
 const DESKTOP = { width: 1280, height: 800 };
 const MOBILE = { width: 375, height: 667 };
+
+const LEGACY_REPORT = "delivery-2026-09-09T11-29-30-582Z.json";
+
+/** The historical report is a git-ignored run artifact, so it only exists on
+ * the machine that produced it. Prefer the real file when present and fall
+ * back to a fixture with the same observable shape — one delivery attempt that
+ * never completed, carrying the `unrecognized_model` warning — so the browser
+ * smoke test runs identically on every checkout and platform. */
+function seedLegacyRuns(directory: string): void {
+  mkdirSync(directory, { recursive: true });
+  const source = join(process.cwd(), "evals", "runs", LEGACY_REPORT);
+  if (existsSync(source)) {
+    copyFileSync(source, join(directory, LEGACY_REPORT));
+    return;
+  }
+  writeFileSync(
+    join(directory, LEGACY_REPORT),
+    `${JSON.stringify(blockedLegacyReport(), null, 2)}\n`,
+  );
+}
 
 test.describe("evals standalone board browser smoke", () => {
   let serverHandle: BoardServerHandle;
@@ -17,12 +44,7 @@ test.describe("evals standalone board browser smoke", () => {
 
   test.beforeAll(async () => {
     mkdirSync(join(process.cwd(), "test-results"), { recursive: true });
-    mkdirSync(legacyRunsDir, { recursive: true });
-    const filename = "delivery-2026-09-09T11-29-30-582Z.json";
-    copyFileSync(
-      join(process.cwd(), "evals", "runs", filename),
-      join(legacyRunsDir, filename),
-    );
+    seedLegacyRuns(legacyRunsDir);
     serverHandle = await startBoardServer({
       port: 0,
       host: "127.0.0.1",
