@@ -57,10 +57,18 @@ Entry Hook，返回测试时间和失败原因，并把结果写入 `config.entr
 无效时均非零失败。研究报告中的 `verified|documented|limited|pending|deferred`
 不进入生产数据模型。
 
+字段测试的 60s 超时必须终止**整棵进程树**，而不只是直接子进程：Windows 上宿主经
+`cmd.exe /d /s /c` 启动，只杀直接子进程会把 cmd.exe 启动的宿主留成孤儿继续运行。
+因此 `testEntryHook` 是异步 seam（`spawnCommand` + `terminateTree`），超时后按 pid
+对树发信号。`taskkill /T` 依赖存活的根进程解析进程树，根一退出孤儿即不可达，
+所以不能等同步 spawn 把直接子进程杀掉之后再补救。
+
 `tc init --agent codex` 将注册写入 `.codex/hooks.json`，不是旧式
 `hooks.SessionStart = [{ command = ... }]`。若该文件已存在，命令不得覆盖用户内容，
 而应明确失败并要求人工合并。首次安装或 Hook 定义变化后，用户还需在 Codex
 `/hooks` 中审核该 Hook；`tc agent test-entry-hook --agent codex` 不绕过这道信任门。
+注册的 command 按平台选择：POSIX 为 `bash .taskcraft/hooks/entry.sh`，Windows 为
+`node .taskcraft/hooks/entry.mjs`；两个 wrapper 都写入，只有当前平台那个被注册。
 
 `tc init` 还会 write-if-absent 创建 Schema 合法的空
 `.taskcraft/spec/index.json`。已有 Registry 不解析、不覆盖；后续显式使用

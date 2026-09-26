@@ -238,7 +238,7 @@ Breadcrumb 负责跨轮定位；节点执行卡负责当前节点指导；comman
 interface HostAdapter {
   capabilities(): AdapterCapabilities;
   installEntry(input: InstallInput): InstallResult;
-  testEntryHook(input: HookTestInput): HookTestResult;
+  testEntryHook(input: HookTestInput): Promise<HookTestResult>;
   renderNodeBrief(input: NodeBriefInput): NodeBrief;
   observe?(run: HostRun): RuntimeObservation;
 }
@@ -261,6 +261,10 @@ Diagnostics 同源展示；Taskcraft 不要求模型猜测宿主的隐藏配置�
 root、多 active roots、未注册、未批准、路径损坏或版本漂移都不能伪装成成功。
 一个 modular L3 root 与其 active child 共存是正常状态。
 
+`testEntryHook` 是唯一会启动真实宿主进程的 Adapter 方法，因此也是唯一异步的方法：
+超时必须终止整棵进程树（Windows 经 `cmd.exe` 启动，只杀直接子进程会留下孤儿宿主），
+而按 pid 杀树要求进程仍然存活。`capabilities` 只做有界只读探测，保持同步。
+
 Codex Adapter 将 SessionStart 注册为 `.codex/hooks.json` 中的 matcher group 和
 `type: "command"` handler；Claude Adapter 使用 `.claude/settings.json` 的同类三层
 结构。Codex 项目 trust 只允许加载项目配置，不等于已信任具体 Hook；Hook 定义变更后
@@ -268,6 +272,10 @@ Codex Adapter 将 SessionStart 注册为 `.codex/hooks.json` 中的 matcher grou
 `--dangerously-bypass-hook-trust`，只有真实宿主输出 breadcrumb 才记录成功。
 共享 Entry wrapper 在 breadcrumb 前增加非 JSON 文本标签；裸 JSON stdout 会进入
 Codex Hook 控制协议解析，因此不允许直接把业务 breadcrumb 作为 Hook 的完整 stdout。
+`tc init --agent` 同时写入两个等价 wrapper：POSIX 注册 `bash .taskcraft/hooks/entry.sh`，
+Windows 注册 `node .taskcraft/hooks/entry.mjs`（Windows 宿主经 cmd.exe/PowerShell 执行
+hook command，没有 bash）。Node gate 不依赖任何 shell，用 `execFileSync` 调用同一个
+公开 CLI，并从自身位置推导项目根，因此与 bash wrapper 行为等价且同样与 cwd 无关。
 
 ## 10. 安全与隐私
 
