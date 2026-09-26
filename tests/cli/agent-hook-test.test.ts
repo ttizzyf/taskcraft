@@ -28,7 +28,7 @@ import {
 } from "./agent-hook-test-helpers.js";
 
 describe("runAgentTestEntryHook pre-flight", () => {
-  it("fails explicitly when the hook scripts are missing", () => {
+  it("fails explicitly when the hook scripts are missing", async () => {
     const fake = createFakeHost();
     const setup = setupProject("claude");
     rmSync(join(setup.projectDir, ".taskcraft", "hooks"), {
@@ -36,10 +36,14 @@ describe("runAgentTestEntryHook pre-flight", () => {
       force: true,
     });
 
-    expectHookTestFailure(claudeAdapter(fake), setup, "entry.sh");
+    await expectHookTestFailure(
+      claudeAdapter(fake),
+      setup,
+      "Installed hook script is missing",
+    );
   });
 
-  it("fails explicitly when a script references a missing gate artifact", () => {
+  it("fails explicitly when a script references a missing gate artifact", async () => {
     const fake = createFakeHost();
     const setup = setupProject("claude");
     writeFileSync(
@@ -48,21 +52,25 @@ describe("runAgentTestEntryHook pre-flight", () => {
       { mode: 0o755 },
     );
 
-    expectHookTestFailure(claudeAdapter(fake), setup, "missing gate artifact");
+    await expectHookTestFailure(
+      claudeAdapter(fake),
+      setup,
+      "missing gate artifact",
+    );
   });
 
-  it("fails explicitly when the project config does not register the hooks", () => {
+  it("fails explicitly when the project config does not register the hooks", async () => {
     const fake = createFakeHost();
     const setup = setupProject("claude");
     rmSync(join(setup.projectDir, ".claude", "settings.json"), {
       force: true,
     });
 
-    expectHookTestFailure(claudeAdapter(fake), setup, "not registered");
+    await expectHookTestFailure(claudeAdapter(fake), setup, "not registered");
   });
 
   for (const agent of ["codex", "claude"] as const) {
-    it(`${agent}: fails when SessionStart points to a different entry.sh`, () => {
+    it(`${agent}: fails when SessionStart points to a different entry.sh`, async () => {
       const fake = createFakeHost();
       const setup = setupProject(agent);
 
@@ -110,11 +118,11 @@ describe("runAgentTestEntryHook pre-flight", () => {
         agent === "codex"
           ? codexAdapter(fake, setup.userConfigPath)
           : claudeAdapter(fake);
-      expectHookTestFailure(adapter, setup, "not registered");
+      await expectHookTestFailure(adapter, setup, "not registered");
     });
   }
 
-  it("codex: rejects the obsolete flat SessionStart shape", () => {
+  it("codex: rejects the obsolete flat SessionStart shape", async () => {
     const fake = createFakeHost();
     const setup = setupProject("codex");
     writeFileSync(
@@ -131,7 +139,7 @@ describe("runAgentTestEntryHook pre-flight", () => {
       "utf8",
     );
 
-    expectHookTestFailure(
+    await expectHookTestFailure(
       codexAdapter(fake, setup.userConfigPath),
       setup,
       "not registered",
@@ -139,7 +147,7 @@ describe("runAgentTestEntryHook pre-flight", () => {
     expect(fake.calls.some((call) => call.kind === "spawn")).toBe(false);
   });
 
-  it("fails explicitly when takeover is off", () => {
+  it("fails explicitly when takeover is off", async () => {
     const fake = createFakeHost();
     const setup = setupProject("claude");
     writeFileSync(
@@ -148,14 +156,14 @@ describe("runAgentTestEntryHook pre-flight", () => {
       "utf8",
     );
 
-    expectHookTestFailure(claudeAdapter(fake), setup, "takeover is off");
+    await expectHookTestFailure(claudeAdapter(fake), setup, "takeover is off");
   });
 
-  it("fails before spawning a host when no active task can produce a breadcrumb", () => {
+  it("fails before spawning a host when no active task can produce a breadcrumb", async () => {
     const fake = createFakeHost();
     const setup = setupProject("claude", false);
 
-    expectHookTestFailure(
+    await expectHookTestFailure(
       claudeAdapter(fake),
       setup,
       "requires exactly one active",
@@ -163,17 +171,17 @@ describe("runAgentTestEntryHook pre-flight", () => {
     expect(fake.calls.some((call) => call.kind === "spawn")).toBe(false);
   });
 
-  it("fails explicitly when the config is missing", () => {
+  it("fails explicitly when the config is missing", async () => {
     const fake = createFakeHost();
     const setup = setupProject("claude");
     rmSync(join(setup.projectDir, ".taskcraft", "config.json"), {
       force: true,
     });
 
-    expectHookTestFailure(claudeAdapter(fake), setup, "config.json");
+    await expectHookTestFailure(claudeAdapter(fake), setup, "config.json");
   });
 
-  it("fails explicitly when the codex hooks feature gate is not satisfied", () => {
+  it("fails explicitly when the codex hooks feature gate is not satisfied", async () => {
     const fake = createFakeHost();
     const setup = setupProject("codex");
     fake.setProbeScript("codex", ["--version"], { stdout: "0.147.0\n" });
@@ -182,7 +190,7 @@ describe("runAgentTestEntryHook pre-flight", () => {
     });
     fake.setProbeScript("codex", ["exec", "--help"], { stdout: "help\n" });
 
-    expectHookTestFailure(
+    await expectHookTestFailure(
       createCodexAdapter({
         ...fake.deps(),
         userConfigPath: setup.userConfigPath,
@@ -192,7 +200,7 @@ describe("runAgentTestEntryHook pre-flight", () => {
     );
   });
 
-  it("fails explicitly when the codex hooks feature exists but is disabled", () => {
+  it("fails explicitly when the codex hooks feature exists but is disabled", async () => {
     const fake = createFakeHost();
     const setup = setupProject("codex");
     fake.setProbeScript("codex", ["--version"], { stdout: "0.147.0\n" });
@@ -201,7 +209,7 @@ describe("runAgentTestEntryHook pre-flight", () => {
     });
     fake.setProbeScript("codex", ["exec", "--help"], { stdout: "help\n" });
 
-    expectHookTestFailure(
+    await expectHookTestFailure(
       createCodexAdapter({
         ...fake.deps(),
         userConfigPath: setup.userConfigPath,
@@ -211,19 +219,19 @@ describe("runAgentTestEntryHook pre-flight", () => {
     );
   });
 
-  it("fails explicitly when the codex project trust is not confirmed", () => {
+  it("fails explicitly when the codex project trust is not confirmed", async () => {
     const fake = createFakeHost();
     const setup = setupProject("codex");
     writeFileSync(setup.userConfigPath, "# no trusted projects\n", "utf8");
 
-    expectHookTestFailure(
+    await expectHookTestFailure(
       codexAdapter(fake, setup.userConfigPath),
       setup,
       "trust gate",
     );
   });
 
-  it("fails explicitly when only a parent directory is trusted", () => {
+  it("fails explicitly when only a parent directory is trusted", async () => {
     const fake = createFakeHost();
     const setup = setupProject("codex");
     writeFileSync(
@@ -232,7 +240,7 @@ describe("runAgentTestEntryHook pre-flight", () => {
       "utf8",
     );
 
-    expectHookTestFailure(
+    await expectHookTestFailure(
       codexAdapter(fake, setup.userConfigPath),
       setup,
       "trust gate",
@@ -241,13 +249,13 @@ describe("runAgentTestEntryHook pre-flight", () => {
 });
 
 describe("runAgentTestEntryHook judgments", () => {
-  it("reports ok when Entry injection passes", () => {
+  it("reports ok when Entry injection passes", async () => {
     const fake = createFakeHost();
     const setup = setupProject("claude");
     scriptPassingChain(fake, "claude");
 
     try {
-      const summary = runAgentTestEntryHook(
+      const summary = await runAgentTestEntryHook(
         claudeAdapter(fake),
         setup.projectDir,
       );
@@ -262,13 +270,13 @@ describe("runAgentTestEntryHook judgments", () => {
     }
   });
 
-  it("persists the outcome into config.entryHookTests", () => {
+  it("persists the outcome into config.entryHookTests", async () => {
     const fake = createFakeHost();
     const setup = setupProject("claude");
     scriptPassingChain(fake, "claude");
 
     try {
-      runAgentTestEntryHook(claudeAdapter(fake), setup.projectDir);
+      await runAgentTestEntryHook(claudeAdapter(fake), setup.projectDir);
       const config = JSON.parse(
         readFileSync(
           join(setup.projectDir, ".taskcraft", "config.json"),
@@ -288,14 +296,14 @@ describe("runAgentTestEntryHook judgments", () => {
     }
   });
 
-  it("fails when the entry is not injected and persists the failure", () => {
+  it("fails when the entry is not injected and persists the failure", async () => {
     const fake = createFakeHost();
     const setup = setupProject("claude");
     fake.setSpawnScript("claude", { stdout: "agent: TC_FIRST\n" });
 
     try {
       try {
-        runAgentTestEntryHook(claudeAdapter(fake), setup.projectDir);
+        await runAgentTestEntryHook(claudeAdapter(fake), setup.projectDir);
         throw new Error("expected TC_ADAPTER_HOOK_TEST_FAILED");
       } catch (error) {
         expectTestFailed(error, "tc-breadcrumb/v1");
@@ -318,13 +326,13 @@ describe("runAgentTestEntryHook judgments", () => {
     }
   });
 
-  it("reports ok for codex when Entry injection passes", () => {
+  it("reports ok for codex when Entry injection passes", async () => {
     const fake = createFakeHost();
     const setup = setupProject("codex");
     scriptPassingChain(fake, "codex");
 
     try {
-      const summary = runAgentTestEntryHook(
+      const summary = await runAgentTestEntryHook(
         codexAdapter(fake, setup.userConfigPath),
         setup.projectDir,
       );
@@ -362,14 +370,14 @@ describe("Claude structured failures persist through the public command", () => 
     ],
   ] as const)(
     "records %s instead of accepting Hook evidence",
-    (_label, script, failure) => {
+    async (_label, script, failure) => {
       const fake = createFakeHost();
       const setup = setupProject("claude");
       fake.setSpawnScript("claude", script);
       try {
-        expect(() =>
+        await expect(
           runAgentTestEntryHook(claudeAdapter(fake), setup.projectDir),
-        ).toThrow();
+        ).rejects.toThrow();
         const config = JSON.parse(
           readFileSync(
             join(setup.projectDir, ".taskcraft", "config.json"),

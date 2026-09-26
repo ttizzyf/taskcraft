@@ -106,7 +106,7 @@ export function createClaudeAdapter(deps: AdapterDeps = {}): HostAdapter {
         freshConfig: (commands) =>
           serializeClaudeSettings(buildClaudeProjectConfig({}, commands)),
       }),
-    testEntryHook: (input: HookTestInput): HookTestResult =>
+    testEntryHook: (input: HookTestInput): Promise<HookTestResult> =>
       runEntryHookTest(
         spawn,
         now,

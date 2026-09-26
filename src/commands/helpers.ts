@@ -152,16 +152,34 @@ export function execute(action: () => void, json: boolean): void {
   try {
     action();
   } catch (error) {
-    if (error instanceof TaskcraftError) {
-      writeFailure(error, json);
-      process.exitCode = 1;
-    } else if (error instanceof MigrationError) {
-      process.stderr.write(`error: ${error.code}: ${error.message}\n`);
-      process.exitCode = 1;
-    } else {
-      writeInternalError(error);
-      process.exitCode = 2;
-    }
+    reportFailure(error, json);
+  }
+}
+
+/** `execute` for an action that must await something (a real host process, for
+ * instance). The same failure mapping applies, but it can only run once the
+ * action has settled. */
+export async function executeAsync(
+  action: () => Promise<void>,
+  json: boolean,
+): Promise<void> {
+  try {
+    await action();
+  } catch (error) {
+    reportFailure(error, json);
+  }
+}
+
+function reportFailure(error: unknown, json: boolean): void {
+  if (error instanceof TaskcraftError) {
+    writeFailure(error, json);
+    process.exitCode = 1;
+  } else if (error instanceof MigrationError) {
+    process.stderr.write(`error: ${error.code}: ${error.message}\n`);
+    process.exitCode = 1;
+  } else {
+    writeInternalError(error);
+    process.exitCode = 2;
   }
 }
 

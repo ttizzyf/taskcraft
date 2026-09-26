@@ -121,14 +121,14 @@ export function expectTestFailed(error: unknown, fragment: string): void {
   expect(taskcraftError.remediation).toBeTruthy();
 }
 
-export function expectHookTestFailure(
+export async function expectHookTestFailure(
   adapter: HostAdapter,
   setup: ProjectSetup,
   fragment: string,
-): void {
+): Promise<void> {
   try {
     try {
-      runAgentTestEntryHook(adapter, setup.projectDir);
+      await runAgentTestEntryHook(adapter, setup.projectDir);
       throw new Error("expected TC_ADAPTER_HOOK_TEST_FAILED");
     } catch (error) {
       expectTestFailed(error, fragment);

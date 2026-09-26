@@ -110,11 +110,18 @@ export function runConformance(
         });
 
         expect(first.ok).toBe(true);
-        expect(first.hookPaths).toHaveLength(1);
-        expect(first.hookPaths[0]).toBe(
+        // Both wrappers land on every platform: entry.sh for POSIX hosts and
+        // entry.mjs for Windows hosts, which have no bash.
+        expect(first.hookPaths).toEqual([
           join(projectDir.path, ".taskcraft", "hooks", "entry.sh"),
-        );
+          join(projectDir.path, ".taskcraft", "hooks", "entry.mjs"),
+        ]);
         const entryContent = readFileSync(first.hookPaths[0]!, "utf8");
+        const gateContent = readFileSync(first.hookPaths[1]!, "utf8");
+        expect(gateContent).toContain(resolveTcPath().replaceAll("\\", "/"));
+        // The Node gate passes argv as an array, not a shell string.
+        expect(gateContent).toContain('"state", "--breadcrumb"');
+        expect(gateContent).toContain("Taskcraft Entry context:");
         // The entry wrapper delegates to the public CLI next to the adapter
         // module (resolveTcPath: dist/cli.js from the built layout, src/cli.js
         // under tests). The built-artifact layout is pinned by the CLI
@@ -205,11 +212,11 @@ export function runConformance(
       });
     }
 
-    it("observes Entry injection with the default 60s timeout", () => {
+    it("observes Entry injection with the default 60s timeout", async () => {
       fake.reset();
       scriptPassingChain();
 
-      const result = testEntryHookAdapter.testEntryHook(input);
+      const result = await testEntryHookAdapter.testEntryHook(input);
 
       expect(result.ok).toBe(true);
       expect(result.entryInjected).toBe(true);
@@ -229,42 +236,42 @@ export function runConformance(
       }
     });
 
-    it("fails explicitly when the host output lacks the breadcrumb", () => {
+    it("fails explicitly when the host output lacks the breadcrumb", async () => {
       fake.reset();
       scriptPassingChain();
       fake.setSpawnScript(id, { stdout: "agent: TC_FIRST\n" });
 
-      const result = testEntryHookAdapter.testEntryHook(input);
+      const result = await testEntryHookAdapter.testEntryHook(input);
 
       expect(result.ok).toBe(false);
       expect(result.entryInjected).toBe(false);
       expect(result.failure).toContain("tc-breadcrumb/v1");
     });
 
-    it("fails explicitly on the hard timeout", () => {
+    it("fails explicitly on the hard timeout", async () => {
       fake.reset();
       scriptPassingChain();
       fake.setSpawnScript(id, { timedOut: true });
 
-      const result = testEntryHookAdapter.testEntryHook(input);
+      const result = await testEntryHookAdapter.testEntryHook(input);
 
       expect(result.ok).toBe(false);
       expect(result.failure).toContain("timed out");
     });
 
-    it("fails explicitly on a non-zero host exit", () => {
+    it("fails explicitly on a non-zero host exit", async () => {
       fake.reset();
       scriptPassingChain();
       fake.setSpawnScript(id, { exitCode: 1, stderr: "boom" });
 
-      const result = testEntryHookAdapter.testEntryHook(input);
+      const result = await testEntryHookAdapter.testEntryHook(input);
 
       expect(result.ok).toBe(false);
       expect(result.failure).toContain("exit");
       expect(result.failure).toContain("boom");
     });
 
-    it("fails explicitly when the host-specific gate is not satisfied", () => {
+    it("fails explicitly when the host-specific gate is not satisfied", async () => {
       fake.reset();
 
       if (id === "codex") {
@@ -275,7 +282,7 @@ export function runConformance(
         });
       }
 
-      const result = testEntryHookAdapter.testEntryHook({
+      const result = await testEntryHookAdapter.testEntryHook({
         ...input,
         gate: () => "codex hooks feature gate: not enabled",
       });
@@ -284,12 +291,12 @@ export function runConformance(
       expect(result.failure).toContain("feature gate");
     });
 
-    it("respects a custom timeout", () => {
+    it("respects a custom timeout", async () => {
       fake.reset();
       scriptPassingChain();
       fake.setSpawnScript(id, { timedOut: true });
 
-      const result = testEntryHookAdapter.testEntryHook({
+      const result = await testEntryHookAdapter.testEntryHook({
         ...input,
         timeoutMs: 5_000,
       });

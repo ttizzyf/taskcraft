@@ -1,5 +1,6 @@
 // Installed-hook verification for `tc agent test-entry-hook`: pre-flight
-// checks (entry.sh exists and references a valid CLI artifact; the project
+// checks (the platform Entry wrapper exists and references a valid CLI
+// artifact; the project
 // host config registers SessionStart), the Codex feature/trust gate and the
 // config.entryHookTests persistence write. Every check
 // is read-only except persistEntryHookTest (atomic tmp+rename on the project
@@ -27,14 +28,36 @@ export interface InstalledHookScripts {
   entryScript: string;
 }
 
+/** The installed Entry wrapper for this platform, falling back to the other
+ * one when only that exists (hand-written fixtures, and projects installed by
+ * an older tc that only wrote entry.sh). */
+export function installedEntryWrapper(projectDir: string): string {
+  const hooksDir = join(projectDir, ".taskcraft", "hooks");
+  const candidates =
+    process.platform === "win32"
+      ? ["entry.mjs", "entry.sh"]
+      : ["entry.sh", "entry.mjs"];
+
+  for (const name of candidates) {
+    const path = join(hooksDir, name);
+
+    if (existsSync(path)) {
+      return path;
+    }
+  }
+
+  // Nothing installed: report the platform default so the failure names the
+  // wrapper `tc init` would have written.
+  return join(hooksDir, candidates[0] ?? "entry.sh");
+}
+
 /** Verifies the installed Entry wrapper exists and references an existing gate
  * artifact under dist/hooks/ (the host silently ignores a missing script, so
  * a broken reference must fail before any host call). */
 export function checkInstalledScripts(
   projectDir: string,
 ): InstalledHookScripts {
-  const hooksDir = join(projectDir, ".taskcraft", "hooks");
-  const entryScript = join(hooksDir, "entry.sh");
+  const entryScript = installedEntryWrapper(projectDir);
 
   checkScript(entryScript);
 
@@ -54,7 +77,7 @@ function checkScript(scriptPath: string): void {
 
   if (gatePath === null) {
     throw hookTestError(
-      `entry.sh does not reference a gate script: ${scriptPath}`,
+      `The Entry wrapper does not reference a gate script: ${scriptPath}`,
       "Re-install the hooks: tc init --agent codex|claude",
       { script: scriptPath },
     );
@@ -62,14 +85,16 @@ function checkScript(scriptPath: string): void {
 
   if (!existsSync(gatePath)) {
     throw hookTestError(
-      `entry.sh references a missing gate artifact: ${gatePath}`,
+      `The Entry wrapper references a missing gate artifact: ${gatePath}`,
       "Build the CLI first: pnpm build, then re-run: tc agent test-entry-hook",
       { script: scriptPath, gate: gatePath },
     );
   }
 }
 
-/** Extracts the `node "<path>"` target from a managed hook wrapper. */
+/** Extracts the CLI target from a managed hook wrapper: the bash wrapper
+ * quotes it after `node`, the Node gate quotes it as an execFileSync argument.
+ * Both embed forward slashes, so the literal needs no unescaping. */
 function referencedGatePath(scriptPath: string): string | null {
   let content: string;
 
@@ -79,7 +104,7 @@ function referencedGatePath(scriptPath: string): string | null {
     return null;
   }
 
-  const match = /node "([^"]+\.js)"/.exec(content);
+  const match = /"([^"\n]+\.m?js)"/.exec(content);
 
   return match === null ? null : (match[1] ?? null);
 }
@@ -106,7 +131,7 @@ export function checkProjectRegistration(
 
     if (!commandsContain(hookEntries(config, "SessionStart"), projectDir)) {
       throw hookTestError(
-        `Entry Hook is not registered in ${configFile}: missing a SessionStart entry pointing at entry.sh`,
+        `Entry Hook is not registered in ${configFile}: missing a SessionStart entry pointing at the managed Entry wrapper (.taskcraft/hooks/entry.sh or entry.mjs)`,
         "Register the hooks: tc init --agent codex (or merge the registrations manually)",
         { configFile },
       );
@@ -129,7 +154,7 @@ export function checkProjectRegistration(
 
   if (!commandsContain(hookEntries(settings, "SessionStart"), projectDir)) {
     throw hookTestError(
-      `Entry Hook is not registered in ${settingsFile}: missing a SessionStart entry pointing at entry.sh`,
+      `Entry Hook is not registered in ${settingsFile}: missing a SessionStart entry pointing at the managed Entry wrapper (.taskcraft/hooks/entry.sh or entry.mjs)`,
       "Register the hooks: tc init --agent claude (or merge the registrations manually)",
       { settingsFile },
     );
@@ -182,16 +207,27 @@ function commandsContain(entries: unknown, projectDir: string): boolean {
   });
 }
 
+/** True when a registered hook command points at either managed wrapper, with
+ * either path separator (a Windows config may hold `\` or `/`). */
 function referencesManagedEntry(text: string, projectDir: string): boolean {
-  const absolutePath = join(projectDir, ".taskcraft", "hooks", "entry.sh");
+  const normalized = text.replaceAll("\\", "/");
+  const hooksDir = toPosix(join(projectDir, ".taskcraft", "hooks"));
 
-  if (text.includes(absolutePath)) {
-    return true;
-  }
+  return ["entry.sh", "entry.mjs"].some((name) => {
+    if (normalized.includes(`${hooksDir}/${name}`)) {
+      return true;
+    }
 
-  return /(?:^|[\s"'=])(?:\.\/)?\.taskcraft\/hooks\/entry\.sh(?=$|[\s"',}\]])/m.test(
-    text,
-  );
+    const escaped = name.replace(".", "\\.");
+    return new RegExp(
+      `(?:^|[\\s"'=])(?:\\./)?\\.taskcraft/hooks/${escaped}(?=$|[\\s"',}\\]])`,
+      "m",
+    ).test(normalized);
+  });
+}
+
+function toPosix(value: string): string {
+  return value.replaceAll("\\", "/");
 }
 
 /** Codex hooks feature/trust gate: the `codex features list` probe must
@@ -233,7 +269,17 @@ function probeDetail(outcome: { stderr: string; error?: string }): string {
   return stderr.length > 0 ? stderr : (outcome.error ?? "probe failed");
 }
 
-/** True when the exact [projects."<path>"] section for projectDir declares
+/** A `[projects.<key>]` table header. TOML allows two string forms and codex
+ * uses both: a basic string (`"C:\\Users\\me"`, where `\\` is one backslash)
+ * and a literal string (`'C:\Users\me'`, taken verbatim — codex writes this
+ * form for Windows paths so the backslashes need no escaping). */
+const PROJECTS_TABLE = /^\[projects\.(?:"((?:[^"\\]|\\.)*)"|'([^']*)')\]\s*$/;
+
+/** A `trust_level = "trusted"` entry, in either TOML string form, ignoring
+ * commented-out lines. */
+const TRUSTED_LEVEL = /^\s*trust_level\s*=\s*["']trusted["']\s*(?:#.*)?$/;
+
+/** True when the exact [projects.<path>] section for projectDir declares
  * trust_level = "trusted" in the Codex user config. Parent-directory trust
  * does not activate a nested Git project's local hooks. */
 function isProjectTrusted(userConfigPath: string, projectDir: string): boolean {
@@ -249,23 +295,47 @@ function isProjectTrusted(userConfigPath: string, projectDir: string): boolean {
   const sections: Array<{ path: string; lines: string[] }> = [];
 
   for (const line of text.split("\n")) {
-    const match = /^\[projects\."(.+)"\]\s*$/.exec(line);
+    const match = PROJECTS_TABLE.exec(line);
 
     if (match !== null) {
-      current = { path: match[1] ?? "", lines: [] };
+      const basic = match[1];
+      current = {
+        path: basic === undefined ? (match[2] ?? "") : unescapeToml(basic),
+        lines: [],
+      };
       sections.push(current);
     } else if (current !== null) {
       current.lines.push(line);
     }
   }
 
-  const normalizedProjectDir = projectDir.replace(/\/$/, "");
-
   return sections.some(
     (section) =>
-      section.path.replace(/\/$/, "") === normalizedProjectDir &&
-      section.lines.some((line) => line.includes('trust_level = "trusted"')),
+      sameProjectPath(section.path, projectDir) &&
+      section.lines.some((line) => TRUSTED_LEVEL.test(line)),
   );
+}
+
+/** Collapses the escapes a TOML basic string needs for a path, so the
+ * captured text compares as the path it denotes (`"C:\\me"` means `C:\me`).
+ * Only `\\` and `\"` are folded: a Windows path never contains the other
+ * escapes, and folding them would corrupt a literal backslash that a
+ * hand-written (strictly invalid) `"C:\local\temp"` still carries — `\t`
+ * would silently become a tab. */
+function unescapeToml(value: string): string {
+  return value.replace(/\\(["\\])/g, "$1");
+}
+
+/** Compares paths by meaning, not by spelling: codex may record either
+ * separator and its own casing, so normalize separators, drop a trailing
+ * slash and — where the filesystem is case-insensitive — the case. */
+function sameProjectPath(left: string, right: string): boolean {
+  const normalize = (value: string): string => {
+    const slashed = value.replaceAll("\\", "/").replace(/\/+$/, "");
+    return process.platform === "win32" ? slashed.toLowerCase() : slashed;
+  };
+
+  return normalize(left) === normalize(right);
 }
 
 /** Writes the Entry Hook test record into .taskcraft/config.json with an atomic

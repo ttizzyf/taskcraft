@@ -63,11 +63,13 @@ export interface CapabilityProbe {
 }
 
 export type ProbeFn = (command: string, args: string[]) => ProbeOutcome;
+/** Async because a host run has to be killable as a tree: the timeout needs a
+ * live pid to signal, which a synchronous spawn cannot offer. */
 export type SpawnFn = (
   command: string,
   args: string[],
   options: SpawnOptions,
-) => SpawnOutcome;
+) => Promise<SpawnOutcome>;
 
 /** Injectable seams: tests substitute probe/spawn with fakes. */
 export interface AdapterDeps {
@@ -92,7 +94,8 @@ export interface InstallResult {
 
 export interface HookTestInput {
   projectDir: string;
-  /** Installed entry wrapper (.taskcraft/hooks/entry.sh). The field test never
+  /** Installed entry wrapper (.taskcraft/hooks/entry.sh on POSIX, entry.mjs on
+   * Windows, where hosts have no bash). The field test never
    * reinstalls a temporary copy: the installed scripts are exercised. */
   entryScript: string;
   timeoutMs?: number;
@@ -136,7 +139,7 @@ export interface HostAdapter {
   id: "codex" | "claude";
   capabilities(): AdapterCapabilities;
   installEntry(input: InstallInput): InstallResult;
-  testEntryHook(input: HookTestInput): HookTestResult;
+  testEntryHook(input: HookTestInput): Promise<HookTestResult>;
   renderNodeBrief(input: NodeBriefInput): RenderedNodeBrief;
   observe?(run: HostRun): RuntimeObservation;
 }

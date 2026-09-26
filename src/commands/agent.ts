@@ -1,6 +1,7 @@
 // tc agent: host adapter inspection and Entry Hook field tests. capabilities()
 // never crashes a command (probe failures become explicit unavailable items);
-// test-entry-hook exercises the installed .taskcraft/hooks/entry.sh against the real
+// test-entry-hook exercises the installed .taskcraft/hooks entry wrapper
+// (entry.sh on POSIX, entry.mjs on Windows) against the real
 // Task Store and project config (never a temporary reinstall) and fails
 // explicitly on missing scripts, missing registration or an unsatisfied
 // codex feature/trust gate — an advisory success never replaces a failure.
@@ -30,6 +31,7 @@ import {
 import type { EntryHookTestRecord } from "../hooks/shared.js";
 import {
   execute,
+  executeAsync,
   isJsonMode,
   printCommandResult,
   taskcraftDirectory,
@@ -155,10 +157,10 @@ export interface EntryHookTestSummary {
  * (60s host timeout in the shared runner) and persists the outcome into
  * config.entryHookTests[host]. Every failure is an explicit TC_ADAPTER_* error,
  * never an advisory success. */
-export function runAgentTestEntryHook(
+export async function runAgentTestEntryHook(
   adapter: HostAdapter,
   projectDir: string,
-): EntryHookTestSummary {
+): Promise<EntryHookTestSummary> {
   const configPath = join(projectDir, ".taskcraft", "config.json");
   const version = adapter.capabilities().version;
   const takeOver = readTakeOver(configPath, adapter.id);
@@ -178,7 +180,7 @@ export function runAgentTestEntryHook(
     checkProjectRegistration(adapter.id, projectDir);
     assertActiveBreadcrumb(configPath, adapter.id);
 
-    return runPersistedEntryHookTest(
+    return await runPersistedEntryHookTest(
       adapter,
       projectDir,
       configPath,
@@ -200,14 +202,14 @@ export function runAgentTestEntryHook(
   }
 }
 
-function runPersistedEntryHookTest(
+async function runPersistedEntryHookTest(
   adapter: HostAdapter,
   projectDir: string,
   configPath: string,
   version: string | null,
   scripts: { entryScript: string },
-): EntryHookTestSummary {
-  const result = adapter.testEntryHook({
+): Promise<EntryHookTestSummary> {
+  const result = await adapter.testEntryHook({
     projectDir,
     entryScript: scripts.entryScript,
   });
@@ -340,12 +342,12 @@ export function register(program: Command): void {
     .action(async (options, command) => {
       const json = isJsonMode(command);
 
-      await execute(() => {
+      await executeAsync(async () => {
         const adapter =
           options.agent === undefined
             ? pickDefaultAdapter(localAdapters())
             : resolveAgentAdapter(options.agent);
-        const summary = runAgentTestEntryHook(adapter, process.cwd());
+        const summary = await runAgentTestEntryHook(adapter, process.cwd());
 
         if (json) {
           printCommandResult(summary);

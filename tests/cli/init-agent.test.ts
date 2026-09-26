@@ -17,6 +17,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ERROR_CODES, TaskcraftError } from "../../src/core/errors.js";
 import { installAgentHooks } from "../../src/commands/init.js";
 import { runCli, withTemporaryDirectory } from "./helpers.js";
+import { entryWrapperName } from "../helpers/entry-wrapper.js";
 import { createTemporaryDirectory } from "../helpers/temp-directory.js";
 
 /** Records real writes so the write-confinement tests can assert installAgent
@@ -65,9 +66,17 @@ describe("tc init --agent (CLI)", () => {
       // The Entry wrapper delegates to the public CLI (state --breadcrumb).
       expect(entry).toContain("dist/cli.js");
       expect(entry).toContain("state --breadcrumb");
-      expect(readdirSync(join(cwd, ".taskcraft", "hooks"))).toEqual([
+      // Both wrappers land on every platform; only the registered command
+      // differs (bash on POSIX, the Node gate on Windows).
+      expect(readdirSync(join(cwd, ".taskcraft", "hooks")).sort()).toEqual([
+        "entry.mjs",
         "entry.sh",
       ]);
+      const gate = readFileSync(
+        join(cwd, ".taskcraft", "hooks", "entry.mjs"),
+        "utf8",
+      );
+      expect(gate).toContain("state --breadcrumb");
 
       const config = JSON.parse(
         readFileSync(join(cwd, ".codex", "hooks.json"), "utf8"),
@@ -81,7 +90,7 @@ describe("tc init --agent (CLI)", () => {
       expect(config.hooks.SessionStart).toHaveLength(1);
       expect(config.hooks.SessionStart[0]?.hooks[0]).toMatchObject({
         type: "command",
-        command: expect.stringContaining("entry.sh"),
+        command: expect.stringContaining(entryWrapperName()),
       });
       expect(Object.keys(config.hooks)).toEqual(["SessionStart"]);
     });
@@ -151,7 +160,9 @@ describe("installAgentHooks write confinement", () => {
         const installed = installAgentHooks(agent, projectDir.path);
 
         expect(installed.agent).toBe(agent);
-        expect(installed.hookPaths).toHaveLength(1);
+        // Both wrappers land on every platform: entry.sh for POSIX hosts and
+        // entry.mjs for Windows hosts, which have no bash.
+        expect(installed.hookPaths).toHaveLength(2);
         expect(fsWriteLog.paths.length).toBeGreaterThan(0);
         expect(
           fsWriteLog.paths.every((path) => path.startsWith(projectDir.path)),

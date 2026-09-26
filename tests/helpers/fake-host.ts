@@ -80,11 +80,11 @@ export function createFakeHost(): FakeHost {
     return { ok: true, stdout: script.stdout ?? "", stderr: "" };
   };
 
-  const spawn = (
+  const spawn = async (
     command: string,
     args: string[],
     options: { cwd: string; timeoutMs: number; input?: string },
-  ): SpawnOutcome => {
+  ): Promise<SpawnOutcome> => {
     calls.push({
       kind: "spawn",
       command,

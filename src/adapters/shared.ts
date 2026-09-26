@@ -3,12 +3,14 @@
 // adapters differ only in probe commands, config
 // files and session formats; everything host-neutral lives here.
 
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { BREADCRUMB_SCHEMA_VERSION } from "../core/breadcrumb.js";
+import { commandSpec, spawnCommand, terminateTree } from "./process.js";
 import type {
   AdapterCapabilities,
   AdapterCapabilityItem,
@@ -34,11 +36,14 @@ export function resolveTcPath(): string {
 }
 
 export function defaultProbe(command: string, args: string[]): ProbeOutcome {
+  const spec = commandSpec(command, args);
+
   try {
-    const stdout = execFileSync(command, args, {
+    const stdout = execFileSync(spec.file, spec.args, {
       encoding: "utf8",
       timeout: DEFAULT_PROBE_TIMEOUT_MS,
       stdio: ["ignore", "pipe", "pipe"],
+      ...(spec.verbatim ? { windowsVerbatimArguments: true } : {}),
     });
     return { ok: true, stdout, stderr: "" };
   } catch (error) {
@@ -51,45 +56,26 @@ export function defaultProbe(command: string, args: string[]): ProbeOutcome {
   }
 }
 
-export function defaultSpawn(
+/** Runs a host command under a hard timeout.
+ *
+ * The timeout must terminate the whole process tree, not just the direct
+ * child: on Windows the command is launched through cmd.exe, so letting Node
+ * kill only the direct child orphans the host that cmd.exe started and leaves
+ * it running after the field test has already given up. */
+export async function defaultSpawn(
   command: string,
   args: string[],
   options: { cwd: string; timeoutMs: number; input?: string },
-): SpawnOutcome {
+): Promise<SpawnOutcome> {
+  let child: ChildProcess;
   try {
-    const result = spawnSync(command, args, {
+    child = spawnCommand(command, args, {
       cwd: options.cwd,
-      encoding: "utf8",
-      timeout: options.timeoutMs,
-      killSignal: "SIGKILL",
-      input: options.input ?? undefined,
       stdio:
         options.input === undefined
           ? ["ignore", "pipe", "pipe"]
           : ["pipe", "pipe", "pipe"],
     });
-    const stdout = typeof result.stdout === "string" ? result.stdout : "";
-    const stderr = typeof result.stderr === "string" ? result.stderr : "";
-    const error = result.error;
-
-    if (error !== undefined) {
-      return {
-        ok: false,
-        stdout,
-        stderr,
-        exitCode: result.status,
-        timedOut: error.message.includes("ETIMEDOUT"),
-        error: error.message,
-      };
-    }
-
-    return {
-      ok: result.status === 0,
-      stdout,
-      stderr,
-      exitCode: result.status,
-      timedOut: false,
-    };
   } catch (error) {
     return {
       ok: false,
@@ -100,6 +86,70 @@ export function defaultSpawn(
       error: describeError(error),
     };
   }
+
+  const stdout: Buffer[] = [];
+  const stderr: Buffer[] = [];
+  child.stdout?.on("data", (chunk: Buffer) => stdout.push(chunk));
+  child.stderr?.on("data", (chunk: Buffer) => stderr.push(chunk));
+
+  if (options.input === undefined) {
+    child.stdin?.end();
+  } else {
+    child.stdin?.end(options.input);
+  }
+
+  let timedOut = false;
+  let killFailure: string | undefined;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    try {
+      terminateTree(child.pid, true);
+    } catch (error) {
+      // The tree kill failed, but the direct child still has to die: without
+      // its `close` event the field test would hang instead of reporting the
+      // timeout it already decided on.
+      killFailure = describeError(error);
+      child.kill("SIGKILL");
+    }
+  }, options.timeoutMs);
+
+  const spawnError = await new Promise<Error | null>((resolve) => {
+    child.once("error", resolve);
+    child.once("close", () => resolve(null));
+  });
+  clearTimeout(timer);
+
+  const captured = {
+    stdout: Buffer.concat(stdout).toString("utf8"),
+    stderr: Buffer.concat(stderr).toString("utf8"),
+  };
+
+  if (spawnError !== null) {
+    return {
+      ...captured,
+      ok: false,
+      exitCode: child.exitCode,
+      timedOut,
+      error: spawnError.message,
+    };
+  }
+
+  if (timedOut) {
+    return {
+      ...captured,
+      ok: false,
+      exitCode: child.exitCode,
+      timedOut: true,
+      error: killFailure ?? `ETIMEDOUT: host exceeded ${options.timeoutMs}ms`,
+    };
+  }
+
+  return {
+    ...captured,
+    ok: child.exitCode === 0,
+    exitCode: child.exitCode,
+    timedOut: false,
+  };
 }
 
 /** Capabilities never crash the command: any thrown probe becomes an
@@ -241,6 +291,57 @@ fi
 `;
 }
 
+/** POSIX separators keep an embedded Windows path literal free of escape
+ * sequences, and both Node and cmd.exe accept them as a path separator. */
+function toPosixPath(value: string): string {
+  return value.replaceAll("\\", "/");
+}
+
+/** The Windows Entry wrapper. Windows hosts run hook commands through
+ * cmd.exe/PowerShell, which have no `bash`, so the POSIX wrapper cannot run
+ * there. This Node gate does the same job without any shell: it derives the
+ * project root from its own location, runs the read-only breadcrumb gate and
+ * prefixes the label so the host injects text instead of hook-control JSON. */
+export function entryGateTemplate(tcPath: string): string {
+  return `// Taskcraft managed entry hook gate (tc init --agent <host>).
+import { execFileSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const projectRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+let output;
+try {
+  output = execFileSync(
+    process.execPath,
+    [${JSON.stringify(toPosixPath(tcPath))}, "state", "--breadcrumb"],
+    { cwd: projectRoot, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] },
+  );
+} catch (error) {
+  process.exit(typeof error.status === "number" ? error.status : 1);
+}
+
+if (output.trim().length > 0) {
+  // A bare JSON object is interpreted as the host's hook control protocol.
+  // Prefix the business breadcrumb so both Codex and Claude inject it as text.
+  process.stdout.write("Taskcraft Entry context:\\n" + output.trimEnd() + "\\n");
+}
+`;
+}
+
+/** The registered SessionStart command for a project. Windows has no `bash`,
+ * so the shell-free Node gate is registered there; POSIX keeps the bash
+ * wrapper so existing installs and their field-test evidence stay valid. */
+export function entryHookCommand(projectDir: string): string {
+  const hooksDir = join(projectDir, ".taskcraft", "hooks");
+
+  if (process.platform === "win32") {
+    return `node "${toPosixPath(join(hooksDir, "entry.mjs"))}"`;
+  }
+
+  return `bash "${join(hooksDir, "entry.sh")}"`;
+}
+
 export interface HookCommands {
   entry: string;
 }
@@ -283,11 +384,13 @@ export function installEntryFiles(
   try {
     const hooksDir = join(input.projectDir, ".taskcraft", "hooks");
     const entryPath = join(hooksDir, "entry.sh");
+    const gatePath = join(hooksDir, "entry.mjs");
     writeIfAbsent(entryPath, entryHookTemplate(tcPath));
+    writeIfAbsent(gatePath, entryGateTemplate(tcPath));
 
     const configFile = join(input.projectDir, options.configPath);
     const commands: HookCommands = {
-      entry: `bash "${entryPath}"`,
+      entry: entryHookCommand(input.projectDir),
     };
 
     // Existing project config is left untouched (write-if-absent), so the
@@ -297,14 +400,14 @@ export function installEntryFiles(
     if (existsSync(configFile)) {
       return {
         ok: false,
-        hookPaths: [entryPath],
+        hookPaths: [entryPath, gatePath],
         limitation: "config exists; hooks not registered",
       };
     }
 
     writeIfAbsent(configFile, options.freshConfig(commands));
 
-    return { ok: true, hookPaths: [entryPath] };
+    return { ok: true, hookPaths: [entryPath, gatePath] };
   } catch (error) {
     return {
       ok: false,
@@ -333,14 +436,14 @@ export function sampleOf(stdout: string): string {
  * (60s hard timeout). Nothing is installed or copied: the test runs the real
  * project registration and installed entry wrapper against the real Task
  * Store. The spawn seam is injectable for fake hosts. */
-export function runEntryHookTest(
+export async function runEntryHookTest(
   spawn: SpawnFn,
   now: () => string,
   hostCommand: string,
   hostArgs: string[],
   input: HookTestInput,
   inspectOutput: (stdout: string) => string | null = inspectEntryMarker,
-): HookTestResult {
+): Promise<HookTestResult> {
   const timeoutMs = input.timeoutMs ?? DEFAULT_HOOK_TEST_TIMEOUT_MS;
   const testedAt = now();
   const gateFailure = input.gate?.() ?? null;
@@ -355,7 +458,7 @@ export function runEntryHookTest(
   }
 
   const prompt = input.prompt ?? "Reply exactly TC_FIRST.";
-  const host = spawn(hostCommand, [...hostArgs, prompt], {
+  const host = await spawn(hostCommand, [...hostArgs, prompt], {
     cwd: input.projectDir,
     timeoutMs,
   });

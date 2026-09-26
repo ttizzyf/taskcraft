@@ -118,7 +118,7 @@ export function createCodexAdapter(deps: AdapterDeps = {}): HostAdapter {
         freshConfig: (commands) =>
           serializeCodexProjectConfig(buildCodexProjectConfig({}, commands)),
       }),
-    testEntryHook: (input: HookTestInput): HookTestResult =>
+    testEntryHook: (input: HookTestInput): Promise<HookTestResult> =>
       runEntryHookTest(spawn, now, CODEX_ID, TEST_HOOK_ARGS, {
         ...input,
         prompt: input.prompt ?? TEST_HOOK_PROMPT,

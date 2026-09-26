@@ -3,15 +3,15 @@
 // probe; this module never starts an agent run or writes configuration.
 
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import {
   checkInstalledScripts,
   checkProjectRegistration,
+  installedEntryWrapper,
 } from "../adapters/installed-hooks.js";
 import { safeProbe } from "../adapters/shared.js";
 import type { ProbeFn } from "../adapters/types.js";
-import { TASKCRAFT_DIRECTORY_NAME } from "../commands/helpers.js";
 import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
 import { readEntryHookTests, readTaskcraftConfig } from "../hooks/shared.js";
 import type { EntryHookTestRecord } from "../hooks/shared.js";
@@ -31,8 +31,7 @@ export function collectHookDiagnostics(
   }
 
   const entryHookTests = readEntryHookTests(configFile);
-  const hooksDir = join(projectDir, TASKCRAFT_DIRECTORY_NAME, "hooks");
-  const entryWrapper = join(hooksDir, "entry.sh");
+  const entryWrapper = installedEntryWrapper(projectDir);
   const wrappersInstalled = existsSync(entryWrapper);
   const agents = configuredAgents(projectDir, configFile, entryHookTests);
 
@@ -271,7 +270,7 @@ function entryHookChangedAfter(
   }
 
   if (modifiedAfter(entryWrapper, tested)) {
-    return "entry.sh was modified after the test";
+    return `${basename(entryWrapper)} was modified after the test`;
   }
 
   for (const gate of referencedGatePaths([entryWrapper])) {
@@ -303,7 +302,7 @@ function referencedGatePaths(scripts: readonly string[]): string[] {
       continue;
     }
 
-    for (const match of text.matchAll(/node "([^"]+\.js)"/g)) {
+    for (const match of text.matchAll(/"([^"\n]+\.m?js)"/g)) {
       const path = match[1];
 
       if (path !== undefined) {

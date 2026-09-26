@@ -36,6 +36,7 @@ import {
   buildClaudeProjectConfig,
   serializeClaudeSettings,
 } from "../../src/adapters/claude.js";
+import { entryWrapperName } from "../helpers/entry-wrapper.js";
 import { createFakeHost } from "../helpers/fake-host.js";
 import { createTemporaryDirectory } from "../helpers/temp-directory.js";
 import { runConformance } from "./conformance.js";
@@ -87,7 +88,7 @@ describe("claude adapter", () => {
     });
   });
 
-  it("testEntryHook spawns claude -p with the minimal prompt", () => {
+  it("testEntryHook spawns claude -p with the minimal prompt", async () => {
     fake.reset();
     const projectDir = createTemporaryDirectory();
     const entryScript = join(
@@ -102,7 +103,7 @@ describe("claude adapter", () => {
 
     try {
       const adapter = createClaudeAdapter(fake.deps());
-      const result = adapter.testEntryHook({
+      const result = await adapter.testEntryHook({
         projectDir: projectDir.path,
         entryScript,
       });
@@ -148,8 +149,10 @@ describe("claude adapter", () => {
         hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
       };
       expect(settings.hooks.SessionStart).toHaveLength(1);
+      // Windows hosts have no bash, so the shell-free Node gate is registered
+      // there; POSIX keeps the bash wrapper.
       expect(settings.hooks.SessionStart?.[0]!.hooks[0]!.command).toContain(
-        "entry.sh",
+        entryWrapperName(),
       );
       expect(settings.hooks.Stop).toBeUndefined();
     } finally {

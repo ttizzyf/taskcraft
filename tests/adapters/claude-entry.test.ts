@@ -64,12 +64,12 @@ describe("Claude Entry event evidence", () => {
       "Hook failed",
     ],
   ];
-  it.each(cases)("rejects %s", (_name, events, failure) => {
+  it.each(cases)("rejects %s", async (_name, events, failure) => {
     const fake = createFakeHost();
     fake.setSpawnScript("claude", {
       stdout: events.map((e) => JSON.stringify(e)).join("\n"),
     });
-    const result = createClaudeAdapter(fake.deps()).testEntryHook({
+    const result = await createClaudeAdapter(fake.deps()).testEntryHook({
       projectDir: "/tmp",
       entryScript: "/tmp/entry.sh",
     });
@@ -77,7 +77,7 @@ describe("Claude Entry event evidence", () => {
     expect(result.entryInjected).toBe(false);
     expect(result.failure).toContain(failure);
   });
-  it("rejects truncated stream even after successful evidence", () => {
+  it("rejects truncated stream even after successful evidence", async () => {
     const fake = createFakeHost();
     fake.setSpawnScript("claude", {
       stdout:
@@ -86,10 +86,12 @@ describe("Claude Entry event evidence", () => {
           .join("\n") + '\n{"type":',
     });
     expect(
-      createClaudeAdapter(fake.deps()).testEntryHook({
-        projectDir: "/tmp",
-        entryScript: "/tmp/entry.sh",
-      }).failure,
+      (
+        await createClaudeAdapter(fake.deps()).testEntryHook({
+          projectDir: "/tmp",
+          entryScript: "/tmp/entry.sh",
+        })
+      ).failure,
     ).toContain("malformed");
   });
 });

@@ -35,6 +35,7 @@ import {
   buildCodexProjectConfig,
   serializeCodexProjectConfig,
 } from "../../src/adapters/codex.js";
+import { entryWrapperName } from "../helpers/entry-wrapper.js";
 import { createFakeHost, BREADCRUMB_LINE } from "../helpers/fake-host.js";
 import { createTemporaryDirectory } from "../helpers/temp-directory.js";
 import { runConformance } from "./conformance.js";
@@ -94,7 +95,7 @@ describe("codex adapter", () => {
     ).toMatchObject({ available: false });
   });
 
-  it("testEntryHook spawns codex exec with the minimal prompt", () => {
+  it("testEntryHook spawns codex exec with the minimal prompt", async () => {
     fake.reset();
     const projectDir = createTemporaryDirectory();
     const entryScript = join(
@@ -119,7 +120,7 @@ describe("codex adapter", () => {
 
     try {
       const adapter = createCodexAdapter({ ...fake.deps(), userConfigPath });
-      const result = adapter.testEntryHook({
+      const result = await adapter.testEntryHook({
         projectDir: projectDir.path,
         entryScript,
       });
@@ -160,7 +161,7 @@ describe("codex adapter", () => {
           hooks: [
             {
               type: "command",
-              command: expect.stringContaining("entry.sh"),
+              command: expect.stringContaining(entryWrapperName()),
             },
           ],
         },
