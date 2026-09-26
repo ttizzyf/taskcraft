@@ -287,7 +287,17 @@ function sdkCandidates(): string[] {
           "dist",
           "index.js",
         ),
-    "/Volumes/PortableSSD/Dev/pi/runtime/lib/node_modules/@earendil-works/pi-coding-agent/dist/index.js",
+    join(
+      homedir(),
+      ".pi",
+      "runtime",
+      "lib",
+      "node_modules",
+      SDK_PACKAGE,
+      "dist",
+      "index.js",
+    ),
+    join(homedir(), ".pi", "node_modules", SDK_PACKAGE, "dist", "index.js"),
     join(process.cwd(), "node_modules", SDK_PACKAGE, "dist", "index.js"),
   ];
   return [

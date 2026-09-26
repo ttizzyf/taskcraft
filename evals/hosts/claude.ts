@@ -1,4 +1,10 @@
-import { execFileSync, spawn } from "node:child_process";
+import {
+  IS_WINDOWS,
+  execFileCommand,
+  spawnCommand,
+  terminateTree,
+} from "../core/process.ts";
+import { prependPath } from "../core/workspace.ts";
 
 import type { HostRun, HostRunRequest } from "../core/types.ts";
 
@@ -10,9 +16,10 @@ const TERMINATION_GRACE_MS = 2_000;
  * (and its owned subprocess tree) exits or is stopped by the controller.
  *
  * The child is detached into its own process group so interruption can kill
- * every descendant it spawned (tc/node/pnpm/git and their children). Killing
- * only the claude wrapper leaks grandchildren that keep the stdio pipes open
- * and leave a lingering checkpoint probe polling into the next phase.
+ * every descendant it spawned (tc/node/pnpm/git and their children); Windows
+ * walks the same tree with taskkill /T. Killing only the claude wrapper leaks
+ * grandchildren that keep the stdio pipes open and leave a lingering
+ * checkpoint probe polling into the next phase.
  */
 export function runClaude(
   request: HostRunRequest,
@@ -20,13 +27,15 @@ export function runClaude(
 ): Promise<HostRun> {
   const started = Date.now();
   const hostVersion = readHostVersion();
-  const child = spawn(CLAUDE_COMMAND, buildArgs(request), {
+  const child = spawnCommand(CLAUDE_COMMAND, buildArgs(request), {
     cwd: request.cwd,
     shell: false,
+    // A detached child leads its own process group so interruption can kill
+    // every descendant it spawned; Windows relies on taskkill /T instead.
     detached: true,
     env: {
       ...process.env,
-      PATH: `${request.cwd}/bin:${process.env.PATH ?? ""}`,
+      PATH: prependPath(request.cwd),
     },
     stdio: ["pipe", "pipe", "pipe"],
   });
@@ -36,6 +45,7 @@ export function runClaude(
   let stoppedByController = false;
   let timedOut = false;
   let polling = false;
+  let terminalSignal: NodeJS.Signals | null = null;
   let pollTimer: NodeJS.Timeout | undefined;
   let timeoutTimer: NodeJS.Timeout | undefined;
   const diagnostics: string[] = [];
@@ -57,7 +67,9 @@ export function runClaude(
         phase,
         status,
         exitCode,
-        signal,
+        // A killed Windows child reports no signal, so the forced tree kill
+        // the controller applied is reported instead of a silent null.
+        signal: signal ?? terminalSignal,
         elapsedMs: Date.now() - started,
         callCount: parsed.callCount,
         resultText: parsed.resultText,
@@ -93,20 +105,22 @@ export function runClaude(
     const terminateGroup = (signal: NodeJS.Signals): void => {
       // A detached child is a process-group leader; the negative pid targets
       // the whole group, including every subprocess the model spawned.
+      // Windows walks the same tree from the child pid instead.
       if (pid === undefined) return;
+      terminalSignal = signal;
       try {
-        process.kill(-pid, signal);
+        terminateTree(pid, signal === "SIGKILL");
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
-          diagnostics.push(`group kill (${signal}) failed: ${describe(error)}`);
-        }
+        diagnostics.push(`tree kill (${signal}) failed: ${describe(error)}`);
       }
     };
 
     const stop = (): void => {
       if (pollTimer !== undefined) clearInterval(pollTimer);
       if (timeoutTimer !== undefined) clearTimeout(timeoutTimer);
-      terminateGroup("SIGTERM");
+      // Windows console trees can only be force-terminated (taskkill refuses
+      // them without /F), so the interruption starts at the SIGKILL step.
+      terminateGroup(IS_WINDOWS ? "SIGKILL" : "SIGTERM");
       setTimeout(() => {
         if (!settled) terminateGroup("SIGKILL");
       }, TERMINATION_GRACE_MS).unref();
@@ -160,19 +174,14 @@ function buildArgs(request: HostRunRequest): string[] {
     "--permission-mode",
     "acceptEdits",
     "--tools",
-    request.tools ?? "Bash,Read,Edit,Write",
+    request.tools ??
+      (IS_WINDOWS ? "Bash,PowerShell,Read,Edit,Write" : "Bash,Read,Edit,Write"),
   ];
   const allowedTools = request.allowedTools ?? [
     "Read",
     "Edit",
     "Write",
-    "Bash(tc *)",
-    "Bash(node *)",
-    "Bash(pnpm *)",
-    "Bash(git *)",
-    "Bash(pwd)",
-    "Bash(ls *)",
-    "Bash(find *)",
+    ...shellAllowPatterns(),
   ];
   if (allowedTools.length > 0) args.push("--allowed-tools", ...allowedTools);
   if (request.model !== undefined) args.push("--model", request.model);
@@ -180,6 +189,25 @@ function buildArgs(request: HostRunRequest): string[] {
     args.push("--json-schema", request.jsonSchema);
   }
   return args;
+}
+
+/** Claude Code on Windows exposes the shell as `PowerShell`, not `Bash`, so
+ * both shell tools are enabled and allowlisted here; naming only Bash leaves
+ * the actor without any command execution and makes tc unreachable. */
+function shellAllowPatterns(): string[] {
+  const patterns = [
+    "tc *",
+    "node *",
+    "pnpm *",
+    "git *",
+    "pwd",
+    "ls *",
+    "find *",
+  ];
+  const shells = IS_WINDOWS ? ["Bash", "PowerShell"] : ["Bash"];
+  return shells.flatMap((shell) =>
+    patterns.map((pattern) => `${shell}(${pattern})`),
+  );
 }
 
 interface ParsedStream {
@@ -276,7 +304,7 @@ function metadata(
 
 function readHostVersion(): string | null {
   try {
-    const version = execFileSync(CLAUDE_COMMAND, ["--version"], {
+    const version = execFileCommand(CLAUDE_COMMAND, ["--version"], {
       encoding: "utf8",
       timeout: 5_000,
       stdio: ["ignore", "pipe", "pipe"],

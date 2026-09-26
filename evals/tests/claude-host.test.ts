@@ -1,18 +1,12 @@
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
 import { classify, parseStream, runClaude } from "../hosts/claude.ts";
 
-describe("host interruption", () => {
-  it("escalates a checkpoint stop without reclassifying it as a timeout", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "tc-eval-host-stop-"));
-    writeFileSync(
-      join(directory, "claude"),
-      `#!/usr/bin/env node
-if (process.argv.includes("--version")) {
+const FAKE_HOST = `if (process.argv.includes("--version")) {
   console.log("fake-test-host");
 } else {
   process.on("SIGTERM", () => {});
@@ -20,10 +14,34 @@ if (process.argv.includes("--version")) {
   process.stdin.resume();
   setInterval(() => {}, 1000);
 }
-`,
-      { mode: 0o755 },
+`;
+
+/** Writes a host double that the platform can actually spawn: Windows
+ * resolves `claude.cmd` from PATH, POSIX resolves the executable script. */
+function writeFakeHost(directory: string): void {
+  if (process.platform === "win32") {
+    writeFileSync(join(directory, "claude-host.js"), FAKE_HOST, "utf8");
+    writeFileSync(
+      join(directory, "claude.cmd"),
+      `@echo off\r\n"${process.execPath}" "%~dp0claude-host.js" %*\r\n`,
+      "utf8",
     );
-    vi.stubEnv("PATH", `${directory}:${process.env.PATH ?? ""}`);
+    return;
+  }
+  writeFileSync(
+    join(directory, "claude"),
+    `#!/usr/bin/env node\n${FAKE_HOST}`,
+    {
+      mode: 0o755,
+    },
+  );
+}
+
+describe("host interruption", () => {
+  it("escalates a checkpoint stop without reclassifying it as a timeout", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "tc-eval-host-stop-"));
+    writeFakeHost(directory);
+    vi.stubEnv("PATH", [directory, process.env.PATH ?? ""].join(delimiter));
     try {
       const result = await runClaude(
         {

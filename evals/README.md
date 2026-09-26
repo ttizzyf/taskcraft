@@ -44,6 +44,23 @@ pnpm eval --watch   # 启动独立只读看板（默认 http://127.0.0.1:3100/�
 
 每次运行在系统临时目录（项目目录之外，避免继承本仓库的 AGENTS/Trellis 上下文）创建独立工作区，结束时把 JSON 与 Markdown 报告写入 `evals/runs/`。工作区保留供排查，路径记录在报告中。`callCount` 统计宿主输出的 assistant 消息数，用于粗略比较，不代表精确 API 请求数或工具调用数。
 
+## 跨平台（macOS / Windows）
+
+框架在两个平台上的行为一致，平台差异集中在 `core/process.ts`、`core/workspace.ts` 与
+`hosts/claude.ts`，由 `process.platform` 分支处理，不依赖任何硬编码的绝对路径：
+
+- 命令启动：Windows 无法 `CreateProcess` npm 安装的 `.cmd` shim，也不能用 `shell: true`
+  （cmd.exe 会重解析参数，把 JSON 载荷的引号剥掉、把 `Bash(tc *)` 拆成两个参数）。统一走
+  `cmd.exe /d /s /c` + 逐参数转义，空参数显式写成 `""`——否则它会从命令行里消失，
+  导致 `--tools ""` 吃掉后面的 `--model`。
+- 进程中断：POSIX 用负 pid 给 detached 进程组发信号，Windows 用 `taskkill /PID <pid> /T /F`；
+  任一平台失败都会抛出，不再被静默吞掉。
+- `tc` shim：Windows 同时写 `bin/tc.cmd` 与 `bin/tc`，PATH 用 `path.delimiter` 拼接。
+- 宿主工具：Windows 版 Claude Code 暴露的 shell 工具是 `PowerShell` 而不是 `Bash`，
+  两者都会声明并加入 allowlist，否则 actor 没有任何命令执行能力。
+- Pi SDK 宿主：按 `TASKCRAFT_EVAL_PI_SDK` 环境变量、`npm_config_prefix`、
+  `PI_CODING_AGENT_DIR`、`~/.pi` 与当前 `node_modules` 顺序查找，未安装即明确报错。
+
 ## 三个案例
 
 - `delivery`：空 fixture 起步，按公开 CSV 合同实现 `src/csv-summary.mjs`，用独立检查与 task fact 关闭 L1 任务。

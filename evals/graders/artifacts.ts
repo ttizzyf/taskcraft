@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { extname, join, relative, resolve } from "node:path";
 
 import type { GraderArtifact } from "./model.ts";
 
@@ -36,7 +36,7 @@ export function collectArtifacts(workspace: string): GraderArtifact[] {
       });
       continue;
     }
-    const extension = file.slice(file.lastIndexOf(".")).toLowerCase();
+    const extension = extname(file).toLowerCase();
     if (!TEXT_EXTENSIONS.has(extension)) {
       artifacts.push({
         path: relative(workspace, file),
