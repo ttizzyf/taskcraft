@@ -1,6 +1,0 @@
-{"file":".trellis/spec/backend/index.md","reason":"Scope and quality checks"}
-{"file":".trellis/spec/taskcraft.md","reason":"Source authority"}
-{"file":".trellis/spec/guides/index.md","reason":"Review and reuse conventions"}
-{"file":"development/specs/architecture.md","reason":"Independent grading and fact ownership boundary"}
-{"file":".trellis/tasks/09-09-tc-evals/design.md","reason":"Small eval framework scoring and isolation contract"}
-{"file": ".trellis/spec/frontend/index.md", "reason": "Independent UI verification and isolation from Watch"}

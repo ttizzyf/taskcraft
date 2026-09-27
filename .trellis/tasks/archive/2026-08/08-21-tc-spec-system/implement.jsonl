@@ -1,3 +1,0 @@
-{"file":".trellis/spec/backend/l3-modular-contract.md","reason":"L3 accepted Plan、真实 child、继承 provenance 与 replan/reuse 的现有实现合同"}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Registry、filesystem、SQLite、reducer、CLI、Adapter 与 Watch 的跨层数据流检查"}
-{"file":".trellis/tasks/08-21-tc-spec-system/research/current-architecture.md","reason":"当前代码边界、写入口和无回填兼容约束的实证锚点"}

@@ -1,2 +1,0 @@
-{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"确认 Registry 解析和错误合同只有一个实现"}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"检查 init、CLI、Schema 和安全路径数据流"}

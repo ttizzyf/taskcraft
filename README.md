@@ -3,12 +3,13 @@
 Taskcraft 是面向 Codex 与 Claude Code 的 agent-first 任务协议、状态工具与可视化记录方案。SQLite Task Store 是唯一可写事实源，Agent 通过 CLI 推进任务，用户通过 Watch 查看任务、节点、证据和运行状态。
 
 当前仓库包含 Taskcraft CLI、SQLite Store、Reducer/Projector、Codex/Claude Adapter、
-Watch、产品规范和可执行合同。Trellis 仍负责当前开发任务；Taskcraft MVP 验收与双宿主
-Entry Hook 迁移门通过后才会退出 Trellis 并开始狗粮化。
+Watch、产品规范和可执行合同。**自 2026-09-27 起本仓库用 Taskcraft 管理自己的开发
+任务（狗粮化），Trellis 已完整卸载**；切换记录见
+[development/migrations/trellis-cutover-2026-09-27.md](development/migrations/trellis-cutover-2026-09-27.md)。
 
 ## 入口
 
-- [开发指南](development/README.md)：规范、合同、Task 00–06、Trellis 工作流与迁移方案的唯一入口。
+- [开发指南](development/README.md)：规范、合同、实现记录与迁移方案的唯一入口。
 - [交互原型](development/prototypes/watch.html)：当前 Watch 交互概念的静态演示。
 - [Evals 测评框架](evals/README.md)：delivery/recovery/review 三个 Agent 案例的 runner、grader 与运行说明（`pnpm eval`）。
 
