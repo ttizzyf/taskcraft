@@ -2,10 +2,11 @@
 
 > 本文件保留 Task 05/06/07 当时的交接上下文，不再代表当前实现状态。后续 L3 已
 > 升级为 `tc-l3/2` 模块化合同，真实 L1/L2 children、single 模式和公开 CLI 闭环
-> 已通过；Codex 0.147.0 的公共 `test-entry-hook` 也已真实通过。Claude 仍未取得
-> 成功现场结果，所以迁移门继续为 `blocked`。当前结论见
-> [`README.md`](README.md)、[`plans/roadmap.md`](plans/roadmap.md)和
-> [`entry-hook-smoke-2026-08-17.md`](entry-hook-smoke-2026-08-17.md)。下文的
+> 已通过；Codex 0.147.0 的公共 `test-entry-hook` 也已真实通过。**2026-09-26 起
+> Claude 与 Codex 双宿主均已真机通过**（详见
+> [`entry-hook-smoke-2026-09-26.md`](entry-hook-smoke-2026-09-26.md)），迁移门
+> `blocked` 的原因已改为 §1 其余进入条件尚未逐条复核。当前结论见
+> [`README.md`](README.md)与[`plans/roadmap.md`](plans/roadmap.md)。下文的
 > “L3 单 execute 收窄”“无活动 Trellis 任务”等只属于 2026-08-14 历史快照。
 
 ## 一、当前状态

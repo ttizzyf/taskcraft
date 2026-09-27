@@ -9,8 +9,8 @@
 > limited 结论已被 `dogfood-2026-08-13.md` D6 推翻；ADR 0009 已在
 > 2026-08-14 移除 Stop Hook。下文 Stop 与 `enforced/advisory` 只属于历史证据，
 > 不代表当前产品合同。当前公共 Entry 现场结果见
-> [`entry-hook-smoke-2026-08-17.md`](entry-hook-smoke-2026-08-17.md)：Codex 已通过，
-> Claude 尚待通过。
+> [`entry-hook-smoke-2026-09-26.md`](entry-hook-smoke-2026-09-26.md)：Codex 与 Claude
+> 均已真机通过（2026-08-17 时仅 Codex 通过）。
 
 ## 环境
 

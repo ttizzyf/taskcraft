@@ -1,8 +1,9 @@
 # 使用 Trellis 开发 Taskcraft
 
 > 状态：Trellis `0.6.14` 已安装并完成 Codex/Claude 初始化；Task 00–06 已归档，
-> Task 07 实现与自动验证已交付，Codex Entry 真实复核通过、Claude 仍待通过。迁移门复核通过前，
-> Trellis 仍是唯一活动开发任务系统。
+> Task 07 实现与自动验证已交付。2026-09-26 双宿主 Entry 真机复核均已通过
+> （详见 [`../entry-hook-smoke-2026-09-26.md`](../entry-hook-smoke-2026-09-26.md)）；
+> 迁移门 §1 其余进入条件尚未逐条复核，Trellis 仍是唯一活动开发任务系统。
 
 Trellis 是 Taskcraft 生产内核完成前的临时开发流程层。它管理开发任务的 PRD、design、implement、检查上下文和跨会话记录；Taskcraft 产品事实仍只来自根 `AGENTS.md`、`development/specs/`、`development/contracts/` 与 ADR。
 

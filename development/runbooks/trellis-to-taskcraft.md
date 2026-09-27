@@ -1,8 +1,11 @@
 # 从 Trellis 迁移到 Taskcraft 狗粮化
 
-> 状态：切换条件未满足（2026-08-17 复核，迁移门 `blocked`）。Task 00–07 的
-> 实现缺口已经收口，Adapter 使用 SessionStart Entry Hook；Codex 0.147.0 已通过公共
-> `tc agent test-entry-hook` 真实宿主复核，Claude 仍未取得成功结果。当前不得执行卸载。
+> 状态：切换条件未满足（迁移门 `blocked`）。Task 00–07 的实现缺口已经收口，
+> Adapter 使用 SessionStart Entry Hook。2026-09-26 已在 Windows 本机完成双宿主公共
+> `tc agent test-entry-hook` 真机复核：Claude 2.1.177（8.8s）与 Codex 0.155.1（15.5s）
+> 均 `entryInjected: true`（2026-08-17 时仅 Codex 通过）。因此 §1 第 4 条已具备完整
+> 证据；但 §1 其余进入条件尚未逐条重新复核。当前不得执行卸载。
+> 详见 [`../entry-hook-smoke-2026-09-26.md`](../entry-hook-smoke-2026-09-26.md)。
 
 目标是在一个明确切换窗口内停止 Trellis 的任务状态、Hook 和上下文注入，让 tc 成为后续开发的唯一活动任务系统。退出保留可审计历史，但不把 Trellis 状态机械翻译成 Taskcraft 五状态，也不设置双写期。
 
@@ -73,8 +76,8 @@ trellis uninstall
 ## 5. 启动 Taskcraft
 
 以下是迁移门通过后的目标顺序，不是当前可执行步骤。公共
-`test-entry-hook` 已实现，但 Codex 与 Claude 的真实现场结果均保存成功前，不得
-通过跳过命令提前切换。当前 Codex 已通过，Claude 尚未通过。
+`test-entry-hook` 已实现；自 2026-09-26 起 Codex 与 Claude 的真实现场结果均已保存成功。
+但 §1 的其余进入条件尚未逐条重新复核，因此仍不得通过跳过命令提前切换。
 
 卸载提交完成后，打开全新 Codex/Claude 会话：
 

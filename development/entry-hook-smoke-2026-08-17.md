@@ -1,5 +1,11 @@
 # Taskcraft Entry Hook 真实宿主复核（2026-08-17）
 
+> ⚠️ **已被后续证据更新（2026-09-26）。** 本记录的「Claude 尚未通过」结论已不成立：
+> Claude 2.1.177 与 Codex 0.155.1 已在 Windows 本机双双通过公共
+> `tc agent test-entry-hook`。本文件保留为 2026-08-17 当日的历史记录，不再代表当前
+> 状态；当前迁移判断以 [`entry-hook-smoke-2026-09-26.md`](entry-hook-smoke-2026-09-26.md)
+> 为准。
+
 > 本记录评估 SessionStart Entry Hook 的安装、任务恢复和公共现场检测合同。
 > 当前迁移判断以本记录中的宿主测试结果为准。
 

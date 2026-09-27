@@ -5,12 +5,13 @@
 > `tc agent test-entry-hook`；下文原始返工要求保留为历史输入，不再是当前
 > Stop 行为合同。
 
-> 状态：代码返工与自动验证完成，真实宿主验收部分通过（2026-08-17）。Codex
-> 0.147.0 已通过公共 `tc agent test-entry-hook`，Claude 仍未取得成功结果。Task 00–06
-> 的实现和归档历史保留，但在本任务验收通过前，不得据此宣称 MVP 发布门或
-> Trellis → Taskcraft 狗粮化进入条件已经满足。
+> 状态：代码返工与自动验证完成；双宿主真机复核完成（2026-09-26）。Codex 0.155.1 与
+> Claude 2.1.177 均已通过公共 `tc agent test-entry-hook`（Windows 本机，均
+> `entryInjected: true`）。Task 00–06 的实现和归档历史保留；但迁移手册 §1 的进入
+> 条件尚未逐条重新复核，因此仍不得据此宣称 MVP 发布门或 Trellis → Taskcraft
+> 狗粮化进入条件已经满足。
 
-## 当前返工结果（更新于 2026-08-17）
+## 当前返工结果（更新于 2026-09-26）
 
 - 已完成并复验：`tc doctor`、waiting/resume/retry/fail 公开闭环、
   `run attach/status`、`tc state`/`task list`、Claude 历史 L1/L2 dogfood，以及
@@ -25,13 +26,19 @@
 - 同轮补齐：`doctor --json` 的损坏结果改为标准失败信封；stale retry 会先原子
   supersede 旧 attempt，并直接返回 successor Node Brief，不再留下两个 active
   attempt 或要求额外执行一次 `run`。
-- 真实宿主复核：Codex 0.147.0 已通过公共
+- 真实宿主复核（2026-08-17）：Codex 0.147.0 已通过公共
   `tc agent test-entry-hook --agent codex --json`，结果为 `ok=true`、
-  `entryInjected=true`，且没有使用 trust bypass；Claude 同命令此前 60 秒超时，
+  `entryInjected=true`，且没有使用 trust bypass；当时 Claude 同命令 60 秒超时，
   尚无成功现场记录。
+- 真实宿主复核补齐（2026-09-26，Windows）：Claude 2.1.177（8.8s）与 Codex 0.155.1
+  （15.5s）均已通过公共 `tc agent test-entry-hook`，均 `entryInjected: true`；
+  同期修复三个真实缺陷：宿主启动 `ENOENT`、超时后子进程泄漏（改 async + 杀整棵
+  进程树）、Codex TOML 信任条目只认双引号。详见
+  [`../entry-hook-smoke-2026-09-26.md`](../entry-hook-smoke-2026-09-26.md)。
 - Stop Hook 已由 ADR 0009 从产品合同中移除，不再是迁移阻断项。迁移门继续为
-  `blocked` 的当前原因只有：迁移手册仍要求 Codex 与 Claude Entry 现场检测均通过，
-  而 Claude 证据未完成。
+  `blocked` 的原因**不再是**「Claude 证据未完成」，而是迁移手册 §1 的进入条件尚未
+  逐条重新复核；其中第 4 条（双宿主 Entry Hook 安装、恢复与现场检测）已于
+  2026-09-26 具备完整证据。
 - 文档同步：本结果取代早期“待执行”“L2 样本缺失”“Codex Entry 未复验”以及
   “公共 test-hook/Diagnostics/单写入口待返工”等
   已过期表述；历史 smoke 结论保留时必须明确标注已被后续证据更新。
