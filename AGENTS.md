@@ -5,7 +5,9 @@ These instructions are for AI assistants working in this project.
 This repository manages its own development tasks with **Taskcraft (`tc`)**.
 Trellis was fully uninstalled on 2026-09-27; see
 `development/migrations/trellis-cutover-2026-09-27.md` for the cutover record
-and the `trellis-final` git tag for the archived Trellis state.
+and the `trellis-final` git tag for the archived Trellis state. The project's
+authoritative truth (product specs, engineering contracts, ADRs) lives under
+`.taskcraft/spec/` (ADR 0011); `tc spec list` is the directory.
 
 ## Daily task workflow
 
@@ -15,7 +17,8 @@ and the `trellis-final` git tag for the archived Trellis state.
   Record results must include a Spec Impact (`none|updated|candidate`).
 - L2+ tasks use `tc review start|pass|changes|replan` for the review loop.
 - `tc doctor` is the read-only health check; `tc spec list` shows registered
-  engineering contracts (bodies live in `development/contracts/`).
+  truth bodies under `.taskcraft/spec/` (product specs, engineering contracts,
+  ADRs in `decisions/`).
 - Entry hooks inject an active-task breadcrumb at session start; follow it to
   resume exactly one active task.
 
@@ -36,8 +39,8 @@ and the `trellis-final` git tag for the archived Trellis state.
 - An accepted L3 Plan selects `modules` or `single`. Modules atomically materialize a one-level set of real L1/L2 child tasks with explicit anchor coverage and dependency facts; nested L3 is forbidden. Child planning is inherited from the accepted parent Plan without fake host Attempts.
 - Lifecycle revisions advance on one line. Stable node ids express semantic lineage; older revisions, attempts and evidence remain referenceable.
 - Host values are open strings; the first supported adapters are `codex` and `claude`. Node kinds are `frame`, `plan`, `execute`, `review`, `integrate` and `record`.
-- Execution ownership and the Taskcraft tool boundary follow `development/specs/architecture.md`, section 2.
-- Node Brief and continuous execution behavior follow `development/specs/lifecycle.md`, section 7.
+- Execution ownership and the Taskcraft tool boundary follow `.taskcraft/spec/product/architecture.md`, section 2.
+- Node Brief and continuous execution behavior follow `.taskcraft/spec/product/lifecycle.md`, section 7.
 - Takeover remains silent while disabled or while the request has no durable execution requirement.
 - Required obligations and explicit reducer outcomes provide the task's auditable closure.
 

@@ -6,7 +6,7 @@
 `review pass`、父子 relation migration/query、parent Projector、Integrate 引用、
 replan/cancel、Entry active task 选择、CLI/Watch L3 DTO 或 doctor。
 
-权威产品行为见 `development/specs/lifecycle.md` §5/§9、`architecture.md` §3–§8、
+权威产品行为见 `.taskcraft/spec/product/lifecycle.md` §5/§9、`architecture.md` §3–§8、
 `cli.md` §4–§7 和 ADR 0010。本文件只记录已由源码与测试证明的实现合同。
 
 ## 2. Signatures

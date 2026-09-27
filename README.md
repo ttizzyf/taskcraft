@@ -9,7 +9,8 @@ Watch、产品规范和可执行合同。**自 2026-09-27 起本仓库用 Taskcr
 
 ## 入口
 
-- [开发指南](development/README.md)：规范、合同、实现记录与迁移方案的唯一入口。
+- [开发指南](development/README.md)：立项期文档与历史记录的索引；**项目真相（产品规格、
+  实现合同、ADR）已收拢到 `.taskcraft/spec/`**，用 `tc spec list` 查看目录（ADR 0011）。
 - [交互原型](development/prototypes/watch.html)：当前 Watch 交互概念的静态演示。
 - [Evals 测评框架](evals/README.md)：delivery/recovery/review 三个 Agent 案例的 runner、grader 与运行说明（`pnpm eval`）。
 

@@ -6,7 +6,7 @@
 `tc agent` 命令、`.taskcraft/config.json` 中的 Hook 测试记录、Watch Runtime 或
 Hook Diagnostics。
 
-权威产品行为见 `development/specs/lifecycle.md` §7、`architecture.md` §9 和
+权威产品行为见 `.taskcraft/spec/product/lifecycle.md` §7、`architecture.md` §9 和
 `cli.md` §3。本文件只记录可执行的代码合同。
 
 ## 2. Signatures

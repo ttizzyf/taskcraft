@@ -5,7 +5,7 @@
 修改以下任一边界时必须使用本合同：启动宿主 CLI（`codex`、`claude`）、给宿主进程设置
 超时、终止宿主或其子进程、在 Windows 上执行 hook / 现场测试命令。
 
-权威产品行为见 `development/specs/architecture.md` §9 与 `cli.md` §3。
+权威产品行为见 `.taskcraft/spec/product/architecture.md` §9 与 `cli.md` §3。
 本文件只记录可执行的代码合同与已验证的平台事实。
 
 ## 2. Signatures

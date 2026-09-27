@@ -1,5 +1,11 @@
 # Taskcraft 开发文档
 
+> **2026-09-27 起本目录不再是真相源**：产品规格迁至 `.taskcraft/spec/product/`，
+> 实现合同迁至 `.taskcraft/spec/engineering/`，ADR 迁至 `.taskcraft/spec/decisions/`
+> （见 `.taskcraft/spec/decisions/0011-consolidate-truth-source-under-taskcraft.md`）。
+> 本目录保留立项期历史档案与 `development/contracts/` 的机器合同（schema/SQL/fixtures，
+> 产品运行时读取，后续任务再迁）。日常入口改用 `tc spec list` 与根目录 AGENTS.md。
+
 本目录是 Taskcraft 产品设计、实现合同、架构决策、阶段计划和开发操作手册的唯一入口。**2026-09-27 起本仓库已卸载 Trellis，Taskcraft（tc）是唯一的活动任务系统**，切换记录与审计点见 [`migrations/trellis-cutover-2026-09-27.md`](migrations/trellis-cutover-2026-09-27.md)（git 标签 `trellis-final`）。当前产品通过 Agent 自主判断、typed waiting 和 SessionStart Entry Hook 恢复保持任务连续性；L3 已升级为 planning/execution 两阶段合同，可原子物化一层真实 L1/L2 children，也保留经审核的 single 模式。2026-09-26 已在 Windows 本机完成公共 `tc agent test-entry-hook` 的**双宿主**真实宿主复核：claude 2.1.177（8.8s）与 codex 0.155.1（15.5s）均 `entryInjected: true`。迁移门七条进入条件的证据盘点见 [`migration-gate-audit-2026-09-27.md`](migration-gate-audit-2026-09-27.md)。
 
 ## 文档权威层级
