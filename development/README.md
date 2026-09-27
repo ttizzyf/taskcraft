@@ -1,6 +1,6 @@
 # Taskcraft 开发文档
 
-本目录是 Taskcraft 产品设计、实现合同、架构决策、阶段计划和开发操作手册的唯一入口。项目已使用 Trellis `0.6.14` 完成 Codex/Claude 初始化；Task 00–06 的阶段任务已经归档，Task 07 于 2026-08-14 完成代码返工。当前产品通过 Agent 自主判断、typed waiting 和 SessionStart Entry Hook 恢复保持任务连续性；L3 已升级为 planning/execution 两阶段合同，可原子物化一层真实 L1/L2 children，也保留经审核的 single 模式。2026-09-26 已在 Windows 本机完成公共 `tc agent test-entry-hook` 的**双宿主**真实宿主复核：claude 2.1.177（8.8s）与 codex 0.155.1（15.5s）均 `entryInjected: true`（2026-08-17 时仅 Codex 通过，Claude 尚无成功记录）。迁移门中"双宿主 Entry Hook"一项已具备完整证据；但 `runbooks/trellis-to-taskcraft.md` §1 的完整进入条件尚未逐条重新复核，因此迁移门仍保持 `blocked`，不执行卸载。达到 Taskcraft 狗粮化门槛后，Trellis 才会被完整退出，两个系统不并行维护活动任务。
+本目录是 Taskcraft 产品设计、实现合同、架构决策、阶段计划和开发操作手册的唯一入口。**2026-09-27 起本仓库已卸载 Trellis，Taskcraft（tc）是唯一的活动任务系统**，切换记录与审计点见 [`migrations/trellis-cutover-2026-09-27.md`](migrations/trellis-cutover-2026-09-27.md)（git 标签 `trellis-final`）。当前产品通过 Agent 自主判断、typed waiting 和 SessionStart Entry Hook 恢复保持任务连续性；L3 已升级为 planning/execution 两阶段合同，可原子物化一层真实 L1/L2 children，也保留经审核的 single 模式。2026-09-26 已在 Windows 本机完成公共 `tc agent test-entry-hook` 的**双宿主**真实宿主复核：claude 2.1.177（8.8s）与 codex 0.155.1（15.5s）均 `entryInjected: true`。迁移门七条进入条件的证据盘点见 [`migration-gate-audit-2026-09-27.md`](migration-gate-audit-2026-09-27.md)。
 
 ## 文档权威层级
 
@@ -21,10 +21,11 @@
 | 分类 | 内容 |
 | --- | --- |
 | [`specs/`](specs/) | [产品](specs/product.md)、[生命周期](specs/lifecycle.md)、[架构](specs/architecture.md)、[CLI](specs/cli.md) |
-| [`contracts/`](contracts/) | [SQLite 合同](contracts/storage.sql)、[Lifecycle Schema](contracts/lifecycle.schema.json)、[Breadcrumb Schema](contracts/breadcrumb.schema.json)、[Spec Registry Schema](contracts/spec-registry.schema.json)、[fixtures](contracts/fixtures/) |
+| [`contracts/`](contracts/) | [SQLite 合同](contracts/storage.sql)、[Lifecycle Schema](contracts/lifecycle.schema.json)、[Breadcrumb Schema](contracts/breadcrumb.schema.json)、[Spec Registry Schema](contracts/spec-registry.schema.json)、六份跨层实现合同（从 `.trellis/spec` 迁入，已登记进 Spec Registry）、[fixtures](contracts/fixtures/) |
 | [`decisions/`](decisions/) | [Task 00 架构决策索引](decisions/README.md) |
 | [`plans/`](plans/) | [路线图](plans/roadmap.md)与 Task 00–07；当前复核与返工入口为 [Task 07](plans/task-07-mvp-readiness-remediation.md) |
-| [`runbooks/`](runbooks/) | [Trellis 开发手册](runbooks/trellis.md)与 [Trellis → Taskcraft 迁移手册](runbooks/trellis-to-taskcraft.md) |
+| [`migrations/`](migrations/) | [Trellis → Taskcraft 切换记录](migrations/trellis-cutover-2026-09-27.md) |
+| [`runbooks/`](runbooks/) | [Trellis → Taskcraft 迁移手册](runbooks/trellis-to-taskcraft.md)与 [Trellis 开发手册](runbooks/trellis.md)（均已转为历史文档） |
 | [`research/`](research/) | [Codex/Claude 宿主可行性报告](research/host-feasibility.md)；当前现场结果见 [2026-09-26 Entry Hook smoke](entry-hook-smoke-2026-09-26.md)（[2026-08-17](entry-hook-smoke-2026-08-17.md) 为历史记录） |
 | [`prototypes/`](prototypes/) | [Watch 静态原型](prototypes/watch.html) |
 
@@ -52,13 +53,12 @@ Task 07 完成、MVP 进入条件重新验收通过后执行；这样符合“�
 依赖主线：
 
 ```text
-Task 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 返工复核 → Trellis 退出 → Taskcraft 狗粮化
+Task 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 返工复核 → Trellis 退出（2026-09-27）→ Taskcraft 狗粮化
 ```
 
 ## 从哪里开始
 
-1. Trellis `0.6.14` 初始化与 Bootstrap 已完成；Bootstrap 只建立规范索引，不复制 Taskcraft 合同。
-2. Trellis 项目文件、Hook、skill 和 managed block 必须作为独立初始化基线审阅和提交，不得与 Task 00 合同变更混合。
-3. Task 00–06 的实现和归档历史保留，但不得据此跳过 [Task 07](plans/task-07-mvp-readiness-remediation.md) 的问题复现和验收。
-4. Task 07 的代码返工和 L3 模块化合同已实现：doctor、waiting/resume/retry、Runtime、真实 child/replan/integrate、Hook Diagnostics 和 `agent_runs` 单写入口均有自动验证；公开 CLI 的 modules/single L3 闭环也已回放。Codex Entry 真实复核已通过，下一步只补 Claude 的公共 `test-entry-hook` 成功证据。
-5. Task 07 完成并重新满足 [迁移手册](runbooks/trellis-to-taskcraft.md)全部进入条件后，才在全新会话中退出 Trellis 并开始狗粮化。
+1. 2026-09-27 已完成 Trellis 卸载与 tc 接管；后续开发任务全部用 `tc task new` 创建，见切换记录 §5 的建议任务清单。
+2. Task 00–07 的实现与归档历史保留在 git 与 `trellis-final` 标签中，不据此宣称 MVP 门已验收；迁移门遗留的决策项见 [`migration-gate-audit-2026-09-27.md`](migration-gate-audit-2026-09-27.md)。
+3. 修改代码前先读 [`contracts/`](contracts/) 中已登记的实现合同：`tc spec list` 可查当前登记条目。
+4. 首张 L1 / L2 dogfood 任务在全新宿主会话中创建，不与卸载同会话。
