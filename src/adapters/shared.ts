@@ -278,7 +278,7 @@ export function entryHookTemplate(tcPath: string): string {
   return `#!/usr/bin/env bash
 # Taskcraft managed entry hook gate (tc init --agent <host>).
 cd "$(dirname "$0")/../.." || exit $?
-taskcraft_output="$(node "${tcPath}" state --breadcrumb)"
+taskcraft_output="$(node "${toPosixPath(tcPath)}" state --breadcrumb)"
 taskcraft_status=$?
 if [ "$taskcraft_status" -ne 0 ]; then
   exit "$taskcraft_status"
