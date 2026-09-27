@@ -33,7 +33,7 @@ tc spec resolve --path <repo-relative-path> [--path ...] [--json]
 
 - 固定 Registry 路径是 `.taskcraft/spec/index.json`，Schema version 是
   `tc-spec-registry/v1`；Schema 和 runtime validator 共用
-  `development/contracts/spec-registry.schema.json`。
+  `src/contracts/spec-registry.schema.json`。
 - 条目使用判别联合类型：`engineering` 的 `authority` 可选，`domain` 必须具有
   非空 `authority`。`id` 和 `path` 全局唯一，unknown fields 拒绝。
 - `path` 和 `appliesTo` 必须是 canonical repo-relative 值；绝对路径、反斜杠、空

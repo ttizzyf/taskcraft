@@ -58,7 +58,7 @@ describe("applyMigrations", () => {
 
     try {
       contractDatabase.exec(
-        readFileSync("development/contracts/storage.sql", "utf8"),
+        readFileSync("src/contracts/storage.sql", "utf8"),
       );
       expect(readSchema(database)).toEqual(readSchema(contractDatabase));
     } finally {

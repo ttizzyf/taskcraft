@@ -389,7 +389,7 @@ function checkProjectionRebuild(database: TaskcraftDatabase): DoctorCheck {
 }
 
 /** The breadcrumb each task produces must match the published contract
- * (development/contracts/breadcrumb.schema.json) through the same validator
+ * (src/contracts/breadcrumb.schema.json) through the same validator
  * the CLI uses. */
 function checkBreadcrumbSchema(database: TaskcraftDatabase): DoctorCheck {
   const validators = createContractValidators();

@@ -1,5 +1,5 @@
 // tc-breadcrumb/v1 constructor. The shape is locked by
-// development/contracts/breadcrumb.schema.json; the projector decides the
+// src/contracts/breadcrumb.schema.json; the projector decides the
 // values, this module only assembles a schema-valid document.
 
 import type { NodeKind } from "../store/query.js";

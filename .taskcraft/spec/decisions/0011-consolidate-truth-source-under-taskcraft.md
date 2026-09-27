@@ -32,12 +32,13 @@ Trellis 立项期建立的 `development/` 文档树不再是真相源的存放�
   不把真相锁进数据库——单一事实源原则不变。
 - Registry 同步登记 `product/` 四份规格（domain，authority 为 AGENTS.md
   开发合同）与 `engineering/` 六份合同（engineering）。
-- `development/contracts/` 中的 schema/storage.sql/fixtures 是**产品运行时
-  机器合同**（`src/contracts/schemas.ts`、migration 测试直接读取），本次保留
-  原地；后续任务再迁移至 src/ 侧并同步测试。
-- `development/` 其余内容（plans、handoffs、运行记录、research、prototypes、
-  runbooks）为历史档案与操作手册，不进入 Registry；后续任务归档后可整体移除
-  该目录，git 历史与 `trellis-final` 等标签保留全部可审计状态。
+- ~~`development/contracts/` 中的 schema/storage.sql/fixtures 保留原地~~
+  **已迁移**（同日跟进）：机器合同现居 `src/contracts/`（schema/storage.sql/fixtures），
+  `src/contracts/schemas.ts`、`tests/helpers/load-fixture.ts`、
+  `tests/store/migrations.test.ts` 同步改读新路径。
+- `development/` 已整体移除：近期决策与可复用样本（cutover 记录、迁移门审计、
+  l2-review-sample、l3-sample）迁入 `.taskcraft/spec/history/`，其余历史档案
+  只存于 git 历史（`trellis-final` 等标签保留全部可审计状态）。
 - 自动把"任务适用的规范"送到 Agent 面前（开工自动发现）是独立的后续行为变更，
   见讨论记录；本 ADR 只决定"真相存放在哪、目录由谁管理"。
 

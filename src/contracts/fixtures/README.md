@@ -18,7 +18,7 @@ tables。当前可执行样本由 reducer/CLI 在迁移后的真实 SQLite 中�
 - `tests/core/reducer.l3-plan.test.ts`：原子物化、waiting/resume、replan、reuse 和
   `not_required` 历史；
 - `tests/cli/l3.test.ts`：公开 CLI 的 modules、single、child→parent replan 和 done；
-- `development/l3-sample.md`：可复制的公开 CLI modules/single 命令序列。
+- `.taskcraft/spec/history/l3-sample.md`：可复制的公开 CLI modules/single 命令序列。
 
 在 fixture loader 能原样导入 0002 的 relation tables 前，不要手写一个只包含部分
 relation 的“v2 fixture”；那会制造比 reducer 生成事实更弱的第二合同。

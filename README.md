@@ -5,13 +5,13 @@ Taskcraft 是面向 Codex 与 Claude Code 的 agent-first 任务协议、状态�
 当前仓库包含 Taskcraft CLI、SQLite Store、Reducer/Projector、Codex/Claude Adapter、
 Watch、产品规范和可执行合同。**自 2026-09-27 起本仓库用 Taskcraft 管理自己的开发
 任务（狗粮化），Trellis 已完整卸载**；切换记录见
-[development/migrations/trellis-cutover-2026-09-27.md](development/migrations/trellis-cutover-2026-09-27.md)。
+[.taskcraft/spec/history/trellis-cutover-2026-09-27.md](.taskcraft/spec/history/trellis-cutover-2026-09-27.md)。
 
 ## 入口
 
-- [开发指南](development/README.md)：立项期文档与历史记录的索引；**项目真相（产品规格、
-  实现合同、ADR）已收拢到 `.taskcraft/spec/`**，用 `tc spec list` 查看目录（ADR 0011）。
-- [交互原型](development/prototypes/watch.html)：当前 Watch 交互概念的静态演示。
+- **项目真相**：产品规格、实现合同与 ADR 在 `.taskcraft/spec/`，用 `tc spec list`
+  查看目录（ADR 0011）；立项期历史档案在 `.taskcraft/spec/history/` 与 git 历史
+  （标签 `trellis-final`）。
 - [Evals 测评框架](evals/README.md)：delivery/recovery/review 三个 Agent 案例的 runner、grader 与运行说明（`pnpm eval`）。
 
 ## 工程开发
@@ -119,7 +119,7 @@ node dist/cli.js run complete T-1 --node record-1 --result record.json
 - `review replan --reason scope_changed|...`：写新 lifecycle revision，
   重走 frame/execute 后再 review；旧 revision 的 attempt/finding 历史在
   `task show` 中保持可查询（attempt 编号按节点全局递增，跨 revision 不冲突）。
-- 完整可回放样本：`development/l2-review-sample.md`（三条路径 +
+- 完整可回放样本：`.taskcraft/spec/history/l2-review-sample.md`（三条路径 +
   失败契约三件套）。
 
 ### Task 02 可复用入口

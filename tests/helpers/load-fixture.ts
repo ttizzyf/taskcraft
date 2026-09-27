@@ -1,4 +1,4 @@
-// Loads development/contracts/fixtures/*.fixture.json (tc-fixture/v1 fact
+// Loads src/contracts/fixtures/*.fixture.json (tc-fixture/v1 fact
 // snapshots) into a migrated database. All inserts happen inside one
 // transaction so fixture import is atomic and rollback-safe.
 
@@ -12,7 +12,7 @@ import { FIXED_TIMESTAMP, insertTaskFact } from "./load-fixture-facts.js";
 export function fixturePath(name: string): string {
   return fileURLToPath(
     new URL(
-      `../../development/contracts/fixtures/${name}.fixture.json`,
+      `../../src/contracts/fixtures/${name}.fixture.json`,
       import.meta.url,
     ),
   );

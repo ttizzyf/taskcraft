@@ -2,7 +2,7 @@
 
 本目录记录已经接受的架构决策，解释“为什么这样选”。产品行为以
 [`../product/`](../product/) 为准，可执行数据格式以
-`development/contracts/`（schema 与 storage.sql 等机器合同，暂留原地）为准；
+`src/contracts/`（schema 与 storage.sql 等机器合同）为准；
 ADR 不能单独改变运行时合同。
 
 ## Task 00 决策
@@ -23,7 +23,7 @@ ADR 不能单独改变运行时合同。
 ## 使用规则
 
 - 查产品应该怎么运行，读 `../product/`。
-- 查数据必须满足什么格式，读 `development/contracts/`（schema/SQL/fixtures 机器合同）。
+- 查数据必须满足什么格式，读 `src/contracts/`（schema/SQL/fixtures 机器合同）。
 - 查改代码要守的实现合同，读 `../engineering/`。
 - 查某个选择的原因、替代方案和退出成本，读本目录对应 ADR。
 - 后续若改变决定，新增或替代 ADR，并同步权威规范和合同；不要只改 ADR。

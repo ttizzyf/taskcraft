@@ -10,31 +10,31 @@ import {
 export const contractPaths = Object.freeze({
   lifecycleSchema: fileURLToPath(
     new URL(
-      "../../development/contracts/lifecycle.schema.json",
+      "../../src/contracts/lifecycle.schema.json",
       import.meta.url,
     ),
   ),
   breadcrumbSchema: fileURLToPath(
     new URL(
-      "../../development/contracts/breadcrumb.schema.json",
+      "../../src/contracts/breadcrumb.schema.json",
       import.meta.url,
     ),
   ),
   specRegistrySchema: fileURLToPath(
     new URL(
-      "../../development/contracts/spec-registry.schema.json",
+      "../../src/contracts/spec-registry.schema.json",
       import.meta.url,
     ),
   ),
   l2TaskFixture: fileURLToPath(
     new URL(
-      "../../development/contracts/fixtures/l2-task.fixture.json",
+      "../../src/contracts/fixtures/l2-task.fixture.json",
       import.meta.url,
     ),
   ),
   specRegistryFixture: fileURLToPath(
     new URL(
-      "../../development/contracts/fixtures/spec-registry.fixture.json",
+      "../../src/contracts/fixtures/spec-registry.fixture.json",
       import.meta.url,
     ),
   ),

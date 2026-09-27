@@ -4,7 +4,7 @@ These instructions are for AI assistants working in this project.
 
 This repository manages its own development tasks with **Taskcraft (`tc`)**.
 Trellis was fully uninstalled on 2026-09-27; see
-`development/migrations/trellis-cutover-2026-09-27.md` for the cutover record
+`.taskcraft/spec/history/trellis-cutover-2026-09-27.md` for the cutover record
 and the `trellis-final` git tag for the archived Trellis state. The project's
 authoritative truth (product specs, engineering contracts, ADRs) lives under
 `.taskcraft/spec/` (ADR 0011); `tc spec list` is the directory.

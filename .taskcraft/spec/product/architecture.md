@@ -133,7 +133,7 @@ erDiagram
     NODE_ATTEMPTS ||--o| SPEC_IMPACT_RESULTS : records
 ```
 
-`development/contracts/storage.sql` 是表结构和外键的唯一合同。Definition 表的 append-only trigger 保持旧 revision、旧 attempt 和旧 evidence 可引用。
+`src/contracts/storage.sql` 是表结构和外键的唯一合同。Definition 表的 append-only trigger 保持旧 revision、旧 attempt 和旧 evidence 可引用。
 
 ## 5. 单 reducer 与纯 projector
 
@@ -228,7 +228,7 @@ SQLite 使用 WAL、短写事务和 busy timeout。同一任务的事实写入�
 静默入口只输出必要的 root task anchor；多个 runnable node/children 通过
 `tc task next --json` 返回结构化列表。父 L3 与 child 同时 active 时不算多 root
 歧义，breadcrumb 锚定父任务，确定性 next 可指向 child。Breadcrumb 的 schema 见
-`development/contracts/breadcrumb.schema.json`。
+`src/contracts/breadcrumb.schema.json`。
 
 Breadcrumb 负责跨轮定位；节点执行卡负责当前节点指导；command result 负责同轮连续推进。完整行为以 [Agent 连续执行合同](lifecycle.md#7-agent-连续执行合同) 为规则源。
 
