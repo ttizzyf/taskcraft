@@ -80,7 +80,12 @@ describe("tc enable", () => {
       const hook = spawnSync(
         process.execPath,
         [join(process.cwd(), "dist", "hooks", "entry.js"), configPath(cwd)],
-        { encoding: "utf8" },
+        {
+          encoding: "utf8",
+          // No stdin is fed to the gate; skip the stdin pipe so a Windows
+          // CreatePipe failure cannot mask the assertion with `null`.
+          stdio: ["ignore", "pipe", "pipe"],
+        },
       );
 
       expect(hook.stdout).toBe("");

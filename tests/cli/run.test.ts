@@ -3,7 +3,13 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { parseJson, runCli, withInitializedDirectory } from "./helpers.js";
+import {
+  parseJson,
+  runCli,
+  runCliWithStdin,
+  withInitializedDirectory,
+  withInitializedDirectoryAsync,
+} from "./helpers.js";
 
 const RESULT_WITH_RECORD = JSON.stringify({
   summary: "typo fixed",
@@ -88,12 +94,12 @@ describe("tc run complete", () => {
     });
   });
 
-  it("accepts the result from stdin with @-", () => {
-    withInitializedDirectory((cwd) => {
+  it("accepts the result from stdin with @-", async () => {
+    await withInitializedDirectoryAsync(async (cwd) => {
       setupTask(cwd);
       expect(runCli(["run", "T-1"], cwd).status).toBe(0);
 
-      const complete = runCli(
+      const complete = await runCliWithStdin(
         ["run", "complete", "T-1", "--result", "@-"],
         cwd,
         RESULT_WITH_RECORD,

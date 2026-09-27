@@ -5,11 +5,15 @@ import { describe, expect, it } from "vitest";
 
 import { openDatabase } from "../../src/store/database.js";
 import { getLifecycleSpecBindings } from "../../src/store/query.js";
-import { runCli, withInitializedDirectory } from "./helpers.js";
+import {
+  runCli,
+  runCliWithStdin,
+  withInitializedDirectoryAsync,
+} from "./helpers.js";
 
 describe("tc task Spec lifecycle inputs", () => {
-  it("accepts confirmed Spec selections from @path and @-", () => {
-    withInitializedDirectory((cwd) => {
+  it("accepts confirmed Spec selections from @path and @-", async () => {
+    await withInitializedDirectoryAsync(async (cwd) => {
       writeRegistry(cwd);
       const selection = '[{"id":"engineering.core","duty":"required"}]';
       writeFileSync(join(cwd, "specs.json"), selection, "utf8");
@@ -32,21 +36,23 @@ describe("tc task Spec lifecycle inputs", () => {
         ).status,
       ).toBe(0);
       expect(
-        runCli(
-          [
-            "task",
-            "new",
-            "--title",
-            "Stdin selection",
-            "--level",
-            "1",
-            "--reason",
-            "confirmed contract",
-            "--specs",
-            "@-",
-          ],
-          cwd,
-          selection,
+        (
+          await runCliWithStdin(
+            [
+              "task",
+              "new",
+              "--title",
+              "Stdin selection",
+              "--level",
+              "1",
+              "--reason",
+              "confirmed contract",
+              "--specs",
+              "@-",
+            ],
+            cwd,
+            selection,
+          )
         ).status,
       ).toBe(0);
 

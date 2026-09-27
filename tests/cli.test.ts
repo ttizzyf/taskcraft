@@ -10,6 +10,10 @@ const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
 function runCli(argument: string) {
   return spawnSync(process.execPath, ["dist/cli.js", argument], {
     encoding: "utf8",
+    // The CLI never reads stdin; asking for a stdin pipe costs an extra
+    // CreatePipe that some Windows environments reject with EBUSY, which
+    // silently turns `status` into null.
+    stdio: ["ignore", "pipe", "pipe"],
   });
 }
 

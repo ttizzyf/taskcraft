@@ -36,7 +36,12 @@ function installEntryWrapper(cwd: string): string {
 
 function runEntryWrapper(entryPath: string): EntryResult {
   // No cwd: the wrapper must resolve the project root itself.
-  const result = spawnSync("bash", [entryPath], { encoding: "utf8" });
+  const result = spawnSync("bash", [entryPath], {
+    encoding: "utf8",
+    // The wrapper never reads stdin; a stdin pipe is an extra CreatePipe that
+    // some Windows environments reject with EBUSY, nulling out `status`.
+    stdio: ["ignore", "pipe", "pipe"],
+  });
 
   return {
     status: result.status,
