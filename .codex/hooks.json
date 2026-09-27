@@ -1,0 +1,15 @@
+{
+  "description": "Taskcraft Entry Hook registration (managed by tc init --agent codex)",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"D:/a_project_flie/taskcraft/.taskcraft/hooks/entry.mjs\""
+          }
+        ]
+      }
+    ]
+  }
+}

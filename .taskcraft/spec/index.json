@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "tc-spec-registry/v1",
+  "specs": [
+    {
+      "id": "spec-registry-contract",
+      "kind": "engineering",
+      "path": "development/contracts/spec-registry-contract.md",
+      "summary": "Registry Schema、单一解析入口、安全文件读取、候选解析、tc init / tc spec 与稳定错误合同。",
+      "appliesTo": [
+        "src/spec/**",
+        "src/commands/spec.ts",
+        "src/commands/init.ts"
+      ],
+      "status": "active"
+    },
+    {
+      "id": "entry-hook-contract",
+      "kind": "engineering",
+      "path": "development/contracts/entry-hook-contract.md",
+      "summary": "Adapter、CLI、配置持久化、Watch Runtime/Diagnostics 的 SessionStart Entry 数据流。",
+      "appliesTo": [
+        "src/adapters/**",
+        "src/hooks/**",
+        "src/commands/agent.ts",
+        "src/watch/**",
+        "watch/**"
+      ],
+      "status": "active"
+    },
+    {
+      "id": "host-process-portability",
+      "kind": "engineering",
+      "path": "development/contracts/host-process-portability.md",
+      "summary": "宿主命令的 cmd.exe 启动、参数保真、超时整树终止与 Codex 信任门 TOML 解析的跨平台合同。",
+      "appliesTo": [
+        "src/adapters/process.ts",
+        "src/adapters/codex.ts",
+        "evals/core/process.ts",
+        "tests/adapters/**"
+      ],
+      "status": "active"
+    },
+    {
+      "id": "l3-modular-contract",
+      "kind": "engineering",
+      "path": "development/contracts/l3-modular-contract.md",
+      "summary": "accepted Plan 事务、真实 child、parent Projector、replan/reuse、Entry root 选择与 CLI/Watch/doctor 同源合同。",
+      "appliesTo": [
+        "src/core/**",
+        "src/store/**",
+        "src/commands/render-l3.ts",
+        "src/watch/**"
+      ],
+      "status": "active"
+    },
+    {
+      "id": "spec-lifecycle-contract",
+      "kind": "engineering",
+      "path": "development/contracts/spec-lifecycle-contract.md",
+      "summary": "revision/node binding、L2/L3 原子继承、reuse Spec set、drift 与显式 refresh。",
+      "appliesTo": [
+        "src/spec/**",
+        "src/commands/task-new.ts",
+        "src/commands/run.ts"
+      ],
+      "status": "active"
+    },
+    {
+      "id": "spec-delivery-contract",
+      "kind": "engineering",
+      "path": "development/contracts/spec-delivery-contract.md",
+      "summary": "Node/Review Brief、typed Spec Impact、共享 task show/Watch DTO 与 doctor 只读完整性。",
+      "appliesTo": [
+        "src/core/node-brief.ts",
+        "src/spec/delivery.ts",
+        "src/spec/impact.ts",
+        "src/commands/render-spec.ts",
+        "src/commands/task-show.ts",
+        "src/watch/**"
+      ],
+      "status": "active"
+    }
+  ]
+}

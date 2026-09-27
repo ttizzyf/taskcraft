@@ -1,6 +1,8 @@
 .DS_Store
 *.log
 .taskcraft/cache/
+.taskcraft/*.db-shm
+.taskcraft/*.db-wal
 node_modules/
 dist/
 coverage/
