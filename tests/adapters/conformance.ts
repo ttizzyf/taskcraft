@@ -125,8 +125,10 @@ export function runConformance(
         // The entry wrapper delegates to the public CLI next to the adapter
         // module (resolveTcPath: dist/cli.js from the built layout, src/cli.js
         // under tests). The built-artifact layout is pinned by the CLI
-        // integration test that spawns dist/cli.js.
-        expect(entryContent).toContain(resolveTcPath());
+        // integration test that spawns dist/cli.js. Both wrappers normalize
+        // the path to POSIX separators, so a Windows path stays literal inside
+        // the bash double-quoted argument and the JS string literal.
+        expect(entryContent).toContain(resolveTcPath().replaceAll("\\", "/"));
         expect(entryContent).toContain("state --breadcrumb");
         expect(entryContent).toContain('cd "$(dirname "$0")/../.."');
 

@@ -76,7 +76,8 @@ describe("tc init --agent (CLI)", () => {
         join(cwd, ".taskcraft", "hooks", "entry.mjs"),
         "utf8",
       );
-      expect(gate).toContain("state --breadcrumb");
+      // The Node gate passes argv as an array, not a shell string.
+      expect(gate).toContain('"state", "--breadcrumb"');
 
       const config = JSON.parse(
         readFileSync(join(cwd, ".codex", "hooks.json"), "utf8"),

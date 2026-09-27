@@ -297,25 +297,32 @@ describe("Spec Registry service", () => {
     }
   });
 
-  it("rejects unreadable Spec files", () => {
-    withProject((projectDir) => {
-      const path = join(projectDir, "docs", "private.md");
-      writeBody(projectDir, "docs/private.md", "private");
-      writeRegistry(projectDir, [
-        entry("engineering.private", "docs/private.md"),
-      ]);
-      chmodSync(path, 0o000);
+  // POSIX-only: `chmod 0o000` clears the read bit on POSIX, but on Windows it
+  // only toggles the read-only attribute and the file stays readable, so no
+  // registry error can be raised. There is no Windows equivalent short of
+  // rewriting the ACLs.
+  it.skipIf(process.platform === "win32")(
+    "rejects unreadable Spec files",
+    () => {
+      withProject((projectDir) => {
+        const path = join(projectDir, "docs", "private.md");
+        writeBody(projectDir, "docs/private.md", "private");
+        writeRegistry(projectDir, [
+          entry("engineering.private", "docs/private.md"),
+        ]);
+        chmodSync(path, 0o000);
 
-      try {
-        expectTaskcraftError(
-          () => loadSpecRegistry(projectDir),
-          ERROR_CODES.TC_SPEC_PATH_INVALID,
-        );
-      } finally {
-        chmodSync(path, 0o600);
-      }
-    });
-  });
+        try {
+          expectTaskcraftError(
+            () => loadSpecRegistry(projectDir),
+            ERROR_CODES.TC_SPEC_PATH_INVALID,
+          );
+        } finally {
+          chmodSync(path, 0o600);
+        }
+      });
+    },
+  );
 
   it.each([
     { paths: [] },
