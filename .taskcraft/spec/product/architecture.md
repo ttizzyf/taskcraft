@@ -85,6 +85,12 @@ nodes、下一步和用户视图；Adapter 负责 Entry Hook 安装、节点执�
 - `spec_impact_results` 为成功的 Record attempt 保存一个不可变的
   `none|updated|candidate` 结果；`updated` 引用当前 Registry snapshot 和本 Task
   evidence，`candidate` 只保存待 owner 决定的提案。
+- `spec_sedimentation_results` 为已 `done` 的任务保存一个不可变的沉淀记录：这个
+  任务动过哪些 Spec 文档（spec id 列表）与必填 `reason`。行身份是自然键
+  `(task_id, lifecycle_revision, 规范化 spec id 列表)`，不含正文指纹、证据引用或
+  三态声明，因此同一列表重复提交是 no-op 而不需要派生内容哈希。该表不产生
+  obligation，也不参与 `done` 的推导：沉淀是已完成任务的产出，不是它完成合同的
+  一步。
 
 ### 3.3 Observations
 
@@ -198,6 +204,15 @@ Spec Impact 通过新 compiler 代际启用：`tc-l1/3`、`tc-l2/3`、`tc-l3/4` 
 `spec-impact-recorded` obligation。SQLite 中已经保存的旧 compiler revision 继续按
 其 exact `output_schema_json` 和原 obligations 完成，不回填 binding 或 Impact。
 
+Spec 沉淀不绑定 compiler 代际：`spec_sedimentation_results`（迁移 0004）与
+`tc task spec sediment` 适用于任何已 `done` 的任务，包括旧 compiler revision。
+命令边界在追加 Registry 条目之前先完成全部只读校验，reducer 在事务内复用同一校验；
+沉淀失败、重放或未写入都不改变 `done`，也不阻止宿主的后续工作。
+
+沉淀记录是历史事实，不做当下校验：doctor 只验证记录本身（reason 非空、spec 列表
+非空且唯一、lifecycle revision 存在、不产生 obligation），既不拿今天的 Registry
+去比对已写入的记录，也不为历史记录重新校验 spec id 是否仍然存在。
+
 ## 7. Revision 与并发
 
 每个 Task 有递增 `revision`，代表事实快照的 CAS 版本；每个 Task 同时维护单线递增的 `current_lifecycle_revision`。写命令携带 `expectedRevision`，不匹配返回 `TC_REVISION_CONFLICT`，响应包含当前 revision 和重读命令。
@@ -288,7 +303,7 @@ hook command，没有 bash）。Node gate 不依赖任何 shell，用 `execFileS
 - export 支持移除绝对路径、session id 和运行细节。
 - `doctor` 检查 migration ledger、外键、孤儿事实、事件连续性、definition digest、
   L3 层级/覆盖/依赖/provenance、Spec Registry、binding drift/provenance、Spec Impact
-  compiler/obligation/evidence、投影重建和 breadcrumb schema；它只读并提供完整性诊断。
+  compiler/obligation/evidence、Spec 沉淀事实、投影重建和 breadcrumb schema；它只读并提供完整性诊断。
 
 ## 11. 迁移
 

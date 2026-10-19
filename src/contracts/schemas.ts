@@ -9,22 +9,13 @@ import {
 
 export const contractPaths = Object.freeze({
   lifecycleSchema: fileURLToPath(
-    new URL(
-      "../../src/contracts/lifecycle.schema.json",
-      import.meta.url,
-    ),
+    new URL("../../src/contracts/lifecycle.schema.json", import.meta.url),
   ),
   breadcrumbSchema: fileURLToPath(
-    new URL(
-      "../../src/contracts/breadcrumb.schema.json",
-      import.meta.url,
-    ),
+    new URL("../../src/contracts/breadcrumb.schema.json", import.meta.url),
   ),
   specRegistrySchema: fileURLToPath(
-    new URL(
-      "../../src/contracts/spec-registry.schema.json",
-      import.meta.url,
-    ),
+    new URL("../../src/contracts/spec-registry.schema.json", import.meta.url),
   ),
   l2TaskFixture: fileURLToPath(
     new URL(

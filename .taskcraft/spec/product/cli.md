@@ -80,14 +80,21 @@ Entry Hook，返回测试时间和失败原因，并把结果写入 `config.entr
 tc spec list [--json]
 tc spec check [--json]
 tc spec resolve --path src/payment/card.ts [--path README.md] [--json]
+tc spec register --entries <json|@path|@-> [--json]
 ```
 
-三个命令读取同一个 `src/spec/` DTO，均不打开或修改 Task Store。`list` 显示全部
+前三个命令读取同一个 `src/spec/` DTO，均不打开或修改 Task Store。`list` 显示全部
 active/deprecated 条目和当前正文 SHA-256；`check` 完整验证 Registry Schema、唯一
 id/path、domain authority、正文存在性、可读性和 project realpath containment；
 `resolve` 只按调用方给出的 canonical repo-relative path 返回 active 候选，匹配
 不会自动选择或绑定 Spec。Registry 或正文失败使用稳定的
 `TC_SPEC_REGISTRY_INVALID|TC_SPEC_NOT_FOUND|TC_SPEC_PATH_INVALID`，不回退为空列表。
+
+`register` 是唯一的批量登记入口，只写 Registry、不打开 Task Store：它把一批已有
+文档一次性原子登记，语义是只追加——同 id 同内容为 no-op，同 id 不同内容或同 path
+另一 id 一律拒绝，正文缺失也拒绝，任一条目失败则整批不落盘。它用于老项目初始化：
+把已有文档整理成一份 entries 数组，一次登记后，后续任务即可通过
+`tc spec list/resolve` 发现并显式绑定。
 
 ## 4. Task
 
@@ -104,6 +111,7 @@ tc task cancel T-104 --reason "superseded"
 tc task evidence add T-104 --attempt att_execute_1 --type test --ref report.json  （deferred）
 tc task fact add T-104 --attempt <id> --category probe --subject "API capability" --value <json|@path> --evidence <id>
 tc task spec refresh T-104 --reason "Registry contract changed"
+tc task spec sediment T-104 --reason "<why this knowledge is kept>" --spec <spec-id> [--spec <spec-id>]... [--register <json|@path|@->] [--expected-revision <n>]
 tc task export T-104 --format md  （deferred）
 ```
 
@@ -112,6 +120,14 @@ Agent 提交任务目标、Level 和判定理由；其他 facts 按需提供，�
 `--specs` 接收显式 `{id,duty}` 选择；命令用 Registry 解析 active current snapshot，
 Reducer 只接收解析后的值。`task spec refresh` 创建新 revision，不覆盖旧 binding；
 L3 root 或 inherited child 复用 parent replan 路径。
+
+`task spec sediment` 是任务 `done` 之后沉淀 Spec 知识的唯一写路径：`--reason`
+必填，`--spec` 可重复，登记这个任务动过哪些 Spec 文档（每个 id 必须已登记在
+Registry 中），`--register` 可在同一命令里先追加新 Spec 的 Registry 条目。
+命令边界在追加任何条目前完成全部只读校验，reducer 在事务内复用同一校验；
+同一 spec 列表重复提交是 no-op。它不改变任务状态、不创建 obligation，失败只返回
+`TC_SPEC_SEDIMENTATION_INVALID` 并保持任务 `done`。记录不含正文指纹与证据引用：
+被引用的文档本身才是产物，而拿今天的 Registry 回校验一条历史记录是范畴错误。
 `promote` 提供升级快捷路径；`revise` 通过新 revision 修改 Level 或合同并留存原因
 与差异（两者均 deferred，非 MVP 范围）。evidence 不单独提交：随 `run complete`
 result 的 evidence refs 引用落库，`evidence add`/`export` 均 deferred。根命令 `tc`
@@ -163,9 +179,10 @@ children 只记录为 `not_required`，不自动取消或停止宿主运行。�
 校验结构、CAS、结果 Schema 和引用关系。
 
 Execute/Review Node Brief 的 `specs[]` 来自当前 revision/node 的 immutable binding，
-包含 id、kind、duty、path、digest 和 drift。required drift 在新 attempt 事务前返回
-`TC_SPEC_BINDING_STALE`；recommended drift 只显示。Review Brief 同时返回被审核
-attempt 的 node、result 和 evidence。Codex 与 Claude Adapter 只渲染这个 DTO。
+包含 id、kind、duty、path、digest 和 drift。required drift 在新的 Execute attempt
+事务前返回 `TC_SPEC_BINDING_STALE`；Review 不受门禁，其 Brief 把 drift 显示给评审者；
+recommended drift 只显示。Review Brief 同时返回被审核 attempt 的 node、result 和
+evidence。Codex 与 Claude Adapter 只渲染这个 DTO。
 
 ## 6. Watch 与状态
 
@@ -179,7 +196,8 @@ tc state --json
 
 `watch` 默认绑定 `127.0.0.1` 随机端口并打开浏览器；`--no-open` 只打印 URL。深链在同一 Watch 会话内稳定；无浏览器环境可使用 `tc task list` 与 `tc task show`，两者读取同一 Task Store。
 Task Detail 的 Specs 区块与 `task show` 消费同一个 delivery DTO，显示 current binding、
-drift、Registry issue 和最终 Spec Impact；前端不计算任务状态、漂移或 Impact 语义。
+drift、Registry issue 和最终 Spec Impact；已结束任务的 binding 标注为 `historical`
+而不是拿今天的 Registry 判它。前端不计算任务状态、漂移或 Impact 语义。
 `lifecycle inspect/explain/validate` 为 deferred，不进入首版帮助或闭环示例。
 
 ## 7. 常见闭环
@@ -256,7 +274,7 @@ tc run complete T-203 --node record-1 --result record.json
 | `run attach`                      | attempt 已创建；Agent 提供已有 host run；CAS 匹配                                                                           | agent run observation、attempt actor binding、审计事件                                                             | 返回 `run status`/`run complete`                                             |
 | `run retry`                       | 目标是当前 revision 中该 node 的最新 attempt，且已失败/superseded 或 host observation 为 stale；Agent 给出 reason；CAS 匹配 | stale 活跃 attempt 原子标为 `superseded`、创建并领取 successor attempt、审计事件                                   | 直接返回 successor Node Brief 与 `run complete`；Agent 可选执行 `run attach` |
 | `run complete`                    | attempt 属于当前 lifecycle revision；结果满足节点 gate；CAS 匹配                                                            | attempt outcome、evidence refs、obligation results、审计事件；当前 Record 同事务写 typed Spec Impact               | 返回 projector 推导的下一节点命令                                            |
-| `review start`                    | 当前 revision 的 review node runnable；review purpose 与被审核 attempt kind 匹配；required Spec 无漂移；CAS 匹配            | review attempt、review link、purpose、能力与独立性披露、审计事件                                                   | 返回带 exact Specs、被审核 result/evidence 的 Review Node Brief 与结论命令   |
+| `review start`                    | 当前 revision 的 review node runnable；review purpose 与被审核 attempt kind 匹配；CAS 匹配                                  | review attempt、review link、purpose、能力与独立性披露、审计事件                                                   | 返回带 exact Specs、被审核 result/evidence 的 Review Node Brief 与结论命令   |
 | `review pass`                     | review link 有效；required review evidence 完整；L3 Plan schema、coverage、dependencies 和 child 引用有效；CAS 匹配         | 普通 Review 写 outcome/evidence；L3 Feasibility pass 原子写 execution revision、anchors、relations 与真实 children | 返回 `record`、`integrate` 或新的 runnable node/child 集合                   |
 | `review changes`                  | review link 有效；finding 需要实质修改且合同保持不变；CAS 匹配                                                              | finding、被审核 node kind 的 successor attempt、审计事件                                                           | 返回 successor `run`                                                         |
 | `review replan`                   | review link 有效；Agent 提交 typed reason；CAS 匹配；child 路径要求其属于当前 L3 required 集合                              | 新 planning revision、old/new diff、旧 child 的 `not_required` membership 与审计事件；不删除或取消 child           | 返回 root 新 revision 的首个 runnable node                                   |
@@ -323,7 +341,7 @@ Node Brief 告诉 Agent 应提交的 JSON 结构和登记命令。Taskcraft 在�
 | `TC_ADAPTER_*`   | host capability、Hook、run                           |
 | `TC_STORE_*`     | SQLite、迁移、事务、完整性                           |
 | `TC_POLICY_*`    | 项目策略拒绝                                         |
-| `TC_SPEC_*`      | Git-owned Spec Registry、正文路径和后续绑定/影响合同 |
+| `TC_SPEC_*`      | Git-owned Spec Registry、正文路径和后续绑定/影响/沉淀合同 |
 
 错误 remediation 只引用 CLI、adapter 或用户输入动作；Task Store、Board、breadcrumb 和 Watch 由同一 command service 产生。
 

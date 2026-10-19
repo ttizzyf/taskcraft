@@ -5,13 +5,19 @@ import { getLifecycleSpecBindings, listTasks } from "../store/query.js";
 import { ERROR_CODES } from "./errors.js";
 import type { DoctorCheck } from "./doctor.js";
 import { checkSpecImpact } from "./doctor-spec-impact.js";
+import { checkSpecSedimentation } from "./doctor-spec-sedimentation.js";
+import { project } from "./projector.js";
 import { validateStoredNodeResult } from "./reducer/lifecycle-result.js";
 
 export function runSpecStoreChecks(
   database: TaskcraftDatabase,
   registry: LoadedSpecRegistry | null,
 ): DoctorCheck[] {
-  return [checkSpecBindings(database, registry), checkSpecImpact(database)];
+  return [
+    checkSpecBindings(database, registry),
+    checkSpecImpact(database),
+    checkSpecSedimentation(database),
+  ];
 }
 
 function checkSpecBindings(
@@ -50,12 +56,17 @@ function checkSpecBindings(
         );
       }
     }
-    if (registry !== null) {
-      const current = bindings.filter(
+    if (registry !== null && !isFinished(database, task.id)) {
+      // Only a required binding can block work, so only a required binding can
+      // make the store unhealthy. A recommended binding is advisory context
+      // that never gates anything; reporting its drift as a failure would turn
+      // every Spec edit into permanent red noise.
+      const gating = bindings.filter(
         (binding) =>
-          binding.lifecycleRevision === task.currentLifecycleRevision,
+          binding.lifecycleRevision === task.currentLifecycleRevision &&
+          binding.duty === "required",
       );
-      for (const item of evaluateSpecBindingDrift(registry, current)) {
+      for (const item of evaluateSpecBindingDrift(registry, gating)) {
         if (item.status === "stale") {
           problems.push(
             `${task.id} ${item.binding.nodeId} ${item.binding.specId}: ${item.reasons.join(", ")}`,
@@ -74,6 +85,19 @@ function checkSpecBindings(
         "Current Node Briefs and drift gates cannot trust the stored binding snapshot",
         "Repair the Registry or Store facts, then re-run: tc doctor",
       );
+}
+
+/** Drift warns about work a task will still do under a changed contract, so a
+ * finished task's binding is history and out of scope: comparing it with
+ * today's Registry would report every past task forever, with no remedy.
+ * Unprojectable tasks keep the comparison so the damage stays visible. */
+function isFinished(database: TaskcraftDatabase, taskId: string): boolean {
+  try {
+    const status = project(database, taskId).status;
+    return status === "done" || status === "cancelled";
+  } catch {
+    return false;
+  }
 }
 
 function checkL3BindingSets(database: TaskcraftDatabase): string[] {

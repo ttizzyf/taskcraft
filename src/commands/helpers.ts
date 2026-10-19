@@ -21,6 +21,8 @@ import type { TaskcraftDatabase } from "../store/database.js";
 import { openDatabase } from "../store/database.js";
 import { applyMigrations, MigrationError } from "../store/migrations.js";
 import { getReviewLinks } from "../store/query.js";
+import { parseSpecRegistryEntry } from "../spec/index.js";
+import type { SpecRegistryEntry } from "../spec/index.js";
 
 export const TASKCRAFT_DIRECTORY_NAME = ".taskcraft";
 export const TASKCRAFT_DATABASE_FILE = "taskcraft.db";
@@ -97,6 +99,31 @@ export function parseJsonInput(
       cause,
     });
   }
+}
+
+/** Parses a non-empty JSON array of Registry entries through the shared entry
+ * schema. Shared by `tc spec register` and `tc task spec sediment --register`
+ * so both write paths accept exactly the same shape. */
+export function parseRegistryEntriesInput(
+  value: string,
+  optionName = "--entries",
+): SpecRegistryEntry[] {
+  const parsed = parseJsonInput(
+    value,
+    ERROR_CODES.TC_SPEC_REGISTRY_INVALID,
+    "Spec Registry entries",
+  );
+
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new TaskcraftError(ERROR_CODES.TC_SPEC_REGISTRY_INVALID, {
+      problem: `${optionName} must be a non-empty JSON array of Registry entries`,
+      impact: "No Registry entry was appended",
+      remediation:
+        'Pass [{"id":"...","kind":"engineering|domain","path":"...","summary":"...","appliesTo":["..."],"status":"active"}]',
+    });
+  }
+
+  return parsed.map((entry) => parseSpecRegistryEntry(entry));
 }
 
 /** Parses an optional --expected-revision option into a positive integer. */

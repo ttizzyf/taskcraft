@@ -39,7 +39,8 @@ loadSpecDeliveryView(projectDir, database, taskId, revision): SpecDeliveryView;
   信封，`problem` 提供字段路径/约束，`remediation` 指向具体 task show 命令，
   不回显提交值，失败整笔回滚；doctor 的布尔校验也复用该 validator。
 - Review Brief 使用 Review node binding，并包含 purpose、被审核 attempt/node、result
-  和该 attempt evidence。required drift 在 Review attempt 写入前失败。
+  和该 attempt evidence。required drift 不阻止 Review attempt 写入——评审是裁决漂移
+  的场所——但 Brief 必须把 drift 显示给评审者。
 - `review changes` 原子创建的 successor Execute/Plan attempt 必须返回它自己的 Node
   Brief；命令边界把创建前已经检查过的同一份 Registry drift 附加到该 Brief，不能在
   reducer 或 renderer 中二次读取 Registry。
@@ -61,10 +62,12 @@ loadSpecDeliveryView(projectDir, database, taskId, revision): SpecDeliveryView;
   验证该证据属于同 task/revision 的成功 Record，且有对应 Impact，不能仅因某个
   其他 attempt 存在 Impact 就放行。
 - `src/spec/delivery.ts` 是 `task show` 与 Watch 的共享 DTO。Watch 只渲染 Registry
-  issue、binding drift 和 Impact，不推导状态或语义。
+  issue、binding drift 和 Impact，不推导状态或语义。已结束任务的 binding 是历史
+  事实，其 `drift.status` 为 `historical`，不拿今天的 Registry 比对。
 - doctor 始终只读：命令边界检查 Registry；Store 检查 binding current drift、来源
   provenance、orphan、Impact schema/evidence、成功 Record attempt、Record result、
-  required obligation 和 compiler/schema 代际的一致性。L3 inherited provenance 必须
+  required obligation 和 compiler/schema 代际的一致性。其中 drift 只对**未结束任务的
+  required 绑定**报失败，因为只有它会真正阻断工作。L3 inherited provenance 必须
   精确指向同一 parent execution source、module requirement 和已成功的 source Plan
   attempt，不能只检查引用存在。
 
@@ -72,8 +75,9 @@ loadSpecDeliveryView(projectDir, database, taskId, revision): SpecDeliveryView;
 
 | 条件                                                                      | 结果                                                   |
 | ------------------------------------------------------------------------- | ------------------------------------------------------ |
-| required Registry/path/digest 不可用                                      | `TC_SPEC_BINDING_STALE`，不创建 Execute/Review attempt |
+| required Registry/path/digest 不可用                                      | `TC_SPEC_BINDING_STALE`，不创建 Execute attempt；Review 仍可开 |
 | recommended 漂移                                                          | Brief/CLI/Watch 显示 stale，不阻断                     |
+| 已完成/已取消任务的 binding 漂移                                          | 显示为 `historical`，doctor 不报失败                   |
 | `none` 空 reason 或 candidate 缺 ownerDecision                            | schema 失败，无 Record facts                           |
 | `updated` 非 current snapshot、foreign/`note` evidence 或语义不等价        | `TC_SPEC_IMPACT_INVALID`，整笔回滚                     |
 | Impact insert/obligation 失败                                             | Record attempt、evidence、Impact 和 obligation 全回滚  |

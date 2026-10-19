@@ -195,7 +195,7 @@ describe("tc task Spec lifecycle", () => {
     });
   });
 
-  it("blocks a stale required delivery Review before creating its attempt", () => {
+  it("opens a stale required delivery Review while still blocking new Execute work", () => {
     withInitializedDirectory((cwd) => {
       writeRegistry(cwd);
       expect(
@@ -257,7 +257,9 @@ describe("tc task Spec lifecycle", () => {
       ).toBe(0);
       writeFileSync(join(cwd, "docs", "core.md"), "# Review changed\n", "utf8");
 
-      const blocked = runCli(
+      // A Review is where a stale contract gets adjudicated, so it stays
+      // reachable; only new Execute work is gated.
+      const opened = runCli(
         [
           "review",
           "start",
@@ -271,15 +273,25 @@ describe("tc task Spec lifecycle", () => {
         ],
         cwd,
       );
+      expect(opened.status).toBe(0);
+      expect(opened.stdout).toContain("digest_changed");
+
+      // Requesting changes would create a successor Execute attempt under the
+      // stale contract, so that stays refused.
+      const blocked = runCli(
+        [
+          "review",
+          "changes",
+          "T-1",
+          "--attempt",
+          "att-T-1-review-1-1",
+          "--finding",
+          "Correct the delivery",
+        ],
+        cwd,
+      );
       expect(blocked.status).toBe(1);
       expect(blocked.stderr).toContain("TC_SPEC_BINDING_STALE");
-      const database = openDatabase(join(cwd, ".taskcraft", "taskcraft.db"));
-      expect(
-        getAttempts(database, "T-1").filter(
-          (attempt) => attempt.nodeId === "review-1",
-        ),
-      ).toEqual([]);
-      database.close();
     });
   });
 

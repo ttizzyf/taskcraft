@@ -67,7 +67,7 @@ describe("tc doctor", () => {
 
       const text = runCli(["doctor"], cwd);
       expect(text.status).toBe(0);
-      expect(text.stdout).toContain("Doctor: 11 checks passed");
+      expect(text.stdout).toContain("Doctor: 12 checks passed");
       expect(text.stderr).toBe("");
 
       const result = runCli(["doctor", "--json"], cwd);
@@ -75,7 +75,7 @@ describe("tc doctor", () => {
       const json = parseJson<{ ok: boolean; data: DoctorData }>(result);
       expect(json.ok).toBe(true);
       expect(json.data.healthy).toBe(true);
-      expect(json.data.totalChecks).toBe(11);
+      expect(json.data.totalChecks).toBe(12);
       expect(json.data.failedChecks).toBe(0);
       expect(json.data.checks.every((check) => check.ok)).toBe(true);
     });

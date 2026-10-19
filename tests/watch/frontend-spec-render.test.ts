@@ -134,4 +134,34 @@ describe("renderTaskDetail Specs", () => {
     expect(html).not.toContain("<img src=x>");
     expect(html).not.toContain("<script>alert(1)</script>");
   });
+
+  it("labels a finished task's binding as historical instead of stale", () => {
+    const html = renderTaskDetail(
+      buildDetail({
+        specs: {
+          registryIssue: null,
+          bindings: [
+            {
+              lifecycleRevision: 1,
+              nodeId: "execute-1",
+              id: "engineering.delivery",
+              kind: "engineering",
+              path: "docs/delivery.md",
+              digest: "a".repeat(64),
+              duty: "required",
+              sourceKind: "task_create",
+              sourceTaskId: null,
+              sourceAttemptId: null,
+              drift: { status: "historical", reasons: [] },
+            },
+          ],
+          impacts: [],
+        },
+      }),
+    );
+
+    expect(html).toContain('class="status-tag historical"');
+    expect(html).toContain("historical");
+    expect(html).not.toContain("digest_changed");
+  });
 });

@@ -41,6 +41,20 @@ export type {
   SpecDeliveryImpact,
   SpecDeliveryView,
 } from "./delivery.js";
+export {
+  appendSpecRegistryEntries,
+  appendSpecRegistryEntry,
+  parseSpecRegistryEntry,
+} from "./registry-append.js";
+export type {
+  AppendSpecRegistryEntriesResult,
+  AppendSpecRegistryEntryResult,
+} from "./registry-append.js";
+export {
+  parseSpecSedimentationIds,
+  resolveSpecSedimentationIds,
+  sedimentationInvalid,
+} from "./sediment.js";
 export type {
   ResolvedSpecBinding,
   SpecBindingDrift,

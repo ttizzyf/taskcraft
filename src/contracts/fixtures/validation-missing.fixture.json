@@ -34,28 +34,28 @@
           "procedureRef": "l1:record"
         }
       ],
-      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "edges": [{ "from": "execute-1", "to": "record-1" }],
       "obligations": [
         {
           "nodeId": "execute-1",
           "id": "requested-outcome-produced",
           "duty": "required",
           "title": "Requested outcome produced",
-          "evaluator": {"kind": "evidence-exists"}
+          "evaluator": { "kind": "evidence-exists" }
         },
         {
           "nodeId": "execute-1",
           "id": "minimum-validation-recorded",
           "duty": "required",
           "title": "Minimum validation recorded",
-          "evaluator": {"kind": "evidence-type", "type": "validation"}
+          "evaluator": { "kind": "evidence-type", "type": "validation" }
         },
         {
           "nodeId": "record-1",
           "id": "result-and-scope-retained",
           "duty": "required",
           "title": "Result and scope retained",
-          "evaluator": {"kind": "record-result"}
+          "evaluator": { "kind": "record-result" }
         }
       ]
     }

@@ -161,6 +161,23 @@ export interface TaskSpecRefreshData extends CommandData {
   newRevision: number;
 }
 
+export interface SpecSedimentInput {
+  /** Why this sedimentation is being recorded, retained as an audit string. */
+  reason: string;
+  expectedRevision?: number;
+  /** Spec documents this finished task touched, resolved against the Registry
+   * at the command boundary. Reducers never read project files. */
+  specIds: readonly string[];
+  actorInstanceId?: string;
+}
+
+export interface SpecSedimentData extends CommandData {
+  /** The recorded Spec ids, canonical (sorted) so a replay is recognisable. */
+  specIds: string[];
+  /** false when the identical list was already recorded (replay no-op). */
+  inserted: boolean;
+}
+
 export interface ReviewStartInput {
   taskId: string;
   expectedRevision?: number;

@@ -59,9 +59,11 @@ describe("shared Spec delivery view", () => {
       const watch = buildTaskDetail(database, taskId, temporary.path)!;
       expect(taskShow.specs).toEqual(watch.specs);
       expect(taskShow.specs.bindings).toHaveLength(2);
+      // The task is finished, so its bindings are history: they are reported as
+      // historical instead of being compared with today's Registry.
       expect(
         taskShow.specs.bindings.every(
-          (binding) => binding.drift.status === "current",
+          (binding) => binding.drift.status === "historical",
         ),
       ).toBe(true);
       expect(taskShow.specs.impacts[0]?.result).toEqual({
@@ -77,8 +79,54 @@ describe("shared Spec delivery view", () => {
       const staleTaskShow = buildTaskShowData(database, taskId, temporary.path);
       const staleWatch = buildTaskDetail(database, taskId, temporary.path)!;
       expect(staleTaskShow.specs).toEqual(staleWatch.specs);
+      // Editing the Spec afterwards cannot turn a finished task's history into
+      // a problem, which is what kept every past task permanently stale.
       expect(
         staleTaskShow.specs.bindings.every(
+          (binding) => binding.drift.status === "historical",
+        ),
+      ).toBe(true);
+    } finally {
+      database.close();
+      temporary.cleanup();
+    }
+  });
+
+  it("compares an unfinished task's bindings with the current Registry", () => {
+    const temporary = createTemporaryDirectory();
+    const database = createMigratedDatabase();
+    try {
+      const spec = writeRegistry(temporary.path, "Live delivery contract\n");
+      const { taskId } = taskNew(database, {
+        title: "Live drift",
+        level: 1,
+        reason: "unfinished work still acts on its contract",
+        initialSpecBindings: [
+          {
+            specId: "engineering.delivery",
+            kind: "engineering",
+            path: "docs/delivery.md",
+            digest: spec.digest,
+            duty: "required",
+          },
+        ],
+      });
+
+      const fresh = buildTaskShowData(database, taskId, temporary.path);
+      expect(
+        fresh.specs.bindings.every(
+          (binding) => binding.drift.status === "current",
+        ),
+      ).toBe(true);
+
+      writeFileSync(
+        join(temporary.path, "docs", "delivery.md"),
+        "Changed delivery contract\n",
+        "utf8",
+      );
+      const stale = buildTaskShowData(database, taskId, temporary.path);
+      expect(
+        stale.specs.bindings.every(
           (binding) =>
             binding.drift.status === "stale" &&
             binding.drift.reasons.includes("digest_changed"),

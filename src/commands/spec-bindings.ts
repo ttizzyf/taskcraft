@@ -107,8 +107,13 @@ function checkCurrentAttemptSpecBindings(
       reasons: ["registry_unavailable" as const],
     }));
   }
+  // Only a new Execute attempt is blocked. Starting a Review is how a stale
+  // contract gets adjudicated, so it must stay reachable: blocking it would
+  // deadlock the very work that maintains the Specs, since the task that edits
+  // its own required Specs is exactly the one that turns them stale.
   if (
     creatingAttempt &&
+    node.kind === "execute" &&
     drift.some(
       (item) => item.status === "stale" && item.binding.duty === "required",
     )

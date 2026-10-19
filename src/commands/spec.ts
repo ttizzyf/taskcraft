@@ -1,21 +1,29 @@
-// tc spec: read-only access to the Git-owned project Spec Registry. All three
-// subcommands consume the same src/spec DTOs used by JSON output; no command
-// opens or writes the Task Store.
+// tc spec: inspect and register entries in the Git-owned project Spec Registry.
+// Every subcommand consumes the same src/spec DTOs used by JSON output; none
+// opens or writes the Task Store. `register` is the bulk write path that lets a
+// project with existing documents seed its Registry in one atomic pass.
 
 import type { Command } from "commander";
 
 import {
+  appendSpecRegistryEntries,
   checkSpecRegistry,
   loadSpecRegistry,
   resolveSpecCandidates,
 } from "../spec/index.js";
 import type {
+  AppendSpecRegistryEntriesResult,
   LoadedSpecRegistry,
   ResolvedSpec,
   SpecCheckResult,
   SpecResolutionResult,
 } from "../spec/index.js";
-import { execute, isJsonMode, printCommandResult } from "./helpers.js";
+import {
+  execute,
+  isJsonMode,
+  parseRegistryEntriesInput,
+  printCommandResult,
+} from "./helpers.js";
 
 export function register(program: Command): void {
   const spec = program
@@ -52,6 +60,30 @@ export function register(program: Command): void {
           printCommandResult(result);
         } else {
           console.log(renderSpecCheck(result));
+        }
+      }, json);
+    });
+
+  spec
+    .command("register")
+    .description(
+      "append Registry entries for documents that already exist (bulk, atomic)",
+    )
+    .requiredOption(
+      "--entries <entries>",
+      "Registry entries: JSON array, @path or @-",
+    )
+    .action(async (options, command) => {
+      const json = isJsonMode(command);
+
+      await execute(() => {
+        const entries = parseRegistryEntriesInput(options.entries);
+        const result = appendSpecRegistryEntries(process.cwd(), entries);
+
+        if (json) {
+          printCommandResult(result);
+        } else {
+          console.log(renderSpecRegister(result));
         }
       }, json);
     });
@@ -102,6 +134,16 @@ function renderSpecList(registry: LoadedSpecRegistry): string {
   }
 
   return lines.join("\n");
+}
+
+function renderSpecRegister(result: AppendSpecRegistryEntriesResult): string {
+  const appended = result.appended.filter(Boolean).length;
+
+  return [
+    `Spec Registry: ${result.registryPath}`,
+    `Appended: ${appended}`,
+    `Already present: ${result.appended.length - appended}`,
+  ].join("\n");
 }
 
 function renderSpecCheck(result: SpecCheckResult): string {

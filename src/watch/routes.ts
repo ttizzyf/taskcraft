@@ -304,6 +304,7 @@ export function buildTaskDetail(
       database,
       taskId,
       snapshot.currentLifecycleRevision,
+      projection.status,
     ),
     next: projection.next,
   };

@@ -16,7 +16,9 @@ export function renderSpecDelivery(specs: SpecDeliveryView): string[] {
       const drift =
         binding.drift.status === "current"
           ? "current"
-          : `stale: ${binding.drift.reasons.join(", ")}`;
+          : binding.drift.status === "historical"
+            ? "historical (finished task)"
+            : `stale: ${binding.drift.reasons.join(", ")}`;
       lines.push(
         `    ${binding.nodeId}  ${binding.id}  ${binding.kind}/${binding.duty}  ${binding.path}  sha256:${binding.digest}  ${drift}`,
       );

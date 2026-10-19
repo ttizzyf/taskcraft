@@ -700,6 +700,17 @@ CREATE TABLE spec_impact_results (
   FOREIGN KEY (record_attempt_id, task_id, lifecycle_revision, record_node_id) REFERENCES node_attempts(id, task_id, lifecycle_revision, node_id)
 );
 
+CREATE TABLE spec_sedimentation_results (
+  task_id TEXT NOT NULL,
+  lifecycle_revision INTEGER NOT NULL,
+  spec_ids_json TEXT NOT NULL CHECK (length(trim(spec_ids_json)) > 0),
+  reason TEXT NOT NULL CHECK (length(trim(reason)) > 0),
+  created_by TEXT NOT NULL CHECK (length(trim(created_by)) > 0),
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (task_id, lifecycle_revision, spec_ids_json),
+  FOREIGN KEY (task_id, lifecycle_revision) REFERENCES lifecycle_revisions(task_id, revision)
+);
+
 CREATE INDEX lifecycle_spec_bindings_spec_idx ON lifecycle_spec_bindings(spec_id, task_id, lifecycle_revision);
 CREATE INDEX lifecycle_spec_bindings_source_idx ON lifecycle_spec_bindings(source_attempt_id);
 CREATE INDEX spec_impact_results_task_idx ON spec_impact_results(task_id, lifecycle_revision);
@@ -737,3 +748,5 @@ CREATE TRIGGER lifecycle_spec_bindings_immutable_update BEFORE UPDATE ON lifecyc
 CREATE TRIGGER lifecycle_spec_bindings_immutable_delete BEFORE DELETE ON lifecycle_spec_bindings BEGIN SELECT RAISE(ABORT, 'Spec bindings are append-only'); END;
 CREATE TRIGGER spec_impact_results_immutable_update BEFORE UPDATE ON spec_impact_results BEGIN SELECT RAISE(ABORT, 'Spec Impact results are append-only'); END;
 CREATE TRIGGER spec_impact_results_immutable_delete BEFORE DELETE ON spec_impact_results BEGIN SELECT RAISE(ABORT, 'Spec Impact results are append-only'); END;
+CREATE TRIGGER spec_sedimentation_results_immutable_update BEFORE UPDATE ON spec_sedimentation_results BEGIN SELECT RAISE(ABORT, 'Spec sedimentation results are append-only'); END;
+CREATE TRIGGER spec_sedimentation_results_immutable_delete BEFORE DELETE ON spec_sedimentation_results BEGIN SELECT RAISE(ABORT, 'Spec sedimentation results are append-only'); END;

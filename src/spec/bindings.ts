@@ -218,7 +218,7 @@ export function staleRequiredBindingsError(
     problem: `Required Spec bindings are stale: ${stale
       .map((item) => `${item.binding.specId} (${item.reasons.join(", ")})`)
       .join("; ")}`,
-    impact: "No Execute or Review attempt was created",
+    impact: "No Execute attempt was created",
     remediation: `Review the current Specs, then run: tc task spec refresh ${taskId} --reason <reason>`,
     context: { taskId, staleCount: stale.length },
   });

@@ -107,6 +107,103 @@ describe("tc spec", () => {
     });
   });
 
+  it("registers a batch of existing documents in one atomic append", () => {
+    withTemporaryDirectory((cwd) => {
+      writeEmptyRegistry(cwd);
+      mkdirSync(join(cwd, "docs"), { recursive: true });
+      writeFileSync(join(cwd, "docs", "a.md"), "# A\n", "utf8");
+      writeFileSync(join(cwd, "docs", "b.md"), "# B\n", "utf8");
+
+      const entries = [
+        {
+          id: "engineering.a",
+          kind: "engineering",
+          path: "docs/a.md",
+          summary: "A rule",
+          appliesTo: ["src/**"],
+          status: "active",
+        },
+        {
+          id: "engineering.b",
+          kind: "engineering",
+          path: "docs/b.md",
+          summary: "B rule",
+          appliesTo: ["src/**"],
+          status: "active",
+        },
+      ];
+
+      const registered = runCli(
+        ["spec", "register", "--entries", JSON.stringify(entries), "--json"],
+        cwd,
+      );
+      expect(registered.status).toBe(0);
+      expect(JSON.parse(registered.stdout)).toMatchObject({
+        ok: true,
+        data: { appended: [true, true] },
+      });
+      expect(runCli(["spec", "list"], cwd).stdout).toContain("engineering.a");
+      expect(runCli(["spec", "list"], cwd).stdout).toContain("engineering.b");
+      // Registration writes only the Registry, never the Task Store.
+      expect(existsSync(join(cwd, ".taskcraft", "taskcraft.db"))).toBe(false);
+
+      // Replaying the same batch is a no-op and keeps the Registry bytes.
+      const registryFile = join(cwd, ".taskcraft", "spec", "index.json");
+      const before = readFileSync(registryFile, "utf8");
+      const replay = runCli(
+        ["spec", "register", "--entries", JSON.stringify(entries), "--json"],
+        cwd,
+      );
+      expect(replay.status).toBe(0);
+      expect(JSON.parse(replay.stdout)).toMatchObject({
+        data: { appended: [false, false] },
+      });
+      expect(readFileSync(registryFile, "utf8")).toBe(before);
+    });
+  });
+
+  it("rejects the whole batch when one entry is invalid", () => {
+    withTemporaryDirectory((cwd) => {
+      writeEmptyRegistry(cwd);
+      mkdirSync(join(cwd, "docs"), { recursive: true });
+      writeFileSync(join(cwd, "docs", "a.md"), "# A\n", "utf8");
+      const registryFile = join(cwd, ".taskcraft", "spec", "index.json");
+      const before = readFileSync(registryFile, "utf8");
+
+      const rejected = runCli(
+        [
+          "spec",
+          "register",
+          "--entries",
+          JSON.stringify([
+            {
+              id: "engineering.a",
+              kind: "engineering",
+              path: "docs/a.md",
+              summary: "A rule",
+              appliesTo: ["src/**"],
+              status: "active",
+            },
+            {
+              id: "engineering.missing",
+              kind: "engineering",
+              path: "docs/missing.md",
+              summary: "Missing body",
+              appliesTo: ["src/**"],
+              status: "active",
+            },
+          ]),
+        ],
+        cwd,
+      );
+
+      expect(rejected.status).toBe(1);
+      expect(rejected.stderr).toContain("TC_SPEC_NOT_FOUND");
+      // Nothing from the batch landed, including the valid first entry.
+      expect(readFileSync(registryFile, "utf8")).toBe(before);
+    });
+  });
+
   it("returns stable errors for malformed, missing and unsafe inputs", () => {
     withTemporaryDirectory((cwd) => {
       const absent = runCli(["spec", "list", "--json"], cwd);
@@ -161,6 +258,19 @@ describe("tc spec", () => {
     });
   });
 });
+
+function writeEmptyRegistry(cwd: string): void {
+  mkdirSync(join(cwd, ".taskcraft", "spec"), { recursive: true });
+  writeFileSync(
+    join(cwd, ".taskcraft", "spec", "index.json"),
+    JSON.stringify(
+      { schemaVersion: "tc-spec-registry/v1", specs: [] },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+}
 
 function writeSpecProject(cwd: string, activePath = "docs/payment.md"): void {
   mkdirSync(join(cwd, ".taskcraft", "spec"), { recursive: true });

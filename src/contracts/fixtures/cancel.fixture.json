@@ -19,14 +19,41 @@
     {
       "taskId": "T-106",
       "nodes": [
-        {"id": "execute-1", "kind": "execute", "title": "Execute", "objective": "Objective", "procedureRef": "l1:execute"},
-        {"id": "record-1", "kind": "record", "title": "Record", "objective": "Objective", "procedureRef": "l1:record"}
+        {
+          "id": "execute-1",
+          "kind": "execute",
+          "title": "Execute",
+          "objective": "Objective",
+          "procedureRef": "l1:execute"
+        },
+        {
+          "id": "record-1",
+          "kind": "record",
+          "title": "Record",
+          "objective": "Objective",
+          "procedureRef": "l1:record"
+        }
       ],
-      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "edges": [{ "from": "execute-1", "to": "record-1" }],
       "obligations": [
-        {"nodeId": "execute-1", "id": "requested-outcome-produced", "duty": "required", "title": "Requested outcome produced"},
-        {"nodeId": "execute-1", "id": "minimum-validation-recorded", "duty": "required", "title": "Minimum validation recorded"},
-        {"nodeId": "record-1", "id": "result-and-scope-retained", "duty": "required", "title": "Result and scope retained"}
+        {
+          "nodeId": "execute-1",
+          "id": "requested-outcome-produced",
+          "duty": "required",
+          "title": "Requested outcome produced"
+        },
+        {
+          "nodeId": "execute-1",
+          "id": "minimum-validation-recorded",
+          "duty": "required",
+          "title": "Minimum validation recorded"
+        },
+        {
+          "nodeId": "record-1",
+          "id": "result-and-scope-retained",
+          "duty": "required",
+          "title": "Result and scope retained"
+        }
       ]
     }
   ],
@@ -48,8 +75,26 @@
   "blockers": [],
   "agentRuns": [],
   "events": [
-    {"taskId": "T-106", "eventType": "task.created", "nodeId": null, "attemptId": null, "postTaskRevision": 1},
-    {"taskId": "T-106", "eventType": "task.activated", "nodeId": "execute-1", "attemptId": "att-T-106-execute-1-1", "postTaskRevision": 2},
-    {"taskId": "T-106", "eventType": "task.cancelled", "nodeId": null, "attemptId": null, "postTaskRevision": 3}
+    {
+      "taskId": "T-106",
+      "eventType": "task.created",
+      "nodeId": null,
+      "attemptId": null,
+      "postTaskRevision": 1
+    },
+    {
+      "taskId": "T-106",
+      "eventType": "task.activated",
+      "nodeId": "execute-1",
+      "attemptId": "att-T-106-execute-1-1",
+      "postTaskRevision": 2
+    },
+    {
+      "taskId": "T-106",
+      "eventType": "task.cancelled",
+      "nodeId": null,
+      "attemptId": null,
+      "postTaskRevision": 3
+    }
   ]
 }

@@ -169,6 +169,7 @@ describe("query model", () => {
       "getReviewFindings",
       "getReviewLinks",
       "getSpecImpactResults",
+      "getSpecSedimentationResults",
       "getTask",
       "getTaskFacts",
       "getTaskRelations",
@@ -204,6 +205,11 @@ type ReadOnlyQueryModel = {
     taskId: string,
     revision?: number,
   ): query.SpecImpactResultRow[];
+  getSpecSedimentationResults(
+    database: TaskcraftDatabase,
+    taskId: string,
+    revision?: number,
+  ): query.SpecSedimentationRow[];
   getInheritedPlanning(
     database: TaskcraftDatabase,
     taskId: string,

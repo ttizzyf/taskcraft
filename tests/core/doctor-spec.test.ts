@@ -55,6 +55,58 @@ describe("doctor Spec integrity", () => {
     }
   });
 
+  it("ignores drift on a finished task and on a recommended binding", () => {
+    const database = createMigratedDatabase();
+    try {
+      const drifted = (duty: "required" | "recommended") => ({
+        specId: "engineering.delivery",
+        kind: "engineering" as const,
+        path: "docs/delivery.md",
+        digest: "a".repeat(64),
+        duty,
+      });
+      const healthy = () =>
+        checkOf(database, "spec-bindings", registryWithDigest("b".repeat(64)))
+          .ok;
+
+      // A recommended binding is advisory context that never gates work, so its
+      // drift cannot make the store unhealthy.
+      taskNew(database, {
+        title: "Recommended drift",
+        level: 1,
+        reason: "doctor contract",
+        initialSpecBindings: [drifted("recommended")],
+      });
+      expect(healthy()).toBe(true);
+
+      // A finished task's binding is history: comparing it with today's
+      // Registry would report every past task forever, with no remedy.
+      const { taskId } = taskNew(database, {
+        title: "Finished drift",
+        level: 1,
+        reason: "doctor contract",
+        initialSpecBindings: [drifted("required")],
+      });
+      run(database, taskId, {});
+      runComplete(database, taskId, {
+        result: {
+          summary: "Done",
+          evidence: [
+            { type: "validation", reference: "ref://test", summary: "Pass" },
+          ],
+          record: {
+            summary: "Recorded",
+            specImpact: { outcome: "none", reason: "No reusable rule" },
+          },
+        },
+      });
+
+      expect(healthy()).toBe(true);
+    } finally {
+      database.close();
+    }
+  });
+
   it("flags a missing Impact on a successful Record from an Impact compiler", () => {
     const database = createMigratedDatabase();
     try {

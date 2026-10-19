@@ -175,10 +175,13 @@ Execute/Delivery Review/Record；L3 accepted Plan 把 parent execution 和各 mo
 选择与 execution revision、真实 child、inherited planning 在同一事务物化。空选择
 合法，`appliesTo` 候选不能自动成为 binding。
 
-创建 Execute 或 Review attempt 前，命令边界用当前 Registry 检查 exact
-id/kind/path/digest。required 漂移返回 `TC_SPEC_BINDING_STALE` 且不创建 attempt；
-recommended 漂移进入 Node Brief、`task show` 和 Watch，但不阻断。refresh 只创建新
-revision 和新 snapshot，不更新旧 binding；L3 child refresh 仍路由回 parent replan。
+创建 Execute attempt 前，命令边界用当前 Registry 检查 exact id/kind/path/digest。
+required 漂移返回 `TC_SPEC_BINDING_STALE` 且不创建 Execute attempt；**Review 不受
+此门禁**——评审是裁决漂移的场所，挡住它会死锁改了自身 required Spec 的任务。
+recommended 漂移进入 Node Brief、`task show` 和 Watch，但不阻断。漂移只对仍在进行
+的工作成立：已完成任务的 binding 是历史事实，doctor 只对未结束任务的 required 绑定
+报失败。refresh 只创建新 revision 和新 snapshot，不更新旧 binding；L3 child refresh
+仍路由回 parent replan。
 
 当前 compiler 的 Record result 必须包含一种 Spec Impact：
 

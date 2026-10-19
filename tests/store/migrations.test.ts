@@ -37,7 +37,7 @@ describe("applyMigrations", () => {
     applyMigrations(database, migrationDirectory);
     applyMigrations(database, migrationDirectory);
 
-    expect(readLedgerCount(database)).toBe(3);
+    expect(readLedgerCount(database)).toBe(4);
     expect(database.pragma("foreign_key_check")).toEqual([]);
 
     for (const table of [
@@ -50,6 +50,7 @@ describe("applyMigrations", () => {
       "lifecycle_inherited_planning",
       "lifecycle_spec_bindings",
       "spec_impact_results",
+      "spec_sedimentation_results",
     ]) {
       expect(hasTable(database, table)).toBe(true);
     }
@@ -57,16 +58,14 @@ describe("applyMigrations", () => {
     const contractDatabase = openDatabase(":memory:");
 
     try {
-      contractDatabase.exec(
-        readFileSync("src/contracts/storage.sql", "utf8"),
-      );
+      contractDatabase.exec(readFileSync("src/contracts/storage.sql", "utf8"));
       expect(readSchema(database)).toEqual(readSchema(contractDatabase));
     } finally {
       contractDatabase.close();
     }
   });
 
-  it("upgrades 0001 -> 0002 -> 0003 without backfilling historical tasks", () => {
+  it("upgrades 0001 -> 0004 without backfilling historical tasks", () => {
     temporaryDirectory = createTemporaryDirectory();
     database = openDatabase(":memory:");
     for (const filename of ["0001_initial.sql", "0002_l3_modular_tasks.sql"]) {
@@ -79,13 +78,18 @@ describe("applyMigrations", () => {
     insertTask(database, { id: "legacy-task", level: 1 });
     insertNode(database, "legacy-task", "execute-1", "execute");
 
-    writeMigration(
+    for (const filename of [
       "0003_spec_system.sql",
-      readFileSync("migrations/0003_spec_system.sql", "utf8"),
-    );
+      "0004_spec_sedimentation.sql",
+    ]) {
+      writeMigration(
+        filename,
+        readFileSync(join("migrations", filename), "utf8"),
+      );
+    }
     applyMigrations(database, temporaryDirectory.path);
 
-    expect(readLedgerCount(database)).toBe(3);
+    expect(readLedgerCount(database)).toBe(4);
     expect(
       database
         .prepare(
@@ -97,6 +101,13 @@ describe("applyMigrations", () => {
       database
         .prepare(
           "SELECT COUNT(*) AS count FROM spec_impact_results WHERE task_id = 'legacy-task'",
+        )
+        .get(),
+    ).toEqual({ count: 0 });
+    expect(
+      database
+        .prepare(
+          "SELECT COUNT(*) AS count FROM spec_sedimentation_results WHERE task_id = 'legacy-task'",
         )
         .get(),
     ).toEqual({ count: 0 });

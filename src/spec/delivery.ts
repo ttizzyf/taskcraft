@@ -8,6 +8,7 @@ import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
 import { evaluateSpecBindingDrift } from "./bindings.js";
 import type { SpecBindingDriftReason } from "./bindings.js";
 import { parseSpecImpactResult, type SpecImpactResult } from "./impact.js";
+import type { ProjectStatus } from "../core/projector-types.js";
 import { loadSpecRegistry } from "./registry.js";
 import type { LoadedSpecRegistry } from "./types.js";
 
@@ -22,7 +23,12 @@ export interface SpecDeliveryBinding {
   sourceKind: LifecycleSpecBindingRow["sourceKind"];
   sourceTaskId: string | null;
   sourceAttemptId: string | null;
-  drift: { status: "current" | "stale"; reasons: SpecBindingDriftReason[] };
+  /** `historical` marks a finished task's binding: it is a recorded fact and is
+   * deliberately not compared with today's Registry. */
+  drift: {
+    status: "current" | "stale" | "historical";
+    reasons: SpecBindingDriftReason[];
+  };
 }
 
 export interface SpecDeliveryImpact {
@@ -52,6 +58,7 @@ export function loadSpecDeliveryView(
   database: TaskcraftDatabase,
   taskId: string,
   revision: number,
+  taskStatus: ProjectStatus,
 ): SpecDeliveryView {
   const bindings = getLifecycleSpecBindings(database, taskId, revision);
   let registry: LoadedSpecRegistry | null = null;
@@ -73,8 +80,38 @@ export function loadSpecDeliveryView(
     taskId,
     revision,
     registry,
+    taskStatus,
     registryIssue,
   );
+}
+
+/** A finished task's binding is a recorded historical fact: comparing it with
+ * today's Registry is a category error, so it is reported as `historical`
+ * rather than `stale`. Only unfinished work can still act on a stale contract. */
+function bindingDrift(
+  bindings: readonly LifecycleSpecBindingRow[],
+  registry: LoadedSpecRegistry | null,
+  taskStatus: ProjectStatus,
+): Array<{
+  binding: LifecycleSpecBindingRow;
+  status: "current" | "stale" | "historical";
+  reasons: SpecBindingDriftReason[];
+}> {
+  if (taskStatus === "done" || taskStatus === "cancelled") {
+    return bindings.map((binding) => ({
+      binding,
+      status: "historical" as const,
+      reasons: [],
+    }));
+  }
+  if (registry === null) {
+    return bindings.map((binding) => ({
+      binding,
+      status: "stale" as const,
+      reasons: ["registry_unavailable" as const],
+    }));
+  }
+  return evaluateSpecBindingDrift(registry, bindings);
 }
 
 export function buildSpecDeliveryView(
@@ -82,17 +119,11 @@ export function buildSpecDeliveryView(
   taskId: string,
   revision: number,
   registry: LoadedSpecRegistry | null,
+  taskStatus: ProjectStatus,
   registryIssue: SpecDeliveryView["registryIssue"] = null,
 ): SpecDeliveryView {
   const bindings = getLifecycleSpecBindings(database, taskId, revision);
-  const drift =
-    registry === null
-      ? bindings.map((binding) => ({
-          binding,
-          status: "stale" as const,
-          reasons: ["registry_unavailable" as const],
-        }))
-      : evaluateSpecBindingDrift(registry, bindings);
+  const drift = bindingDrift(bindings, registry, taskStatus);
   return {
     bindings: drift.map((item) => ({
       lifecycleRevision: item.binding.lifecycleRevision,

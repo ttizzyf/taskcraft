@@ -6,17 +6,14 @@
   "additionalProperties": false,
   "required": ["schemaVersion", "takeover", "task", "next"],
   "properties": {
-    "schemaVersion": {"const": "tc-breadcrumb/v1"},
-    "takeover": {"enum": ["silent", "ask", "active"]},
+    "schemaVersion": { "const": "tc-breadcrumb/v1" },
+    "takeover": { "enum": ["silent", "ask", "active"] },
     "task": {
-      "oneOf": [
-        {"type": "null"},
-        {"$ref": "#/$defs/taskAnchor"}
-      ]
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/taskAnchor" }]
     },
     "blocked": {
       "type": "array",
-      "items": {"type": "string", "minLength": 1},
+      "items": { "type": "string", "minLength": 1 },
       "maxItems": 3
     },
     "next": {
@@ -24,23 +21,31 @@
       "additionalProperties": false,
       "required": ["command"],
       "properties": {
-        "command": {"type": "string", "minLength": 1},
-        "reason": {"type": "string"}
+        "command": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string" }
       }
     },
-    "detailCommand": {"type": "string", "minLength": 1}
+    "detailCommand": { "type": "string", "minLength": 1 }
   },
   "$defs": {
     "taskAnchor": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "level", "status", "taskRevision", "lifecycleRevision"],
+      "required": [
+        "id",
+        "level",
+        "status",
+        "taskRevision",
+        "lifecycleRevision"
+      ],
       "properties": {
-        "id": {"type": "string", "minLength": 1},
-        "level": {"enum": [1, 2, 3]},
-        "status": {"enum": ["queued", "active", "waiting", "done", "cancelled"]},
-        "taskRevision": {"type": "integer", "minimum": 1},
-        "lifecycleRevision": {"type": "integer", "minimum": 1},
+        "id": { "type": "string", "minLength": 1 },
+        "level": { "enum": [1, 2, 3] },
+        "status": {
+          "enum": ["queued", "active", "waiting", "done", "cancelled"]
+        },
+        "taskRevision": { "type": "integer", "minimum": 1 },
+        "lifecycleRevision": { "type": "integer", "minimum": 1 },
         "waitingReason": {
           "type": ["string", "null"],
           "enum": [
@@ -51,22 +56,30 @@
             "failed_retries_exhausted"
           ]
         },
-        "node": {"type": ["string", "null"]},
+        "node": { "type": ["string", "null"] },
         "nodeKind": {
           "type": ["string", "null"],
-          "enum": [null, "frame", "plan", "execute", "review", "integrate", "record"]
+          "enum": [
+            null,
+            "frame",
+            "plan",
+            "execute",
+            "review",
+            "integrate",
+            "record"
+          ]
         }
       },
       "allOf": [
         {
           "if": {
-            "properties": {"status": {"const": "waiting"}},
+            "properties": { "status": { "const": "waiting" } },
             "required": ["status"]
           },
           "then": {
             "required": ["waitingReason"],
             "properties": {
-              "waitingReason": {"type": "string", "minLength": 1}
+              "waitingReason": { "type": "string", "minLength": 1 }
             }
           }
         }

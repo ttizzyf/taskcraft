@@ -14,6 +14,8 @@ export type {
   TaskFactResult,
 } from "./reducer/task-fact-add.js";
 export { run } from "./reducer/run.js";
+export { specSediment } from "./reducer/spec-sediment.js";
+export { assertSedimentableTask } from "./reducer/spec-sediment.js";
 export { runAttach } from "./reducer/run-attach.js";
 export type { RunAttachInput, RunAttachResult } from "./reducer/run-attach.js";
 export { runComplete } from "./reducer/run-complete.js";
@@ -39,6 +41,8 @@ export type {
   RunCompleteInput,
   RunInput,
   RunRetryInput,
+  SpecSedimentData,
+  SpecSedimentInput,
   TaskNewInput,
   TaskSpecRefreshData,
   TaskSpecRefreshInput,

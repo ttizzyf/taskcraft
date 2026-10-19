@@ -116,6 +116,7 @@ export function buildTaskShowData(
     database,
     taskId,
     snapshot.currentLifecycleRevision,
+    projection.status,
   );
   const brief = getClaimedNodeBrief(database, taskId, snapshot, projection);
   const nodeBrief =
@@ -123,7 +124,20 @@ export function buildTaskShowData(
       ? null
       : withNodeBriefSpecDrift(
           brief,
-          specs.bindings.filter((binding) => binding.nodeId === brief.nodeId),
+          specs.bindings
+            .filter((binding) => binding.nodeId === brief.nodeId)
+            .map((binding) => ({
+              id: binding.id,
+              // A claimed Node Brief only exists for unfinished work, so its
+              // bindings are never historical; fall back to "not checked".
+              drift:
+                binding.drift.status === "historical"
+                  ? null
+                  : {
+                      status: binding.drift.status,
+                      reasons: binding.drift.reasons,
+                    },
+            })),
         );
 
   return {

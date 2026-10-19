@@ -21,6 +21,8 @@ export type {
   SpecBindingSourceKind,
   SpecImpactResultRow,
 } from "./spec-facts.js";
+export { getSpecSedimentationResults } from "./spec-sedimentation-facts.js";
+export type { SpecSedimentationRow } from "./spec-sedimentation-facts.js";
 export { getInheritedPlanning, getTaskRelations } from "./task-relations.js";
 export type {
   AcceptanceAnchorRow,

@@ -52,9 +52,15 @@ inherited_plan | refresh`，并保留 Frame/parent Plan attempt provenance。
 
 ### Drift And Refresh
 
-- 文件系统 revalidation 只发生在 command/service 边界。创建 Execute 或 Review
-  attempt 前，required 的 missing/deprecated/kind/path/digest drift 返回
-  `TC_SPEC_BINDING_STALE`，且不写 Attempt；recommended drift 不阻断。
+- 文件系统 revalidation 只发生在 command/service 边界。**创建 Execute attempt 前**，
+  required 的 missing/deprecated/kind/path/digest drift 返回 `TC_SPEC_BINDING_STALE`，
+  且不写 Attempt；recommended drift 不阻断。
+- **Review 不受漂移门禁**：评审正是裁决漂移的场所，挡住它会死锁维护 Spec 的工作
+  本身——改了被自己 required 绑定的 Spec 的任务，恰恰是把自己变成 stale 的那一个。
+  放宽只针对评审，执行侧不放宽。
+- 漂移是"仍在进行的工作"的问题：已完成或已取消任务的绑定是历史事实，不参与比对。
+  doctor 只对**未结束任务的 required 绑定**报失败——只有它会真正阻断工作；对
+  recommended 绑定或历史绑定报失败会把每一次 Spec 编辑变成永久的红色噪音。
 - `tc task spec refresh <task> --reason <text>` 解析当前已确认 id/duty 后创建新
   lifecycle revision，并以 `source=refresh` 写新 snapshot；旧 binding 不更新或删除。
 - L1/L2 refresh 重新进入自身首节点。L3 root 重新进入 planning graph；当前 required
@@ -71,7 +77,9 @@ inherited_plan | refresh`，并保留 Frame/parent Plan attempt provenance。
 | 非 Frame/Plan source attempt          | `TC_SPEC_BINDING_INVALID` 或 trigger abort，事务回滚 |
 | selection 与 resolved snapshot 不等价 | `TC_SPEC_BINDING_INVALID`，无部分写入                |
 | reuse child Spec set 不等价           | `TC_L3_PLAN_INVALID`，accepted Plan 全事务回滚       |
-| required Execute/Review drift         | `TC_SPEC_BINDING_STALE`，不创建 Attempt              |
+| required Execute drift                | `TC_SPEC_BINDING_STALE`，不创建 Execute Attempt      |
+| required Review drift                 | 合法：评审可开，Brief 显示 drift；只有后续执行 attempt 被拒 |
+| recommended 或已完成任务的 drift       | 不阻断；doctor 不报失败                              |
 | historical revision 无 binding        | 合法；可读、可投影、按 stored schema 完成            |
 
 ## 5. Good / Base / Bad Cases
@@ -85,6 +93,9 @@ inherited_plan | refresh`，并保留 Frame/parent Plan attempt provenance。
   `id/kind/path/digest/duty` 完整 snapshot，并保持历史 child 不变。
 - Bad：命令先检查 revision N 的 required binding，Reducer 却在 revision N+1 创建
   Attempt；漂移检查结果必须携带已检查 task revision，并由 Reducer CAS 拒绝竞态。
+- Bad：把漂移门禁也套在 Review 上，或拿今天的 Registry 去判已完成任务的历史绑定；
+  前者让改了自身 required Spec 的任务无法开评审而自锁，后者让每个历史任务永久报错
+  且没有任何补救路径。
 
 ## 6. Tests Required
 

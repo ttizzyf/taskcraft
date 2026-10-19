@@ -31,7 +31,7 @@ import type {
   SpecResolutionResult,
 } from "./types.js";
 
-interface RegistryDocument {
+export interface RegistryDocument {
   readonly schemaVersion: typeof SPEC_REGISTRY_SCHEMA_VERSION;
   readonly specs: readonly SpecRegistryEntry[];
 }
@@ -203,7 +203,7 @@ function validator(): ValidateFunction {
   return registryValidator;
 }
 
-function parseRegistry(text: string): RegistryDocument {
+export function parseRegistry(text: string): RegistryDocument {
   let value: unknown;
 
   try {
@@ -229,7 +229,7 @@ function parseRegistry(text: string): RegistryDocument {
   return value as RegistryDocument;
 }
 
-function validateUniqueRegistryFields(
+export function validateUniqueRegistryFields(
   entries: readonly SpecRegistryEntry[],
 ): void {
   assertUnique(entries, "id");
@@ -253,7 +253,9 @@ function assertUnique(
   }
 }
 
-function validateRegistryPaths(entries: readonly SpecRegistryEntry[]): void {
+export function validateRegistryPaths(
+  entries: readonly SpecRegistryEntry[],
+): void {
   for (const entry of entries) {
     assertRepositoryRelativePath(entry.path, `Spec ${entry.id} path`);
 
@@ -263,7 +265,7 @@ function validateRegistryPaths(entries: readonly SpecRegistryEntry[]): void {
   }
 }
 
-function resolveSpecDocument(
+export function resolveSpecDocument(
   projectRealPath: string,
   entry: SpecRegistryEntry,
 ): ResolvedSpec {
@@ -304,7 +306,7 @@ function resolveSpecDocument(
   });
 }
 
-function resolveRegistryFile(
+export function resolveRegistryFile(
   projectRealPath: string,
   registryAbsolutePath: string,
 ): string {
@@ -331,7 +333,7 @@ function resolveRegistryFile(
   return registryRealPath;
 }
 
-function decodeUtf8Registry(content: Buffer): string {
+export function decodeUtf8Registry(content: Buffer): string {
   try {
     return registryDecoder.decode(content);
   } catch (cause) {

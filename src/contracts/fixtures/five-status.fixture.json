@@ -63,66 +63,201 @@
     {
       "taskId": "T-501",
       "nodes": [
-        {"id": "execute-1", "kind": "execute", "title": "Execute", "objective": "Queued objective", "procedureRef": "l1:execute"},
-        {"id": "record-1", "kind": "record", "title": "Record", "objective": "Queued objective", "procedureRef": "l1:record"}
+        {
+          "id": "execute-1",
+          "kind": "execute",
+          "title": "Execute",
+          "objective": "Queued objective",
+          "procedureRef": "l1:execute"
+        },
+        {
+          "id": "record-1",
+          "kind": "record",
+          "title": "Record",
+          "objective": "Queued objective",
+          "procedureRef": "l1:record"
+        }
       ],
-      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "edges": [{ "from": "execute-1", "to": "record-1" }],
       "obligations": [
-        {"nodeId": "execute-1", "id": "requested-outcome-produced", "duty": "required", "title": "Requested outcome produced"},
-        {"nodeId": "execute-1", "id": "minimum-validation-recorded", "duty": "required", "title": "Minimum validation recorded"},
-        {"nodeId": "record-1", "id": "result-and-scope-retained", "duty": "required", "title": "Result and scope retained"}
+        {
+          "nodeId": "execute-1",
+          "id": "requested-outcome-produced",
+          "duty": "required",
+          "title": "Requested outcome produced"
+        },
+        {
+          "nodeId": "execute-1",
+          "id": "minimum-validation-recorded",
+          "duty": "required",
+          "title": "Minimum validation recorded"
+        },
+        {
+          "nodeId": "record-1",
+          "id": "result-and-scope-retained",
+          "duty": "required",
+          "title": "Result and scope retained"
+        }
       ]
     },
     {
       "taskId": "T-502",
       "nodes": [
-        {"id": "execute-1", "kind": "execute", "title": "Execute", "objective": "Active objective", "procedureRef": "l1:execute"},
-        {"id": "record-1", "kind": "record", "title": "Record", "objective": "Active objective", "procedureRef": "l1:record"}
+        {
+          "id": "execute-1",
+          "kind": "execute",
+          "title": "Execute",
+          "objective": "Active objective",
+          "procedureRef": "l1:execute"
+        },
+        {
+          "id": "record-1",
+          "kind": "record",
+          "title": "Record",
+          "objective": "Active objective",
+          "procedureRef": "l1:record"
+        }
       ],
-      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "edges": [{ "from": "execute-1", "to": "record-1" }],
       "obligations": [
-        {"nodeId": "execute-1", "id": "requested-outcome-produced", "duty": "required", "title": "Requested outcome produced"},
-        {"nodeId": "execute-1", "id": "minimum-validation-recorded", "duty": "required", "title": "Minimum validation recorded"},
-        {"nodeId": "record-1", "id": "result-and-scope-retained", "duty": "required", "title": "Result and scope retained"}
+        {
+          "nodeId": "execute-1",
+          "id": "requested-outcome-produced",
+          "duty": "required",
+          "title": "Requested outcome produced"
+        },
+        {
+          "nodeId": "execute-1",
+          "id": "minimum-validation-recorded",
+          "duty": "required",
+          "title": "Minimum validation recorded"
+        },
+        {
+          "nodeId": "record-1",
+          "id": "result-and-scope-retained",
+          "duty": "required",
+          "title": "Result and scope retained"
+        }
       ]
     },
     {
       "taskId": "T-503",
       "nodes": [
-        {"id": "execute-1", "kind": "execute", "title": "Execute", "objective": "Waiting objective", "procedureRef": "l1:execute"},
-        {"id": "record-1", "kind": "record", "title": "Record", "objective": "Waiting objective", "procedureRef": "l1:record"}
+        {
+          "id": "execute-1",
+          "kind": "execute",
+          "title": "Execute",
+          "objective": "Waiting objective",
+          "procedureRef": "l1:execute"
+        },
+        {
+          "id": "record-1",
+          "kind": "record",
+          "title": "Record",
+          "objective": "Waiting objective",
+          "procedureRef": "l1:record"
+        }
       ],
-      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "edges": [{ "from": "execute-1", "to": "record-1" }],
       "obligations": [
-        {"nodeId": "execute-1", "id": "requested-outcome-produced", "duty": "required", "title": "Requested outcome produced"},
-        {"nodeId": "execute-1", "id": "minimum-validation-recorded", "duty": "required", "title": "Minimum validation recorded"},
-        {"nodeId": "record-1", "id": "result-and-scope-retained", "duty": "required", "title": "Result and scope retained"}
+        {
+          "nodeId": "execute-1",
+          "id": "requested-outcome-produced",
+          "duty": "required",
+          "title": "Requested outcome produced"
+        },
+        {
+          "nodeId": "execute-1",
+          "id": "minimum-validation-recorded",
+          "duty": "required",
+          "title": "Minimum validation recorded"
+        },
+        {
+          "nodeId": "record-1",
+          "id": "result-and-scope-retained",
+          "duty": "required",
+          "title": "Result and scope retained"
+        }
       ]
     },
     {
       "taskId": "T-504",
       "nodes": [
-        {"id": "execute-1", "kind": "execute", "title": "Execute", "objective": "Done objective", "procedureRef": "l1:execute"},
-        {"id": "record-1", "kind": "record", "title": "Record", "objective": "Done objective", "procedureRef": "l1:record"}
+        {
+          "id": "execute-1",
+          "kind": "execute",
+          "title": "Execute",
+          "objective": "Done objective",
+          "procedureRef": "l1:execute"
+        },
+        {
+          "id": "record-1",
+          "kind": "record",
+          "title": "Record",
+          "objective": "Done objective",
+          "procedureRef": "l1:record"
+        }
       ],
-      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "edges": [{ "from": "execute-1", "to": "record-1" }],
       "obligations": [
-        {"nodeId": "execute-1", "id": "requested-outcome-produced", "duty": "required", "title": "Requested outcome produced"},
-        {"nodeId": "execute-1", "id": "minimum-validation-recorded", "duty": "required", "title": "Minimum validation recorded"},
-        {"nodeId": "record-1", "id": "result-and-scope-retained", "duty": "required", "title": "Result and scope retained"}
+        {
+          "nodeId": "execute-1",
+          "id": "requested-outcome-produced",
+          "duty": "required",
+          "title": "Requested outcome produced"
+        },
+        {
+          "nodeId": "execute-1",
+          "id": "minimum-validation-recorded",
+          "duty": "required",
+          "title": "Minimum validation recorded"
+        },
+        {
+          "nodeId": "record-1",
+          "id": "result-and-scope-retained",
+          "duty": "required",
+          "title": "Result and scope retained"
+        }
       ]
     },
     {
       "taskId": "T-505",
       "nodes": [
-        {"id": "execute-1", "kind": "execute", "title": "Execute", "objective": "Cancelled objective", "procedureRef": "l1:execute"},
-        {"id": "record-1", "kind": "record", "title": "Record", "objective": "Cancelled objective", "procedureRef": "l1:record"}
+        {
+          "id": "execute-1",
+          "kind": "execute",
+          "title": "Execute",
+          "objective": "Cancelled objective",
+          "procedureRef": "l1:execute"
+        },
+        {
+          "id": "record-1",
+          "kind": "record",
+          "title": "Record",
+          "objective": "Cancelled objective",
+          "procedureRef": "l1:record"
+        }
       ],
-      "edges": [{"from": "execute-1", "to": "record-1"}],
+      "edges": [{ "from": "execute-1", "to": "record-1" }],
       "obligations": [
-        {"nodeId": "execute-1", "id": "requested-outcome-produced", "duty": "required", "title": "Requested outcome produced"},
-        {"nodeId": "execute-1", "id": "minimum-validation-recorded", "duty": "required", "title": "Minimum validation recorded"},
-        {"nodeId": "record-1", "id": "result-and-scope-retained", "duty": "required", "title": "Result and scope retained"}
+        {
+          "nodeId": "execute-1",
+          "id": "requested-outcome-produced",
+          "duty": "required",
+          "title": "Requested outcome produced"
+        },
+        {
+          "nodeId": "execute-1",
+          "id": "minimum-validation-recorded",
+          "duty": "required",
+          "title": "Minimum validation recorded"
+        },
+        {
+          "nodeId": "record-1",
+          "id": "result-and-scope-retained",
+          "duty": "required",
+          "title": "Result and scope retained"
+        }
       ]
     }
   ],
@@ -156,7 +291,7 @@
       "attemptNumber": 1,
       "status": "finished",
       "outcome": "success",
-      "resultJson": {"summary": "Done", "evidence": []},
+      "resultJson": { "summary": "Done", "evidence": [] },
       "startedAt": "2026-08-11T00:00:00.000Z",
       "finishedAt": "2026-08-11T00:00:01.000Z"
     },
@@ -167,7 +302,7 @@
       "attemptNumber": 1,
       "status": "finished",
       "outcome": "success",
-      "resultJson": {"summary": "Recorded"},
+      "resultJson": { "summary": "Recorded" },
       "startedAt": "2026-08-11T00:00:02.000Z",
       "finishedAt": "2026-08-11T00:00:02.000Z"
     },
@@ -240,10 +375,40 @@
   ],
   "agentRuns": [],
   "events": [
-    {"taskId": "T-501", "eventType": "task.created", "nodeId": null, "attemptId": null, "postTaskRevision": 1},
-    {"taskId": "T-502", "eventType": "task.created", "nodeId": null, "attemptId": null, "postTaskRevision": 1},
-    {"taskId": "T-503", "eventType": "task.created", "nodeId": null, "attemptId": null, "postTaskRevision": 1},
-    {"taskId": "T-504", "eventType": "task.created", "nodeId": null, "attemptId": null, "postTaskRevision": 1},
-    {"taskId": "T-505", "eventType": "task.created", "nodeId": null, "attemptId": null, "postTaskRevision": 1}
+    {
+      "taskId": "T-501",
+      "eventType": "task.created",
+      "nodeId": null,
+      "attemptId": null,
+      "postTaskRevision": 1
+    },
+    {
+      "taskId": "T-502",
+      "eventType": "task.created",
+      "nodeId": null,
+      "attemptId": null,
+      "postTaskRevision": 1
+    },
+    {
+      "taskId": "T-503",
+      "eventType": "task.created",
+      "nodeId": null,
+      "attemptId": null,
+      "postTaskRevision": 1
+    },
+    {
+      "taskId": "T-504",
+      "eventType": "task.created",
+      "nodeId": null,
+      "attemptId": null,
+      "postTaskRevision": 1
+    },
+    {
+      "taskId": "T-505",
+      "eventType": "task.created",
+      "nodeId": null,
+      "attemptId": null,
+      "postTaskRevision": 1
+    }
   ]
 }

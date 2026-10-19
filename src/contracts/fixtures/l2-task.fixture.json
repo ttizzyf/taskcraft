@@ -31,14 +31,34 @@
   "lifecycle": {
     "revision": 2,
     "nodes": [
-      {"id": "frame-1", "kind": "frame", "status": "satisfied"},
-      {"id": "execute-2", "kind": "execute", "status": "running", "attemptId": "att_exec_02"},
-      {"id": "review-2", "kind": "review", "status": "pending", "attemptId": "att_review_02"},
-      {"id": "record-1", "kind": "record", "status": "pending"}
+      { "id": "frame-1", "kind": "frame", "status": "satisfied" },
+      {
+        "id": "execute-2",
+        "kind": "execute",
+        "status": "running",
+        "attemptId": "att_exec_02"
+      },
+      {
+        "id": "review-2",
+        "kind": "review",
+        "status": "pending",
+        "attemptId": "att_review_02"
+      },
+      { "id": "record-1", "kind": "record", "status": "pending" }
     ],
     "attempts": [
-      {"id": "att_exec_02", "nodeId": "execute-2", "host": "codex", "status": "running"},
-      {"id": "att_review_02", "nodeId": "review-2", "host": "claude", "status": "created"}
+      {
+        "id": "att_exec_02",
+        "nodeId": "execute-2",
+        "host": "codex",
+        "status": "running"
+      },
+      {
+        "id": "att_review_02",
+        "nodeId": "review-2",
+        "host": "claude",
+        "status": "created"
+      }
     ],
     "reviewFacts": {
       "review-2": {
