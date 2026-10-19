@@ -3,6 +3,7 @@
 .taskcraft/cache/
 .taskcraft/*.db-shm
 .taskcraft/*.db-wal
+.taskcraft/tmp*
 node_modules/
 dist/
 coverage/

@@ -1,13 +1,17 @@
-# Trellis: append-only developer journals should merge cleanly across
-# parallel sessions/worktrees — each session only appends a new block, so
-# there is nothing to actually conflict on.
+# 行尾归一化：仓库内统一以 LF 存储。
 #
-# Do NOT add a rule for workspace/*/index.md here — it is fully regenerated
-# every session, so a real conflict there is expected and safe to resolve by
-# picking either side (task state lives in task.json, not index.md).
-.trellis/workspace/*/journal-*.md merge=union
+# `text=auto` 让 git 在读写时归一化行尾，从而消除检出平台差异造成的假
+# "modified" —— 本仓曾出现 306 个仅行尾差异的文件，掩盖了真实改动。
+#
+# 不要在这里加 `eol=lf`。本仓有两处哈希绑定在工作区的原始字节上：
+#   - 迁移账本 `schema_migrations.checksum`（`src/store/migrations.ts` 对迁移
+#     SQL 原文做 sha256，且每个命令打开 store 时都会校验）；
+#   - Spec binding 的 `digest`（Spec 正文原始字节的 sha256，`doctor` 会校验
+#     所有任务当前 revision 的绑定）。
+# 强制 LF 检出会让新鲜 clone 的迁移校验失配（TC_STORE_MIGRATION_CHECKSUM_MISMATCH，
+# 且无 CLI 补救路径），并让已完成任务的 Spec binding 漂移。改变行尾策略必须与这
+# 两处一起处理，不能只靠属性文件。
+* text=auto
 
-# Trellis-managed skill mirrors contain intentional Markdown hard breaks.
-# Preserve their upstream bytes without treating those breaks as diff errors.
-.agents/skills/** -whitespace
-.claude/skills/** -whitespace
+# 二进制文件不做行尾转换，也不做文本 diff。
+.taskcraft/**/*.db binary
