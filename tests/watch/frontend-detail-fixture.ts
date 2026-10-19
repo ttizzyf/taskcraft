@@ -228,7 +228,6 @@ const DETAIL: WatchTaskDetail = {
   specs: {
     bindings: [],
     impacts: [],
-    registryIssue: null,
   },
   next: "tc run complete T-1",
 };

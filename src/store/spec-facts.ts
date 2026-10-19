@@ -15,7 +15,6 @@ export interface LifecycleSpecBindingRow {
   specId: string;
   specKind: "engineering" | "domain";
   specPath: string;
-  specDigest: string;
   duty: "required" | "recommended";
   sourceKind: SpecBindingSourceKind;
   sourceTaskId: string | null;
@@ -66,9 +65,9 @@ export function insertLifecycleSpecBindings(
   const insert = database.prepare(
     `INSERT INTO lifecycle_spec_bindings (
        task_id, lifecycle_revision, node_id, spec_id, spec_kind, spec_path,
-       spec_digest, duty, source_kind, source_task_id, source_attempt_id,
+       duty, source_kind, source_task_id, source_attempt_id,
        created_by, created_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const nodeId of input.nodeIds) {
     for (const binding of input.bindings) {
@@ -79,7 +78,6 @@ export function insertLifecycleSpecBindings(
         binding.specId,
         binding.kind,
         binding.path,
-        binding.digest,
         binding.duty,
         input.source.kind,
         "taskId" in input.source ? input.source.taskId : null,
@@ -111,7 +109,7 @@ export function getLifecycleSpecBindings(
     .prepare(
       `SELECT task_id AS taskId, lifecycle_revision AS lifecycleRevision,
               node_id AS nodeId, spec_id AS specId, spec_kind AS specKind,
-              spec_path AS specPath, spec_digest AS specDigest, duty,
+              spec_path AS specPath, duty,
               source_kind AS sourceKind, source_task_id AS sourceTaskId,
               source_attempt_id AS sourceAttemptId, created_by AS createdBy,
               created_at AS createdAt

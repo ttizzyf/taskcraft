@@ -34,14 +34,12 @@ const STORE_SPEC = {
   specId: "engineering.store",
   kind: "engineering" as const,
   path: "docs/store.md",
-  digest: "a".repeat(64),
   duty: "required" as const,
 };
 const CLI_SPEC = {
   specId: "engineering.cli",
   kind: "engineering" as const,
   path: "docs/cli.md",
-  digest: "b".repeat(64),
   duty: "recommended" as const,
 };
 
@@ -82,8 +80,6 @@ describe("Spec binding reducer flow", () => {
           kind: STORE_SPEC.kind,
           duty: STORE_SPEC.duty,
           path: STORE_SPEC.path,
-          digest: STORE_SPEC.digest,
-          drift: null,
         },
       ]);
       expect(review.nodeBrief!.reviewContext).toMatchObject({

@@ -90,7 +90,6 @@ function sameBindingSnapshots(
       specId: row.specId,
       kind: row.specKind,
       path: row.specPath,
-      digest: row.specDigest,
       duty: row.duty,
     });
     const previous = stored.get(row.specId);
@@ -107,13 +106,9 @@ function sameBindingSnapshots(
 }
 
 function bindingSnapshotKey(binding: ResolvedSpecBinding): string {
-  return [
-    binding.specId,
-    binding.kind,
-    binding.path,
-    binding.digest,
-    binding.duty,
-  ].join("\u0000");
+  return [binding.specId, binding.kind, binding.path, binding.duty].join(
+    "\u0000",
+  );
 }
 
 function moduleContractMismatches(

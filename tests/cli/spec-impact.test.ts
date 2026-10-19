@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -178,7 +177,6 @@ describe("tc run complete Spec Impact", () => {
                 {
                   specId: "engineering.delivery",
                   path: "docs/delivery.md",
-                  digest: "a".repeat(64),
                   evidenceRefs: ["ev-T-1-att-T-1-execute-1-1-1"],
                 },
               ],
@@ -194,11 +192,11 @@ describe("tc run complete Spec Impact", () => {
     });
   });
 
-  it("records an updated current Registry snapshot with Task-owned evidence", () => {
+  it("records an updated current Registry entry with Task-owned evidence", () => {
     withInitializedDirectory((cwd) => {
-      const spec = writeEngineeringSpec(cwd);
+      writeEngineeringSpec(cwd);
       const evidenceId = setupRecordAttempt(cwd, true);
-      const impact = updatedImpact(spec.digest, evidenceId);
+      const impact = updatedImpact(evidenceId);
 
       const completed = runCli(
         [
@@ -230,14 +228,14 @@ describe("tc run complete Spec Impact", () => {
     });
   });
 
-  it("rejects stale updated snapshots and foreign evidence without partial Record facts", () => {
-    for (const variant of ["stale-digest", "foreign-evidence"] as const) {
+  it("rejects updated snapshots that do not match the Registry and foreign evidence without partial Record facts", () => {
+    for (const variant of ["stale-path", "foreign-evidence"] as const) {
       withInitializedDirectory((cwd) => {
-        const spec = writeEngineeringSpec(cwd);
+        writeEngineeringSpec(cwd);
         const evidenceId = setupRecordAttempt(cwd);
         const impact = updatedImpact(
-          variant === "stale-digest" ? "f".repeat(64) : spec.digest,
           variant === "foreign-evidence" ? "ev-foreign" : evidenceId,
+          variant === "stale-path" ? "docs/other.md" : undefined,
         );
 
         const failed = runCli(
@@ -392,19 +390,15 @@ function writeEngineeringSpec(cwd: string) {
     )}\n`,
     "utf8",
   );
-  return {
-    digest: createHash("sha256").update(content).digest("hex"),
-  };
 }
 
-function updatedImpact(digest: string, evidenceId: string) {
+function updatedImpact(evidenceId: string, path = "docs/delivery.md") {
   return {
     outcome: "updated" as const,
     updates: [
       {
         specId: "engineering.delivery",
-        path: "docs/delivery.md",
-        digest,
+        path,
         evidenceRefs: [evidenceId],
       },
     ],

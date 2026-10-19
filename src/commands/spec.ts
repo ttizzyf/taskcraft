@@ -32,7 +32,7 @@ export function register(program: Command): void {
 
   spec
     .command("list")
-    .description("list registered Specs and their current digests")
+    .description("list registered Specs and the documents they resolve to")
     .action(async (_options, command) => {
       const json = isJsonMode(command);
 
@@ -173,6 +173,5 @@ function renderSpec(spec: ResolvedSpec): string[] {
     `  Summary: ${spec.summary}`,
     `  Applies to: ${spec.appliesTo.length === 0 ? "none" : spec.appliesTo.join(", ")}`,
     ...(spec.authority === undefined ? [] : [`  Authority: ${spec.authority}`]),
-    `  SHA-256: ${spec.digest}`,
   ];
 }

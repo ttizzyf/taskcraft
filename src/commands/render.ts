@@ -172,15 +172,9 @@ export function renderNodeBrief(brief: NodeBrief): string {
     "Specs:",
     ...(brief.specs.length === 0
       ? ["  (none)"]
-      : brief.specs.map((spec) => {
-          const drift =
-            spec.drift === null
-              ? "not checked"
-              : spec.drift.status === "current"
-                ? "current"
-                : `stale: ${spec.drift.reasons.join(", ")}`;
-          return `  - ${spec.id} (${spec.kind}, ${spec.duty})  ${spec.path}  sha256:${spec.digest}  ${drift}`;
-        })),
+      : brief.specs.map(
+          (spec) => `  - ${spec.id} (${spec.kind}, ${spec.duty})  ${spec.path}`,
+        )),
     "Result schema:",
     indent(JSON.stringify(schema, null, 2), "  "),
     `Complete command: ${brief.nextCommand}`,

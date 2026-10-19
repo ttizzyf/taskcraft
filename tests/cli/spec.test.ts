@@ -16,14 +16,14 @@ describe("tc spec", () => {
       expect(text.stdout).toContain(
         "engineering.payment [engineering, active]",
       );
-      expect(text.stdout).toContain("SHA-256:");
+      expect(text.stdout).toContain("Summary: Payment integration contracts");
 
       const json = runCli(["spec", "list", "--json"], cwd);
       expect(json.status).toBe(0);
       expect(json.stderr).toBe("");
       const result = JSON.parse(json.stdout) as {
         data: {
-          specs: Array<{ digest: string; summary: string }>;
+          specs: Array<{ path: string; summary: string }>;
         };
       };
       expect(result).toMatchObject({
@@ -46,9 +46,9 @@ describe("tc spec", () => {
           ],
         },
       });
-      expect(text.stdout).toContain(result.data.specs[0]?.digest);
       expect(text.stdout).toContain(result.data.specs[0]?.summary);
-      expect(text.stdout).toContain(result.data.specs[1]?.digest);
+      expect(text.stdout).toContain(result.data.specs[0]!.path);
+      expect(text.stdout).toContain(result.data.specs[1]!.path);
     });
   });
 

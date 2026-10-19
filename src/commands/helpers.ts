@@ -20,7 +20,7 @@ import type { TaskcraftErrorCode } from "../core/errors.js";
 import type { TaskcraftDatabase } from "../store/database.js";
 import { openDatabase } from "../store/database.js";
 import { applyMigrations, MigrationError } from "../store/migrations.js";
-import { getReviewLinks } from "../store/query.js";
+import { getReviewLinks, getTask } from "../store/query.js";
 import { parseSpecRegistryEntry } from "../spec/index.js";
 import type { SpecRegistryEntry } from "../spec/index.js";
 
@@ -145,6 +145,17 @@ export function parseExpectedRevision(
   }
 
   return revision;
+}
+
+/** Pins the reducer's CAS to the revision this command observed, so a writer
+ * that lands between the boundary read and the reducer transaction is caught
+ * instead of silently applied against a newer revision. An unknown task has no
+ * revision to pin and is left to the reducer's own not-found error. */
+export function boundaryTaskRevision(
+  database: TaskcraftDatabase,
+  taskId: string,
+): number | undefined {
+  return getTask(database, taskId)?.revision;
 }
 
 /** Resolves the reviewed attempt named by the review link of a review

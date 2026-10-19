@@ -3,7 +3,7 @@
 ## 1. Scope / Trigger
 
 修改 `lifecycle_spec_bindings`、`spec_impact_results`、L1/L2/L3 compiler、
-L2 Frame/L3 accepted Plan、child reuse、Execute/Review drift gate 或
+L2 Frame/L3 accepted Plan、child reuse 或
 `tc task spec refresh` 时适用本合同。Registry 的文件安全和摘要规则仍由
 [`spec-registry-contract.md`](spec-registry-contract.md) 负责；Node Brief、Watch、
 doctor 和 Spec Impact 结果 Schema 由 delivery 层负责。
@@ -17,7 +17,6 @@ interface ResolvedSpecBinding {
   specId: string;
   kind: "engineering" | "domain";
   path: string;
-  digest: string;
   duty: "required" | "recommended";
 }
 
@@ -38,6 +37,11 @@ inherited_plan | refresh`，并保留 Frame/parent Plan attempt provenance。
   `tc-l3-child/2` 已支持 binding，但没有 Spec Impact。所有旧 stored schema 由 exact node 的
   `output_schema_json` 校验；旧 `tc-l3/2` accepted Plan 继续生成 `/2` execution
   revision 和 `tc-l3-child/1` child，不被新 schema 反向升级。
+- **Record schema 随 revision 固化在 `output_schema_json`**：同一 compiler 代际内 schema
+  可以演进，历史 revision 不回填。因此 `*/3` 一代内存在带 `updates[].digest` 和不带
+  两种 Impact schema，各自按其存储形态校验；只有在当前代际新物化的 revision 才用
+  当前契约。`tc task spec refresh` 会以当前代际重建 revision，是让在途任务改用新契约
+  的显式路径。
 - L1 task-create binding 指向 Execute/Record；L2 task-create 只指向 Frame；L3
   task-create 指向 Frame/Plan/Feasibility Review。空选择合法，不制造 placeholder。
 - 新 L2 Frame result 必须有 `specBindings`；命令解析 active Registry ids，Reducer
@@ -47,22 +51,19 @@ inherited_plan | refresh`，并保留 Frame/parent Plan attempt provenance。
   execution-only binding 和 inherited Plan provenance；失败回滚 review evidence、
   execution revision、children 与全部 relation/binding。
 - child 没有假 Frame/Plan Attempt。reuse 除原 task 合同外还要求当前 child revision
-  的 Spec `id/kind/path/digest/duty` snapshot 等价；同一 child 各目标节点保存的 snapshot
+  的 Spec `id/kind/path/duty` snapshot 等价；同一 child 各目标节点保存的 snapshot
   也必须一致。reuse 不改 child lifecycle、binding 或原 provenance。
 
-### Drift And Refresh
+### Refresh
 
-- 文件系统 revalidation 只发生在 command/service 边界。**创建 Execute attempt 前**，
-  required 的 missing/deprecated/kind/path/digest drift 返回 `TC_SPEC_BINDING_STALE`，
-  且不写 Attempt；recommended drift 不阻断。
-- **Review 不受漂移门禁**：评审正是裁决漂移的场所，挡住它会死锁维护 Spec 的工作
-  本身——改了被自己 required 绑定的 Spec 的任务，恰恰是把自己变成 stale 的那一个。
-  放宽只针对评审，执行侧不放宽。
-- 漂移是"仍在进行的工作"的问题：已完成或已取消任务的绑定是历史事实，不参与比对。
-  doctor 只对**未结束任务的 required 绑定**报失败——只有它会真正阻断工作；对
-  recommended 绑定或历史绑定报失败会把每一次 Spec 编辑变成永久的红色噪音。
-- `tc task spec refresh <task> --reason <text>` 解析当前已确认 id/duty 后创建新
-  lifecycle revision，并以 `source=refresh` 写新 snapshot；旧 binding 不更新或删除。
+- 绑定是历史事实，不是对当下文件的断言：**任何时刻都不拿当前 Registry 回校验已写入的
+  binding**。绑定只记录任务采用了哪些规则文档（id/kind/path/duty），不记录文档内容的
+  哈希，因此也不存在"漂移"这一概念。
+- 编辑一份被绑定的 Spec 不会阻断该任务的任何 attempt；required 与 recommended 在这里
+  没有行为差异。文件系统 revalidation 只发生在**创建绑定时**的命令边界。
+- 想让任务重新绑定当前 Registry，用显式命令：`tc task spec refresh <task> --reason
+  <text>` 解析当前已确认 id/duty 后创建新 lifecycle revision，并以 `source=refresh`
+  写新 snapshot；旧 binding 不更新或删除。
 - L1/L2 refresh 重新进入自身首节点。L3 root 重新进入 planning graph；当前 required
   inherited child 发起 refresh 时路由到 root L3，并在新 parent revision 追加旧 child
   的 `not_required` membership。
@@ -77,9 +78,7 @@ inherited_plan | refresh`，并保留 Frame/parent Plan attempt provenance。
 | 非 Frame/Plan source attempt          | `TC_SPEC_BINDING_INVALID` 或 trigger abort，事务回滚 |
 | selection 与 resolved snapshot 不等价 | `TC_SPEC_BINDING_INVALID`，无部分写入                |
 | reuse child Spec set 不等价           | `TC_L3_PLAN_INVALID`，accepted Plan 全事务回滚       |
-| required Execute drift                | `TC_SPEC_BINDING_STALE`，不创建 Execute Attempt      |
-| required Review drift                 | 合法：评审可开，Brief 显示 drift；只有后续执行 attempt 被拒 |
-| recommended 或已完成任务的 drift       | 不阻断；doctor 不报失败                              |
+| 已绑定 Spec 的正文被编辑               | 不阻断；binding 不记录正文哈希，无漂移语义            |
 | historical revision 无 binding        | 合法；可读、可投影、按 stored schema 完成            |
 
 ## 5. Good / Base / Bad Cases
@@ -89,13 +88,13 @@ inherited_plan | refresh`，并保留 Frame/parent Plan attempt provenance。
   Review evidence 与全部新事实一起回滚。
 - Base：新任务显式选择空 Spec 集，binding 表保持为空；旧 compiler revision 同样
   没有 binding，仍按自身 stored schema 正常执行和完成。
-- Bad：只比较 child 的 Spec id/duty 后复用 digest 已漂移的历史 child；必须比较
-  `id/kind/path/digest/duty` 完整 snapshot，并保持历史 child 不变。
-- Bad：命令先检查 revision N 的 required binding，Reducer 却在 revision N+1 创建
-  Attempt；漂移检查结果必须携带已检查 task revision，并由 Reducer CAS 拒绝竞态。
-- Bad：把漂移门禁也套在 Review 上，或拿今天的 Registry 去判已完成任务的历史绑定；
-  前者让改了自身 required Spec 的任务无法开评审而自锁，后者让每个历史任务永久报错
-  且没有任何补救路径。
+- Bad：只比较 child 的 Spec id/duty 后复用 snapshot 不同的历史 child；必须比较
+  `id/kind/path/duty` 完整 snapshot，并保持历史 child 不变。
+- Bad：命令边界读到的 task revision 与 Reducer 实际写入的 revision 之间发生竞态而无人
+  发现；边界必须把观察到的 revision 作为 CAS 期望值交给 Reducer。
+- Bad：拿今天的 Registry 回校验已写入的 binding，或据正文哈希拒绝 attempt。历史事实
+  不得用当下现状校验；内容哈希又绑死文件行尾，会让同一份文档在 LF 与 CRLF 检出上
+  得出不同结论。
 
 ## 6. Tests Required
 
@@ -104,8 +103,8 @@ inherited_plan | refresh`，并保留 Frame/parent Plan attempt provenance。
   `reducer.spec-compatibility.test.ts`：L1/L2/L3 single/modules、provenance、rollback、
   完整 reuse snapshot、refresh、child→root routing 与旧 compiler compatibility。
 - `tests/cli/spec-lifecycle.test.ts`、`spec-lifecycle-attempt-gates.test.ts`：公开 task
-  new、L2 Frame、L3 Plan、required / recommended drift、successor Attempt gate 和
-  refresh。
+  new、L2 Frame、L3 Plan、successor Attempt 与 refresh；并覆盖"正文被编辑后仍可开
+  attempt"和"不读 Registry 即可开始工作"。
 - 修改本边界后运行 `tests/store`、相关 reducer/L3 tests、typecheck、lint、format
   check 和 build；CLI tests 必须使用最新 build。
 
@@ -119,7 +118,7 @@ taskSpecRefresh(db, taskId, { resolvedSpecBindings: callerBindings, reason });
 sameSelectionIds(existingChildBindings, proposedBindings);
 ```
 
-这会绕过当前已确认合同，并让漂移后的历史 child 错误满足新 parent gate。
+这会绕过当前已确认合同，并让 snapshot 不同的历史 child 错误满足新 parent gate。
 
 ### Correct
 

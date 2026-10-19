@@ -23,11 +23,7 @@ import {
   TASKCRAFT_DATABASE_FILE,
   taskcraftDirectory,
 } from "./helpers.js";
-import {
-  checkSpecRegistry,
-  loadSpecRegistry,
-  type LoadedSpecRegistry,
-} from "../spec/index.js";
+import { checkSpecRegistry, loadSpecRegistry } from "../spec/index.js";
 
 export function register(program: Command): void {
   program
@@ -40,14 +36,10 @@ export function register(program: Command): void {
         const database = openDoctorDatabase();
 
         try {
-          const registry = loadDoctorRegistry(process.cwd());
+          const registryCheck = loadDoctorRegistryCheck(process.cwd());
           const checks = [
-            registry.check,
-            ...runDoctorChecks(
-              database,
-              migrationsDirectory(),
-              registry.registry,
-            ),
+            registryCheck,
+            ...runDoctorChecks(database, migrationsDirectory()),
           ];
           const failedChecks = checks.filter((check) => !check.ok);
 
@@ -76,27 +68,22 @@ export function register(program: Command): void {
     });
 }
 
-function loadDoctorRegistry(projectDir: string): {
-  registry: LoadedSpecRegistry | null;
-  check: DoctorCheck;
-} {
+/** The Registry is Git-owned input, so doctor reports whether it is loadable
+ * and valid on its own. No Store fact is compared against it. */
+function loadDoctorRegistryCheck(projectDir: string): DoctorCheck {
   try {
-    const registry = loadSpecRegistry(projectDir);
-    checkSpecRegistry(registry);
-    return { registry, check: { name: "spec-registry", ok: true } };
+    checkSpecRegistry(loadSpecRegistry(projectDir));
+    return { name: "spec-registry", ok: true };
   } catch (error) {
     if (!(error instanceof TaskcraftError)) throw error;
     return {
-      registry: null,
-      check: {
-        name: "spec-registry",
-        ok: false,
-        error: {
-          code: error.code,
-          problem: error.problem,
-          impact: error.impact,
-          remediation: error.remediation,
-        },
+      name: "spec-registry",
+      ok: false,
+      error: {
+        code: error.code,
+        problem: error.problem,
+        impact: error.impact,
+        remediation: error.remediation,
       },
     };
   }

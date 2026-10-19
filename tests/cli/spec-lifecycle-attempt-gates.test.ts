@@ -33,12 +33,11 @@ describe("tc Spec successor Attempt gates", () => {
       expect(changes.status).toBe(0);
       expect(changes.stdout).toContain("Node Brief");
       expect(changes.stdout).toContain("engineering.core");
-      expect(changes.stdout).toContain("current");
       expect(changes.stdout).toContain("att-T-1-execute-1-2");
     });
   });
 
-  it("blocks run retry when a required Execute binding drifted", () => {
+  it("retries after the bound document changed", () => {
     withInitializedDirectory((cwd) => {
       writeRegistry(cwd);
       expect(
@@ -88,19 +87,21 @@ describe("tc Spec successor Attempt gates", () => {
         cwd,
       );
 
-      expect(retry.status).toBe(1);
-      expect(retry.stderr).toContain("TC_SPEC_BINDING_STALE");
+      // Editing a bound document is not a reason to refuse the retry: the
+      // successor attempt is created under the recorded binding.
+      expect(retry.status).toBe(0);
+      expect(retry.stdout).toContain("att-T-1-execute-1-2");
       const database = openDatabase(join(cwd, ".taskcraft", "taskcraft.db"));
       expect(
         getAttempts(database, "T-1").filter(
           (attempt) => attempt.nodeId === "execute-1",
         ),
-      ).toHaveLength(1);
+      ).toHaveLength(2);
       database.close();
     });
   });
 
-  it("blocks review changes before it creates a successor Execute Attempt", () => {
+  it("creates the review-changes successor Execute Attempt after the document changed", () => {
     withInitializedDirectory((cwd) => {
       writeRegistry(cwd);
       createL2ReviewWithRequiredBinding(cwd);
@@ -121,20 +122,19 @@ describe("tc Spec successor Attempt gates", () => {
         cwd,
       );
 
-      expect(changes.status).toBe(1);
-      expect(changes.stderr).toContain("TC_SPEC_BINDING_STALE");
+      expect(changes.status).toBe(0);
       const database = openDatabase(join(cwd, ".taskcraft", "taskcraft.db"));
       expect(
         getAttempts(database, "T-1").filter(
           (attempt) => attempt.nodeId === "execute-1",
         ),
-      ).toHaveLength(1);
+      ).toHaveLength(2);
       expect(
         getAttempts(database, "T-1").find(
           (attempt) => attempt.id === "att-T-1-review-1-1",
         )?.status,
-      ).toBe("created");
-      expect(getReviewFindings(database, "T-1")).toEqual([]);
+      ).toBe("finished");
+      expect(getReviewFindings(database, "T-1")).toHaveLength(1);
       database.close();
     });
   });

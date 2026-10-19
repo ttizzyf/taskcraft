@@ -266,9 +266,39 @@ function parseAttemptImpact(resultJson: string | null): SpecImpactResult {
     throw new Error("Record result is not an object");
   }
   return parseSpecImpactResult(
-    (value as { specImpact?: unknown }).specImpact,
+    withoutRetiredUpdateKeys((value as { specImpact?: unknown }).specImpact),
     "Stored Record Spec Impact",
   );
+}
+
+/** A stored Record result is validated against the schema of its own compiler
+ * generation, so it is never rewritten. Earlier generations recorded
+ * `updates[].digest`, which the Impact contract has since retired; the retired
+ * key is dropped here so the historical record can still be compared with the
+ * current contract instead of being reported as damage. */
+function withoutRetiredUpdateKeys(value: unknown): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return value;
+  }
+  const impact = value as { outcome?: unknown; updates?: unknown };
+  if (impact.outcome !== "updated" || !Array.isArray(impact.updates)) {
+    return value;
+  }
+  return {
+    ...impact,
+    updates: impact.updates.map((update) => {
+      if (
+        typeof update !== "object" ||
+        update === null ||
+        Array.isArray(update)
+      ) {
+        return update;
+      }
+      const rest = { ...(update as Record<string, unknown>) };
+      delete rest.digest;
+      return rest;
+    }),
+  };
 }
 
 function matchesSpecImpactSchemaGeneration(

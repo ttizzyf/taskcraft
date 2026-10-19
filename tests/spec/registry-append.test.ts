@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
@@ -41,9 +40,7 @@ describe("Spec Registry append writer", () => {
       expect(registry.specs.map((spec) => spec.id)).toEqual([
         "engineering.testing",
       ]);
-      expect(registry.specs[0]?.digest).toBe(
-        createHash("sha256").update("# Testing\n").digest("hex"),
-      );
+      expect(registry.specs[0]?.path).toBe("docs/testing.md");
       expect(checkSpecRegistry(registry)).toMatchObject({ specCount: 1 });
     });
   });

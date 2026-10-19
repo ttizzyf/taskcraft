@@ -37,7 +37,7 @@ describe("applyMigrations", () => {
     applyMigrations(database, migrationDirectory);
     applyMigrations(database, migrationDirectory);
 
-    expect(readLedgerCount(database)).toBe(4);
+    expect(readLedgerCount(database)).toBe(5);
     expect(database.pragma("foreign_key_check")).toEqual([]);
 
     for (const table of [
@@ -65,7 +65,23 @@ describe("applyMigrations", () => {
     }
   });
 
-  it("upgrades 0001 -> 0004 without backfilling historical tasks", () => {
+  it("drops the retired byte-digest columns", () => {
+    database = openDatabase(":memory:");
+    applyMigrations(database, resolve("migrations"));
+
+    // The ledger records which migrations ran, and a binding records which
+    // documents a task adopted. Neither keeps a hash of file bytes.
+    expect(columnNames(database, "schema_migrations")).toEqual([
+      "version",
+      "name",
+      "applied_at",
+    ]);
+    expect(columnNames(database, "lifecycle_spec_bindings")).not.toContain(
+      "spec_digest",
+    );
+  });
+
+  it("upgrades 0001 -> 0005 without backfilling historical tasks", () => {
     temporaryDirectory = createTemporaryDirectory();
     database = openDatabase(":memory:");
     for (const filename of ["0001_initial.sql", "0002_l3_modular_tasks.sql"]) {
@@ -81,6 +97,7 @@ describe("applyMigrations", () => {
     for (const filename of [
       "0003_spec_system.sql",
       "0004_spec_sedimentation.sql",
+      "0005_drop_byte_digests.sql",
     ]) {
       writeMigration(
         filename,
@@ -89,7 +106,7 @@ describe("applyMigrations", () => {
     }
     applyMigrations(database, temporaryDirectory.path);
 
-    expect(readLedgerCount(database)).toBe(4);
+    expect(readLedgerCount(database)).toBe(5);
     expect(
       database
         .prepare(
@@ -148,16 +165,16 @@ describe("applyMigrations", () => {
     expect(error.code).toBe("TC_STORE_MIGRATION_HISTORY_MISSING");
   });
 
-  it("rejects checksum drift in an applied migration", () => {
+  it("does not treat an edited applied migration as a ledger error", () => {
     setupTemporaryMigration("0001_first.sql", "CREATE TABLE first (id TEXT);");
     applyMigrations(database!, temporaryDirectory!.path);
     writeMigration("0001_first.sql", "CREATE TABLE changed (id TEXT);");
 
-    const error = captureMigrationError(() => {
-      applyMigrations(database!, temporaryDirectory!.path);
-    });
-
-    expect(error.code).toBe("TC_STORE_MIGRATION_CHECKSUM_MISMATCH");
+    // The ledger records which migrations ran, not what their bytes were:
+    // hashing the SQL would bind the store to the checkout's line endings, so
+    // the same file hashes differently on LF and CRLF.
+    applyMigrations(database!, temporaryDirectory!.path);
+    expect(readLedgerCount(database!)).toBe(1);
   });
 
   it("rolls back a failed migration without writing its ledger row", () => {
@@ -204,6 +221,16 @@ function readLedgerCount(database: TaskcraftDatabase): number {
     .get() as { count: number };
 
   return row.count;
+}
+
+function columnNames(database: TaskcraftDatabase, table: string): string[] {
+  return (
+    database
+      .prepare(`SELECT name FROM pragma_table_info(?)`)
+      .all(table) as Array<{
+      name: string;
+    }>
+  ).map((column) => column.name);
 }
 
 function hasTable(database: TaskcraftDatabase, name: string): boolean {

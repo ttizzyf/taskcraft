@@ -5,12 +5,7 @@ import {
   type LifecycleSpecBindingRow,
 } from "../store/query.js";
 import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
-import { evaluateSpecBindingDrift } from "./bindings.js";
-import type { SpecBindingDriftReason } from "./bindings.js";
 import { parseSpecImpactResult, type SpecImpactResult } from "./impact.js";
-import type { ProjectStatus } from "../core/projector-types.js";
-import { loadSpecRegistry } from "./registry.js";
-import type { LoadedSpecRegistry } from "./types.js";
 
 export interface SpecDeliveryBinding {
   lifecycleRevision: number;
@@ -18,17 +13,10 @@ export interface SpecDeliveryBinding {
   id: string;
   kind: "engineering" | "domain";
   path: string;
-  digest: string;
   duty: "required" | "recommended";
   sourceKind: LifecycleSpecBindingRow["sourceKind"];
   sourceTaskId: string | null;
   sourceAttemptId: string | null;
-  /** `historical` marks a finished task's binding: it is a recorded fact and is
-   * deliberately not compared with today's Registry. */
-  drift: {
-    status: "current" | "stale" | "historical";
-    reasons: SpecBindingDriftReason[];
-  };
 }
 
 export interface SpecDeliveryImpact {
@@ -43,101 +31,31 @@ export interface SpecDeliveryImpact {
 export interface SpecDeliveryView {
   bindings: SpecDeliveryBinding[];
   impacts: SpecDeliveryImpact[];
-  registryIssue: {
-    code: string;
-    problem: string;
-    remediation: string;
-  } | null;
 }
 
-/** Shared command/Watch delivery query. SQLite owns adopted snapshots and
- * impacts; the Registry service is called once only to annotate current
- * drift. Consumers render this DTO and never recompute semantics. */
+/** Shared command/Watch delivery query. SQLite owns the adopted bindings and
+ * the recorded impacts; the Registry is deliberately not consulted, because a
+ * binding records which documents a task adopted, not whether they still read
+ * the same way today. Consumers render this DTO and never recompute semantics. */
 export function loadSpecDeliveryView(
-  projectDir: string,
   database: TaskcraftDatabase,
   taskId: string,
   revision: number,
-  taskStatus: ProjectStatus,
 ): SpecDeliveryView {
-  const bindings = getLifecycleSpecBindings(database, taskId, revision);
-  let registry: LoadedSpecRegistry | null = null;
-  let registryIssue: SpecDeliveryView["registryIssue"] = null;
-  if (bindings.length > 0) {
-    try {
-      registry = loadSpecRegistry(projectDir);
-    } catch (error) {
-      if (!(error instanceof TaskcraftError)) throw error;
-      registryIssue = {
-        code: error.code,
-        problem: error.problem,
-        remediation: error.remediation,
-      };
-    }
-  }
-  return buildSpecDeliveryView(
-    database,
-    taskId,
-    revision,
-    registry,
-    taskStatus,
-    registryIssue,
-  );
-}
-
-/** A finished task's binding is a recorded historical fact: comparing it with
- * today's Registry is a category error, so it is reported as `historical`
- * rather than `stale`. Only unfinished work can still act on a stale contract. */
-function bindingDrift(
-  bindings: readonly LifecycleSpecBindingRow[],
-  registry: LoadedSpecRegistry | null,
-  taskStatus: ProjectStatus,
-): Array<{
-  binding: LifecycleSpecBindingRow;
-  status: "current" | "stale" | "historical";
-  reasons: SpecBindingDriftReason[];
-}> {
-  if (taskStatus === "done" || taskStatus === "cancelled") {
-    return bindings.map((binding) => ({
-      binding,
-      status: "historical" as const,
-      reasons: [],
-    }));
-  }
-  if (registry === null) {
-    return bindings.map((binding) => ({
-      binding,
-      status: "stale" as const,
-      reasons: ["registry_unavailable" as const],
-    }));
-  }
-  return evaluateSpecBindingDrift(registry, bindings);
-}
-
-export function buildSpecDeliveryView(
-  database: TaskcraftDatabase,
-  taskId: string,
-  revision: number,
-  registry: LoadedSpecRegistry | null,
-  taskStatus: ProjectStatus,
-  registryIssue: SpecDeliveryView["registryIssue"] = null,
-): SpecDeliveryView {
-  const bindings = getLifecycleSpecBindings(database, taskId, revision);
-  const drift = bindingDrift(bindings, registry, taskStatus);
   return {
-    bindings: drift.map((item) => ({
-      lifecycleRevision: item.binding.lifecycleRevision,
-      nodeId: item.binding.nodeId,
-      id: item.binding.specId,
-      kind: item.binding.specKind,
-      path: item.binding.specPath,
-      digest: item.binding.specDigest,
-      duty: item.binding.duty,
-      sourceKind: item.binding.sourceKind,
-      sourceTaskId: item.binding.sourceTaskId,
-      sourceAttemptId: item.binding.sourceAttemptId,
-      drift: { status: item.status, reasons: [...item.reasons] },
-    })),
+    bindings: getLifecycleSpecBindings(database, taskId, revision).map(
+      (binding) => ({
+        lifecycleRevision: binding.lifecycleRevision,
+        nodeId: binding.nodeId,
+        id: binding.specId,
+        kind: binding.specKind,
+        path: binding.specPath,
+        duty: binding.duty,
+        sourceKind: binding.sourceKind,
+        sourceTaskId: binding.sourceTaskId,
+        sourceAttemptId: binding.sourceAttemptId,
+      }),
+    ),
     impacts: getSpecImpactResults(database, taskId, revision).map((row) => ({
       recordAttemptId: row.recordAttemptId,
       lifecycleRevision: row.lifecycleRevision,
@@ -151,7 +69,6 @@ export function buildSpecDeliveryView(
       createdBy: row.createdBy,
       createdAt: row.createdAt,
     })),
-    registryIssue,
   };
 }
 

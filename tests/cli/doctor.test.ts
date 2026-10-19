@@ -158,7 +158,7 @@ describe("tc doctor", () => {
     });
   });
 
-  it("reports current binding drift without changing Registry or Store bytes", () => {
+  it("stays green when a bound document changes without touching either file", () => {
     withInitializedDirectory((cwd) => {
       mkdirSync(join(cwd, "docs"), { recursive: true });
       writeFileSync(join(cwd, "docs", "delivery.md"), "Original\n", "utf8");
@@ -204,9 +204,11 @@ describe("tc doctor", () => {
 
       const result = runCli(["doctor"], cwd);
 
-      expect(result.status).toBe(1);
-      expect(result.stdout).toContain("TC_SPEC_BINDING_INVALID");
-      expect(result.stdout).toContain("digest_changed");
+      // A binding records which documents the task adopted. Editing the
+      // document afterwards is not a store defect, so doctor neither fails nor
+      // rewrites either file.
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("Doctor: 12 checks passed");
       expect(readFileSync(registryFile)).toEqual(beforeRegistry);
       expect(readFileSync(storeFile)).toEqual(beforeStore);
     });

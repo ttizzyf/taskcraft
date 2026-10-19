@@ -26,14 +26,12 @@ describe("reducer run", () => {
             specId: "engineering.delivery",
             kind: "engineering",
             path: "docs/delivery.md",
-            digest: "a".repeat(64),
             duty: "required",
           },
           {
             specId: "domain.approval",
             kind: "domain",
             path: "docs/approval.md",
-            digest: "b".repeat(64),
             duty: "recommended",
           },
         ],
@@ -50,17 +48,13 @@ describe("reducer run", () => {
           id: "domain.approval",
           kind: "domain",
           path: "docs/approval.md",
-          digest: "b".repeat(64),
           duty: "recommended",
-          drift: null,
         },
         {
           id: "engineering.delivery",
           kind: "engineering",
           path: "docs/delivery.md",
-          digest: "a".repeat(64),
           duty: "required",
-          drift: null,
         },
       ]);
       expect(result.nodeBrief!.reviewContext).toBeNull();

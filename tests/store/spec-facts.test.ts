@@ -22,7 +22,6 @@ const BINDING = {
   specId: "engineering.store",
   kind: "engineering" as const,
   path: "docs/store.md",
-  digest: "a".repeat(64),
   duty: "required" as const,
 };
 
@@ -156,13 +155,13 @@ describe("Spec lifecycle facts", () => {
           .prepare(
             `INSERT INTO lifecycle_spec_bindings (
                task_id, lifecycle_revision, node_id, spec_id, spec_kind,
-               spec_path, spec_digest, duty, source_kind, source_task_id,
+               spec_path, duty, source_kind, source_task_id,
                source_attempt_id, created_by, created_at
              ) VALUES (?, 1, 'execute-1', 'engineering.foreign', 'engineering',
-                       'docs/foreign.md', ?, 'recommended', 'inherited_plan',
+                       'docs/foreign.md', 'recommended', 'inherited_plan',
                        ?, ?, 'test', '2026-08-21T00:00:00.000Z')`,
           )
-          .run(child, "d".repeat(64), foreign.taskId, foreign.planAttemptId),
+          .run(child, foreign.taskId, foreign.planAttemptId),
       ).toThrow(/Spec binding source must reference its Frame or Plan attempt/);
     } finally {
       database.close();
@@ -179,18 +178,13 @@ describe("Spec lifecycle facts", () => {
           .prepare(
             `INSERT INTO lifecycle_spec_bindings (
                task_id, lifecycle_revision, node_id, spec_id, spec_kind,
-               spec_path, spec_digest, duty, source_kind, source_task_id,
+               spec_path, duty, source_kind, source_task_id,
                source_attempt_id, created_by, created_at
              ) VALUES (?, 1, 'frame-1', 'engineering.unaccepted', 'engineering',
-                       'docs/unaccepted.md', ?, 'required', 'accepted_plan',
+                       'docs/unaccepted.md', 'required', 'accepted_plan',
                        ?, ?, 'test', '2026-08-21T00:00:00.000Z')`,
           )
-          .run(
-            parent.taskId,
-            "e".repeat(64),
-            parent.taskId,
-            parent.planAttemptId,
-          ),
+          .run(parent.taskId, parent.taskId, parent.planAttemptId),
       ).toThrow(/Spec binding source must reference its Frame or Plan attempt/);
     } finally {
       database.close();

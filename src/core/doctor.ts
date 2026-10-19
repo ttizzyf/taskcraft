@@ -18,7 +18,6 @@ import { ERROR_CODES } from "./errors.js";
 import type { TaskcraftErrorCode } from "./errors.js";
 import { L1_FACTS_DIGEST, L1_POLICY_DIGEST } from "./lifecycle/l1.js";
 import { project } from "./projector.js";
-import type { LoadedSpecRegistry } from "../spec/index.js";
 import { runSpecStoreChecks } from "./doctor-spec.js";
 
 export interface DoctorError {
@@ -59,7 +58,6 @@ const PROJECTION_FIELDS = [
 export function runDoctorChecks(
   database: TaskcraftDatabase,
   migrationsDirectory: string,
-  registry: LoadedSpecRegistry | null = null,
 ): DoctorCheck[] {
   if (!hasMigrationLedger(database)) {
     // A store file without the ledger table was never migrated: the schema is
@@ -75,7 +73,7 @@ export function runDoctorChecks(
     checkEventContinuity(database),
     checkDefinitionDigest(database),
     checkL3Relations(database),
-    ...runSpecStoreChecks(database, registry),
+    ...runSpecStoreChecks(database),
     checkProjectionRebuild(database),
     checkBreadcrumbSchema(database),
   ];
@@ -102,9 +100,9 @@ function missingLedgerCheck(): DoctorCheck {
 }
 
 /** The migration ledger must match the migration files on disk in both
- * directions: every applied row exists with the same name and checksum, and
- * every disk migration is applied. Reuses the exact validation applyMigrations
- * runs, without applying anything. */
+ * directions: every applied row exists with the same name, and every disk
+ * migration is applied. Reuses the exact validation applyMigrations runs,
+ * without applying anything. */
 function checkMigrationLedger(
   database: TaskcraftDatabase,
   migrationsDirectory: string,
@@ -112,9 +110,7 @@ function checkMigrationLedger(
   try {
     const migrations = discoverMigrations(migrationsDirectory);
     const applied = database
-      .prepare(
-        "SELECT version, name, checksum FROM schema_migrations ORDER BY version",
-      )
+      .prepare("SELECT version, name FROM schema_migrations ORDER BY version")
       .all() as AppliedMigration[];
 
     validateAppliedHistory(applied, migrations);

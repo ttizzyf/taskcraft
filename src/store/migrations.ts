@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -6,11 +5,14 @@ import type { TaskcraftDatabase } from "./database.js";
 
 const MIGRATION_NAME = /^(?<version>\d{4})_(?<name>[a-z0-9][a-z0-9_]*)\.sql$/;
 
+// The ledger records which migrations ran, not what their bytes were. Hashing
+// the SQL would bind the store to the checkout's line endings: the same file
+// hashes differently on LF and CRLF, and the committed store would then refuse
+// to open on another platform.
 const CREATE_LEDGER_SQL = `
   CREATE TABLE IF NOT EXISTS schema_migrations (
     version INTEGER PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
-    checksum TEXT NOT NULL,
     applied_at TEXT NOT NULL
   )
 `;
@@ -19,7 +21,6 @@ export type MigrationErrorCode =
   | "TC_STORE_MIGRATION_NAME_INVALID"
   | "TC_STORE_MIGRATION_VERSION_DUPLICATE"
   | "TC_STORE_MIGRATION_HISTORY_MISSING"
-  | "TC_STORE_MIGRATION_CHECKSUM_MISMATCH"
   | "TC_STORE_MIGRATION_APPLY_FAILED";
 
 export class MigrationError extends Error {
@@ -41,13 +42,11 @@ interface MigrationFile {
   name: string;
   filename: string;
   sql: string;
-  checksum: string;
 }
 
 export interface AppliedMigration {
   version: number;
   name: string;
-  checksum: string;
 }
 
 export function applyMigrations(
@@ -58,9 +57,7 @@ export function applyMigrations(
   database.exec(CREATE_LEDGER_SQL);
 
   const applied = database
-    .prepare(
-      "SELECT version, name, checksum FROM schema_migrations ORDER BY version",
-    )
+    .prepare("SELECT version, name FROM schema_migrations ORDER BY version")
     .all() as AppliedMigration[];
 
   validateAppliedHistory(applied, migrations);
@@ -116,7 +113,6 @@ function loadMigration(directory: string, filename: string): MigrationFile {
     name,
     filename,
     sql,
-    checksum: createHash("sha256").update(sql).digest("hex"),
   };
 }
 
@@ -137,13 +133,6 @@ export function validateAppliedHistory(
         `Applied migration ${ledgerEntry.version.toString().padStart(4, "0")}_${ledgerEntry.name}.sql is missing`,
       );
     }
-
-    if (migration.checksum !== ledgerEntry.checksum) {
-      throw new MigrationError(
-        "TC_STORE_MIGRATION_CHECKSUM_MISMATCH",
-        `Checksum changed for applied migration ${migration.filename}`,
-      );
-    }
   }
 }
 
@@ -157,15 +146,10 @@ function applyMigration(
     database.exec(migration.sql);
     database
       .prepare(
-        `INSERT INTO schema_migrations (version, name, checksum, applied_at)
-         VALUES (?, ?, ?, ?)`,
+        `INSERT INTO schema_migrations (version, name, applied_at)
+         VALUES (?, ?, ?)`,
       )
-      .run(
-        migration.version,
-        migration.name,
-        migration.checksum,
-        new Date().toISOString(),
-      );
+      .run(migration.version, migration.name, new Date().toISOString());
     database.exec("COMMIT");
   } catch (cause) {
     if (database.inTransaction) {

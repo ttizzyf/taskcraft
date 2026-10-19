@@ -11,7 +11,6 @@ import {
   runComplete,
   taskNew,
 } from "../../src/core/reducer.js";
-import type { LoadedSpecRegistry } from "../../src/spec/index.js";
 import { getEvidence } from "../../src/store/query.js";
 import type { TaskcraftDatabase } from "../../src/store/database.js";
 import { createMigratedDatabase } from "../store/helpers.js";
@@ -24,11 +23,11 @@ import {
 const MIGRATIONS_DIRECTORY = resolve("migrations");
 
 describe("doctor Spec integrity", () => {
-  it("flags current binding drift against the supplied Registry snapshot", () => {
+  it("checks binding facts without comparing them with a Registry", () => {
     const database = createMigratedDatabase();
     try {
-      taskNew(database, {
-        title: "Drifted binding",
+      const { taskId } = taskNew(database, {
+        title: "Bound task",
         level: 1,
         reason: "doctor contract",
         initialSpecBindings: [
@@ -36,56 +35,9 @@ describe("doctor Spec integrity", () => {
             specId: "engineering.delivery",
             kind: "engineering",
             path: "docs/delivery.md",
-            digest: "a".repeat(64),
             duty: "required",
           },
         ],
-      });
-
-      const check = checkOf(
-        database,
-        "spec-bindings",
-        registryWithDigest("b".repeat(64)),
-      );
-      expect(check.ok).toBe(false);
-      expect(check.error?.code).toBe("TC_SPEC_BINDING_INVALID");
-      expect(check.error?.problem).toContain("digest_changed");
-    } finally {
-      database.close();
-    }
-  });
-
-  it("ignores drift on a finished task and on a recommended binding", () => {
-    const database = createMigratedDatabase();
-    try {
-      const drifted = (duty: "required" | "recommended") => ({
-        specId: "engineering.delivery",
-        kind: "engineering" as const,
-        path: "docs/delivery.md",
-        digest: "a".repeat(64),
-        duty,
-      });
-      const healthy = () =>
-        checkOf(database, "spec-bindings", registryWithDigest("b".repeat(64)))
-          .ok;
-
-      // A recommended binding is advisory context that never gates work, so its
-      // drift cannot make the store unhealthy.
-      taskNew(database, {
-        title: "Recommended drift",
-        level: 1,
-        reason: "doctor contract",
-        initialSpecBindings: [drifted("recommended")],
-      });
-      expect(healthy()).toBe(true);
-
-      // A finished task's binding is history: comparing it with today's
-      // Registry would report every past task forever, with no remedy.
-      const { taskId } = taskNew(database, {
-        title: "Finished drift",
-        level: 1,
-        reason: "doctor contract",
-        initialSpecBindings: [drifted("required")],
       });
       run(database, taskId, {});
       runComplete(database, taskId, {
@@ -101,7 +53,10 @@ describe("doctor Spec integrity", () => {
         },
       });
 
-      expect(healthy()).toBe(true);
+      // A binding records what the task adopted. Whether the document still
+      // says the same thing today is not a property of the store, so doctor
+      // reports provenance only and stays green.
+      expect(checkOf(database, "spec-bindings").ok).toBe(true);
     } finally {
       database.close();
     }
@@ -165,7 +120,6 @@ describe("doctor Spec integrity", () => {
           {
             specId: "engineering.delivery",
             path: "docs/delivery.md",
-            digest: "a".repeat(64),
             evidenceRefs: [evidenceId],
           },
         ],
@@ -176,12 +130,73 @@ describe("doctor Spec integrity", () => {
         resolvedSpecImpact: impact,
       });
 
-      const check = checkOf(
-        database,
-        "spec-impact",
-        registryWithDigest("b".repeat(64)),
-      );
+      const check = checkOf(database, "spec-impact");
       expect(check.ok).toBe(true);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("reads a Record result that still carries the retired Impact digest", () => {
+    const database = createMigratedDatabase();
+    try {
+      const { taskId } = taskNew(database, {
+        title: "Retired digest",
+        level: 1,
+        reason: "historical records keep their own shape",
+      });
+      run(database, taskId);
+      runComplete(database, taskId, {
+        result: {
+          summary: "Done",
+          evidence: [
+            { type: "validation", reference: "ref://test", summary: "Pass" },
+          ],
+        },
+      });
+      const evidenceId = getEvidence(database, taskId)[0]!.id;
+      run(database, taskId, { nodeId: "record-1" });
+      const impact = {
+        outcome: "updated" as const,
+        updates: [
+          {
+            specId: "engineering.delivery",
+            path: "docs/delivery.md",
+            evidenceRefs: [evidenceId],
+          },
+        ],
+      };
+      runComplete(database, taskId, {
+        nodeId: "record-1",
+        result: { summary: "Recorded", specImpact: impact },
+        resolvedSpecImpact: impact,
+      });
+
+      // Records written before digests were retired still carry the key, and
+      // their stored schema still requires it. Reading such a record must not
+      // report damage.
+      const attemptId = `att-${taskId}-record-1-1`;
+      database
+        .prepare("UPDATE node_attempts SET result_json = ? WHERE id = ?")
+        .run(
+          JSON.stringify({
+            summary: "Recorded",
+            specImpact: {
+              outcome: "updated",
+              updates: [
+                {
+                  specId: "engineering.delivery",
+                  path: "docs/delivery.md",
+                  digest: "a".repeat(64),
+                  evidenceRefs: [evidenceId],
+                },
+              ],
+            },
+          }),
+          attemptId,
+        );
+
+      expect(checkOf(database, "spec-impact").ok).toBe(true);
     } finally {
       database.close();
     }
@@ -283,18 +298,13 @@ describe("doctor Spec integrity", () => {
               {
                 specId: "engineering.delivery",
                 path: "docs/delivery.md",
-                digest: "a".repeat(64),
                 evidenceRefs: ["ev-foreign"],
               },
             ],
           }),
         );
 
-      const check = checkOf(
-        database,
-        "spec-impact",
-        registryWithDigest("a".repeat(64)),
-      );
+      const check = checkOf(database, "spec-impact");
       expect(check.ok).toBe(false);
       expect(check.error?.problem).toContain("foreign evidence");
     } finally {
@@ -309,7 +319,6 @@ describe("doctor Spec integrity", () => {
         specId: "engineering.delivery",
         kind: "engineering" as const,
         path: "docs/delivery.md",
-        digest: "a".repeat(64),
         duty: "required" as const,
       };
       const plan = {
@@ -398,32 +407,10 @@ describe("doctor Spec integrity", () => {
   });
 });
 
-function checkOf(
-  database: TaskcraftDatabase,
-  name: string,
-  registry: LoadedSpecRegistry | null = null,
-): DoctorCheck {
-  const check = runDoctorChecks(database, MIGRATIONS_DIRECTORY, registry).find(
+function checkOf(database: TaskcraftDatabase, name: string): DoctorCheck {
+  const check = runDoctorChecks(database, MIGRATIONS_DIRECTORY).find(
     (candidate) => candidate.name === name,
   );
   expect(check, `check ${name}`).toBeDefined();
   return check!;
-}
-
-function registryWithDigest(digest: string): LoadedSpecRegistry {
-  return {
-    schemaVersion: "tc-spec-registry/v1",
-    registryPath: ".taskcraft/spec/index.json",
-    specs: [
-      {
-        id: "engineering.delivery",
-        kind: "engineering",
-        path: "docs/delivery.md",
-        summary: "Delivery",
-        appliesTo: ["src/**"],
-        status: "active",
-        digest,
-      },
-    ],
-  };
 }

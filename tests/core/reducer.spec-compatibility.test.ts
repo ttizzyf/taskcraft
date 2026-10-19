@@ -28,7 +28,6 @@ const STORE_SPEC = {
   specId: "engineering.store",
   kind: "engineering" as const,
   path: "docs/store.md",
-  digest: "a".repeat(64),
   duty: "required" as const,
 };
 

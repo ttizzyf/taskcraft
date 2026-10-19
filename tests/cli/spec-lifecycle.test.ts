@@ -4,10 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { openDatabase } from "../../src/store/database.js";
-import {
-  getAttempts,
-  getLifecycleSpecBindings,
-} from "../../src/store/query.js";
+import { getLifecycleSpecBindings } from "../../src/store/query.js";
 import { runCli, withInitializedDirectory } from "./helpers.js";
 import {
   L3_FRAME_RESULT,
@@ -20,7 +17,7 @@ import {
 } from "./l3-helpers.js";
 
 describe("tc task Spec lifecycle", () => {
-  it("blocks stale required Execute bindings until explicit refresh", () => {
+  it("starts Execute after the bound document changes and rebinds on refresh", () => {
     withInitializedDirectory((cwd) => {
       writeRegistry(cwd);
       const created = runCli(
@@ -41,12 +38,11 @@ describe("tc task Spec lifecycle", () => {
       expect(created.status).toBe(0);
       writeFileSync(join(cwd, "docs", "core.md"), "# Core changed\n", "utf8");
 
-      const blocked = runCli(["run", "T-1"], cwd);
-      expect(blocked.status).toBe(1);
-      expect(blocked.stderr).toContain("TC_SPEC_BINDING_STALE");
-      const database = openDatabase(join(cwd, ".taskcraft", "taskcraft.db"));
-      expect(getAttempts(database, "T-1")).toEqual([]);
-      database.close();
+      // The binding records which document the task adopted. Editing that
+      // document afterwards does not gate the task's own work.
+      const started = runCli(["run", "T-1"], cwd);
+      expect(started.status).toBe(0);
+      expect(started.stdout).toContain("Attempt: att-T-1-execute-1-1");
 
       const refresh = runCli(
         [
@@ -57,13 +53,12 @@ describe("tc task Spec lifecycle", () => {
           "--reason",
           "Core contract changed",
           "--expected-revision",
-          "1",
+          "2",
         ],
         cwd,
       );
       expect(refresh.status).toBe(0);
-      expect(refresh.stdout).toContain("Revision: 2");
-      expect(runCli(["run", "T-1"], cwd).status).toBe(0);
+      expect(refresh.stdout).toContain("Revision: 3");
 
       const refreshedDatabase = openDatabase(
         join(cwd, ".taskcraft", "taskcraft.db"),
@@ -77,125 +72,48 @@ describe("tc task Spec lifecycle", () => {
     });
   });
 
-  it("discloses but does not block recommended drift", () => {
-    withInitializedDirectory((cwd) => {
-      writeRegistry(cwd);
-      expect(
-        runCli(
-          [
-            "task",
-            "new",
-            "--title",
-            "Recommended",
-            "--level",
-            "1",
-            "--reason",
-            "advisory contract",
-            "--specs",
-            '[{"id":"engineering.core","duty":"recommended"}]',
-          ],
-          cwd,
-        ).status,
-      ).toBe(0);
-      writeFileSync(
-        join(cwd, "docs", "core.md"),
-        "# Advisory changed\n",
-        "utf8",
-      );
+  it("starts work without reading the Registry at all", () => {
+    for (const damage of ["missing-document", "invalid-registry"] as const) {
+      withInitializedDirectory((cwd) => {
+        writeRegistry(cwd);
+        expect(
+          runCli(
+            [
+              "task",
+              "new",
+              "--title",
+              "Required",
+              "--level",
+              "1",
+              "--reason",
+              "required contract",
+              "--specs",
+              '[{"id":"engineering.core","duty":"required"}]',
+            ],
+            cwd,
+          ).status,
+        ).toBe(0);
 
-      const run = runCli(["run", "T-1"], cwd);
-      expect(run.status).toBe(0);
-      expect(run.stdout).toContain("Attempt: att-T-1-execute-1-1");
-    });
+        if (damage === "missing-document") {
+          unlinkSync(join(cwd, "docs", "core.md"));
+        } else {
+          writeFileSync(
+            join(cwd, ".taskcraft", "spec", "index.json"),
+            "not-json",
+            "utf8",
+          );
+        }
+
+        // The command boundary resolves Specs when a binding is created, never
+        // when an attempt is claimed, so a broken Registry cannot stop work.
+        const started = runCli(["run", "T-1"], cwd);
+        expect(started.status).toBe(0);
+        expect(started.stdout).toContain("Attempt: att-T-1-execute-1-1");
+      });
+    }
   });
 
-  it("preserves Registry errors for required bindings but does not block recommended bindings", () => {
-    withInitializedDirectory((cwd) => {
-      writeRegistry(cwd);
-      expect(
-        runCli(
-          [
-            "task",
-            "new",
-            "--title",
-            "Required",
-            "--level",
-            "1",
-            "--reason",
-            "required contract",
-            "--specs",
-            '[{"id":"engineering.core","duty":"required"}]',
-          ],
-          cwd,
-        ).status,
-      ).toBe(0);
-      unlinkSync(join(cwd, "docs", "core.md"));
-
-      const blocked = runCli(["run", "T-1"], cwd);
-      expect(blocked.status).toBe(1);
-      expect(blocked.stderr).toContain("TC_SPEC_BINDING_STALE");
-      expect(blocked.stderr).toContain("registry_unavailable");
-      const database = openDatabase(join(cwd, ".taskcraft", "taskcraft.db"));
-      expect(getAttempts(database, "T-1")).toEqual([]);
-      database.close();
-    });
-
-    withInitializedDirectory((cwd) => {
-      writeRegistry(cwd);
-      expect(
-        runCli(
-          [
-            "task",
-            "new",
-            "--title",
-            "Recommended",
-            "--level",
-            "1",
-            "--reason",
-            "recommended contract",
-            "--specs",
-            '[{"id":"engineering.core","duty":"recommended"}]',
-          ],
-          cwd,
-        ).status,
-      ).toBe(0);
-      unlinkSync(join(cwd, "docs", "core.md"));
-
-      expect(runCli(["run", "T-1"], cwd).status).toBe(0);
-    });
-
-    withInitializedDirectory((cwd) => {
-      writeRegistry(cwd);
-      expect(
-        runCli(
-          [
-            "task",
-            "new",
-            "--title",
-            "Recommended",
-            "--level",
-            "1",
-            "--reason",
-            "recommended contract",
-            "--specs",
-            '[{"id":"engineering.core","duty":"recommended"}]',
-          ],
-          cwd,
-        ).status,
-      ).toBe(0);
-      writeFileSync(
-        join(cwd, ".taskcraft", "spec", "index.json"),
-        "not-json",
-        "utf8",
-      );
-
-      const invalidRegistry = runCli(["run", "T-1"], cwd);
-      expect(invalidRegistry.status).toBe(0);
-      expect(invalidRegistry.stdout).toContain("registry_unavailable");
-    });
-  });
-
-  it("opens a stale required delivery Review while still blocking new Execute work", () => {
+  it("opens a delivery Review and accepts changes after the document changes", () => {
     withInitializedDirectory((cwd) => {
       writeRegistry(cwd);
       expect(
@@ -257,8 +175,6 @@ describe("tc task Spec lifecycle", () => {
       ).toBe(0);
       writeFileSync(join(cwd, "docs", "core.md"), "# Review changed\n", "utf8");
 
-      // A Review is where a stale contract gets adjudicated, so it stays
-      // reachable; only new Execute work is gated.
       const opened = runCli(
         [
           "review",
@@ -274,11 +190,11 @@ describe("tc task Spec lifecycle", () => {
         cwd,
       );
       expect(opened.status).toBe(0);
-      expect(opened.stdout).toContain("digest_changed");
+      expect(opened.stdout).toContain("engineering.core");
 
-      // Requesting changes would create a successor Execute attempt under the
-      // stale contract, so that stays refused.
-      const blocked = runCli(
+      // Requesting changes creates a successor Execute attempt. Nothing about
+      // the Spec documents can refuse it: the reviewer decides.
+      const changed = runCli(
         [
           "review",
           "changes",
@@ -290,8 +206,7 @@ describe("tc task Spec lifecycle", () => {
         ],
         cwd,
       );
-      expect(blocked.status).toBe(1);
-      expect(blocked.stderr).toContain("TC_SPEC_BINDING_STALE");
+      expect(changed.status).toBe(0);
     });
   });
 

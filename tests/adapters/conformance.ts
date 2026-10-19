@@ -337,8 +337,6 @@ export function runConformance(
               kind: "engineering",
               duty: "required",
               path: "docs/store.md",
-              digest: "a".repeat(64),
-              drift: { status: "current", reasons: [] },
             },
           ],
           reviewContext: null,

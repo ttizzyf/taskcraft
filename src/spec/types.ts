@@ -22,9 +22,10 @@ export type SpecRegistryEntry =
       readonly authority: string;
     });
 
-export type ResolvedSpec = SpecRegistryEntry & {
-  readonly digest: string;
-};
+/** A Registry entry whose body has been resolved to a readable regular file
+ * inside the project. Resolution proves the document exists; it deliberately
+ * carries no hash of that document's bytes. */
+export type ResolvedSpec = SpecRegistryEntry;
 
 export interface LoadedSpecRegistry {
   readonly schemaVersion: typeof SPEC_REGISTRY_SCHEMA_VERSION;

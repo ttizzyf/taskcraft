@@ -14,11 +14,13 @@ ADR 不能单独改变运行时合同。
 | [0003：用户输入、敏感信息与高风险操作](0003-revision-bound-inputs-and-authorization.md) | 复用已有 fact 和 blocker，不建设凭据或授权系统 |
 | [0004：宿主能力与 Run 关联](0004-host-capability-evidence-and-run-correlation.md) | 首版支持 Codex/Claude Hook；能力现场检测，结果本地校验 |
 | [0005：实现语言与工具链](0005-implementation-language-and-toolchain.md) | Node.js 24、pnpm 10、TypeScript、better-sqlite3、Ajv、Vitest |
-| [0006：Migration 与合同验证](0006-migrations-and-contract-validation.md) | 顺序 SQL migration、checksum、事务回滚和结构化合同检查 |
+| [0006：Migration 与合同验证](0006-migrations-and-contract-validation.md) | 顺序 SQL migration、事务回滚和结构化合同检查（checksum 已被 0012 取代） |
 | [0007：结果校验与 Agent 探测边界](0007-evaluator-and-probe-safety-boundary.md) | Taskcraft 校验结果；Agent 使用宿主工具检查环境 |
 | [0008：文档权威与初始模块边界](0008-document-authority-and-module-boundaries.md) | 单 package 起步，只创建 Task 01 实际使用的模块 |
 | [0009：Agent 自主推进与 Entry-only Hook](0009-agent-driven-continuation.md) | 移除 Stop Hook；任务连续性由持久事实、next、typed waiting 与 Entry 恢复承担 |
 | [0010：L3 模块化父子任务](0010-l3-modular-task-decomposition.md) | accepted Plan 原子物化一层真实 L1/L2 children；保留经审核的 single 模式，不引入调度器 |
+| [0011：把真相源收敛到 .taskcraft/spec](0011-consolidate-truth-source-under-taskcraft.md) | 产品规格、工程合同与 ADR 统一放在 `.taskcraft/spec/` |
+| [0012：不对文件字节做哈希](0012-no-byte-digests.md) | 移除迁移账本 checksum 与 Spec 绑定/Impact 的 digest；历史事实不拿当下现状校验 |
 
 ## 使用规则
 

@@ -70,7 +70,8 @@ nodes、下一步和用户视图；Adapter 负责 Entry Hook 安装、节点执�
   `lifecycle_inherited_planning` 保存 accepted L3 Plan 编译出的 revision-scoped、
   append-only 定义事实。
 - `lifecycle_spec_bindings` 保存 lifecycle revision/node 实际采用的 Spec id、分类、
-  路径、SHA-256、duty 和 Frame/Plan/refresh 来源。它不保存 Markdown 正文。
+  路径、duty 和 Frame/Plan/refresh 来源。它不保存 Markdown 正文，也不保存正文哈希：
+  绑定记录的是采用了哪些规则文档，不是那些文档当时写了什么。
 - stable node id 在跨 revision 的相同语义中复用，新语义使用新 id。
 
 ### 3.2 Runtime facts
@@ -101,8 +102,9 @@ nodes、下一步和用户视图；Adapter 负责 Entry Hook 安装、节点执�
 `.taskcraft/spec/index.json` 使用 `tc-spec-registry/v1` 合同。`src/spec/` 接收显式
 project directory，以项目 realpath 为边界校验 Registry 和每个正文：绝对路径、
 `..`、realpath/symlink 越界、目录、缺失或不可读文件均显式失败。通过校验的正文
-通过单一文件描述符读取，打开后复核 realpath/inode，并按原始 bytes 计算 SHA-256；
-读取前后可观察到的文件替换或内容变化会显式失败。Node 不提供 `openat(2)` 级目录
+通过单一文件描述符读取，打开后复核 realpath/inode；读取前后可观察到的文件替换或
+内容变化会显式失败。解析只证明正文存在且可读，**不对字节做哈希**——内容哈希会
+绑死文件行尾，让同一份文档在 LF 与 CRLF 检出上得出不同结果。Node 不提供 `openat(2)` 级目录
 句柄 API，也不能阻止本机进程原地修改已打开 inode 后伪造回元数据，因此这是一条
 可信工作区文件边界，不是对抗同机恶意进程的 sandbox。Registry DTO、
 `tc spec list|check|resolve` 和后续命令服务消费者必须复用这一个解析结果，不得各自
@@ -302,7 +304,7 @@ hook command，没有 bash）。Node gate 不依赖任何 shell，用 `execFileS
   非敏感决定写入 `constraint` fact。Taskcraft 不签发或校验授权凭证。
 - export 支持移除绝对路径、session id 和运行细节。
 - `doctor` 检查 migration ledger、外键、孤儿事实、事件连续性、definition digest、
-  L3 层级/覆盖/依赖/provenance、Spec Registry、binding drift/provenance、Spec Impact
+  L3 层级/覆盖/依赖/provenance、Spec Registry、binding provenance、Spec Impact
   compiler/obligation/evidence、Spec 沉淀事实、投影重建和 breadcrumb schema；它只读并提供完整性诊断。
 
 ## 11. 迁移

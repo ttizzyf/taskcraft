@@ -113,11 +113,11 @@ describe("claimed Node Brief query", () => {
     }
   });
 
-  it("shows required Spec drift on an existing card without creating or rejecting an attempt", () => {
+  it("shows bound Specs on an existing card without reading the Registry", () => {
     const db = createMigratedDatabase();
     try {
       const { taskId } = taskNew(db, {
-        title: "Drift",
+        title: "Bound",
         level: 1,
         reason: "existing claim",
         initialSpecBindings: [
@@ -125,22 +125,28 @@ describe("claimed Node Brief query", () => {
             specId: "engineering.missing",
             kind: "engineering",
             path: "docs/missing.md",
-            digest: "a".repeat(64),
             duty: "required",
           },
         ],
       });
       run(db, taskId);
       const bytes = db.serialize();
-      const data = buildTaskShowData(db, taskId, "/missing-taskcraft-project");
-      expect(data.nodeBrief?.specs[0]?.drift).toEqual({
-        status: "stale",
-        reasons: ["registry_unavailable"],
+      // Nothing named docs/missing.md exists anywhere. The card still renders
+      // the recorded binding, because a binding is a Store fact rather than a
+      // lookup of the document it names.
+      const data = buildTaskShowData(db, taskId);
+      expect(data.nodeBrief?.specs).toEqual([
+        {
+          id: "engineering.missing",
+          kind: "engineering",
+          duty: "required",
+          path: "docs/missing.md",
+        },
+      ]);
+      expect(data.specs.bindings[0]).toMatchObject({
+        id: "engineering.missing",
+        path: "docs/missing.md",
       });
-      expect(data.nodeBrief?.specs[0]?.drift).toEqual(
-        data.specs.bindings.find((binding) => binding.nodeId === "execute-1")
-          ?.drift,
-      );
       expect(db.serialize()).toEqual(bytes);
     } finally {
       db.close();

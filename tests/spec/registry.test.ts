@@ -5,7 +5,6 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -29,7 +28,7 @@ interface RegistryEntryInput {
 }
 
 describe("Spec Registry service", () => {
-  it("loads repository files, returns immutable DTOs and hashes exact bytes", () => {
+  it("loads repository files and returns immutable DTOs", () => {
     withProject((projectDir) => {
       const taskcraftBody = Buffer.from([
         0xef, 0xbb, 0xbf, 0x23, 0x20, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x0d, 0x0a,
@@ -49,12 +48,12 @@ describe("Spec Registry service", () => {
         registryPath: ".taskcraft/spec/index.json",
       });
       expect(registry.specs).toHaveLength(2);
-      expect(registry.specs[0]?.digest).toBe(
-        createHash("sha256").update(taskcraftBody).digest("hex"),
-      );
-      expect(registry.specs[1]?.digest).toBe(
-        createHash("sha256").update(existingBody).digest("hex"),
-      );
+      // Resolution proves the body is a readable file inside the project; the
+      // bytes themselves are deliberately not part of the DTO.
+      expect(registry.specs.map((spec) => spec.path)).toEqual([
+        ".taskcraft/spec/local.md",
+        "docs/existing.md",
+      ]);
       expect(Object.isFrozen(registry)).toBe(true);
       expect(Object.isFrozen(registry.specs)).toBe(true);
       expect(Object.isFrozen(registry.specs[0]?.appliesTo)).toBe(true);

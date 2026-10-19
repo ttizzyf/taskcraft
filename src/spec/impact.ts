@@ -30,11 +30,10 @@ export const SPEC_IMPACT_RESULT_SCHEMA = {
           items: {
             type: "object",
             additionalProperties: false,
-            required: ["specId", "path", "digest", "evidenceRefs"],
+            required: ["specId", "path", "evidenceRefs"],
             properties: {
               specId: { type: "string", minLength: 1, pattern: "\\S" },
               path: { type: "string", minLength: 1, pattern: "\\S" },
-              digest: { type: "string", pattern: "^[0-9a-f]{64}$" },
               evidenceRefs: {
                 type: "array",
                 minItems: 1,
@@ -84,7 +83,6 @@ export type SpecImpactResult =
       updates: Array<{
         specId: string;
         path: string;
-        digest: string;
         evidenceRefs: string[];
       }>;
     }
@@ -122,8 +120,8 @@ export function parseSpecImpactResult(
 }
 
 /** Command/service boundary validation for `updated`. It proves every
- * submitted identity is an active current Registry snapshot; none/candidate
- * are intentionally filesystem-free and never write Registry truth. */
+ * submitted identity is an active current Registry entry; none/candidate are
+ * intentionally filesystem-free and never write Registry truth. */
 export function resolveSpecImpactResult(
   registry: LoadedSpecRegistry | null,
   value: unknown,
@@ -141,11 +139,10 @@ export function resolveSpecImpactResult(
     if (
       current === undefined ||
       current.status !== "active" ||
-      current.path !== update.path ||
-      current.digest !== update.digest
+      current.path !== update.path
     ) {
       throw impactInvalid(
-        `Updated Spec ${update.specId} is not the active current Registry snapshot`,
+        `Updated Spec ${update.specId} is not the active current Registry entry`,
       );
     }
   }
@@ -208,7 +205,6 @@ function canonicalImpact(impact: SpecImpactResult): unknown {
       .map((update) => ({
         specId: update.specId,
         path: update.path,
-        digest: update.digest,
         evidenceRefs: [...update.evidenceRefs].sort(),
       }))
       .sort((left, right) => left.specId.localeCompare(right.specId)),

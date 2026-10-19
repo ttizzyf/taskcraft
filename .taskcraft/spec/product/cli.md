@@ -84,7 +84,7 @@ tc spec register --entries <json|@path|@-> [--json]
 ```
 
 前三个命令读取同一个 `src/spec/` DTO，均不打开或修改 Task Store。`list` 显示全部
-active/deprecated 条目和当前正文 SHA-256；`check` 完整验证 Registry Schema、唯一
+active/deprecated 条目及其解析到的正文路径；`check` 完整验证 Registry Schema、唯一
 id/path、domain authority、正文存在性、可读性和 project realpath containment；
 `resolve` 只按调用方给出的 canonical repo-relative path 返回 active 候选，匹配
 不会自动选择或绑定 Spec。Registry 或正文失败使用稳定的
@@ -179,9 +179,8 @@ children 只记录为 `not_required`，不自动取消或停止宿主运行。�
 校验结构、CAS、结果 Schema 和引用关系。
 
 Execute/Review Node Brief 的 `specs[]` 来自当前 revision/node 的 immutable binding，
-包含 id、kind、duty、path、digest 和 drift。required drift 在新的 Execute attempt
-事务前返回 `TC_SPEC_BINDING_STALE`；Review 不受门禁，其 Brief 把 drift 显示给评审者；
-recommended drift 只显示。Review Brief 同时返回被审核 attempt 的 node、result 和
+包含 id、kind、duty 和 path。绑定只记录任务采用了哪些规则文档，不记录正文哈希，
+也不与当前 Registry 比对：编辑一份被绑定的 Spec 不阻断任何 attempt。Review Brief 同时返回被审核 attempt 的 node、result 和
 evidence。Codex 与 Claude Adapter 只渲染这个 DTO。
 
 ## 6. Watch 与状态
@@ -195,9 +194,9 @@ tc state --json
 ```
 
 `watch` 默认绑定 `127.0.0.1` 随机端口并打开浏览器；`--no-open` 只打印 URL。深链在同一 Watch 会话内稳定；无浏览器环境可使用 `tc task list` 与 `tc task show`，两者读取同一 Task Store。
-Task Detail 的 Specs 区块与 `task show` 消费同一个 delivery DTO，显示 current binding、
-drift、Registry issue 和最终 Spec Impact；已结束任务的 binding 标注为 `historical`
-而不是拿今天的 Registry 判它。前端不计算任务状态、漂移或 Impact 语义。
+Task Detail 的 Specs 区块与 `task show` 消费同一个 delivery DTO，显示已记录的 binding
+和最终 Spec Impact。该 DTO 是纯 Store 投影，不读 Registry、不计算漂移。前端不计算
+任务状态或 Impact 语义。
 `lifecycle inspect/explain/validate` 为 deferred，不进入首版帮助或闭环示例。
 
 ## 7. 常见闭环

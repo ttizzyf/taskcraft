@@ -31,12 +31,11 @@ const STORE_SPEC = {
   specId: "engineering.store",
   kind: "engineering" as const,
   path: "docs/store.md",
-  digest: "a".repeat(64),
   duty: "required" as const,
 };
 
 describe("Spec binding refresh and reuse", () => {
-  it("rejects reusable children whose stored Spec snapshot drifted", () => {
+  it("rejects reusable children whose stored Spec snapshot changed", () => {
     const database = createMigratedDatabase();
     try {
       const initialPlan = {
@@ -102,7 +101,7 @@ describe("Spec binding refresh and reuse", () => {
           "feasibility",
         ),
       );
-      const changedDigest = { ...STORE_SPEC, digest: "c".repeat(64) };
+      const changedSnapshot = { ...STORE_SPEC, path: "docs/store-v2.md" };
       const error = captureTaskcraftError(() =>
         reviewPass(database, taskId, {
           taskId,
@@ -117,7 +116,7 @@ describe("Spec binding refresh and reuse", () => {
           ],
           acceptedPlanSpecBindings: {
             execution: [],
-            modules: { contract: [changedDigest], projection: [] },
+            modules: { contract: [changedSnapshot], projection: [] },
           },
         }),
       );
@@ -126,7 +125,7 @@ describe("Spec binding refresh and reuse", () => {
       expect(error.problem).toContain("specBindings changed");
       expect(getTask(database, taskId)!.currentLifecycleRevision).toBe(3);
       expect(getLifecycleSpecBindings(database, "T-2", 1)[0]).toMatchObject({
-        specDigest: STORE_SPEC.digest,
+        specPath: STORE_SPEC.path,
       });
     } finally {
       database.close();
@@ -143,10 +142,9 @@ describe("Spec binding refresh and reuse", () => {
         initialSpecBindings: [STORE_SPEC],
       });
       run(database, taskId);
-      const refreshed = { ...STORE_SPEC, digest: "c".repeat(64) };
       const result = taskSpecRefresh(database, taskId, {
-        reason: "Spec digest changed",
-        resolvedSpecBindings: [refreshed],
+        reason: "Re-bind the contract on a new revision",
+        resolvedSpecBindings: [STORE_SPEC],
         expectedRevision: 2,
       });
 
@@ -160,12 +158,11 @@ describe("Spec binding refresh and reuse", () => {
         status: "created",
       });
       expect(
-        getLifecycleSpecBindings(database, taskId, 1, "execute-1")[0]!
-          .specDigest,
-      ).toBe(STORE_SPEC.digest);
+        getLifecycleSpecBindings(database, taskId, 1, "execute-1")[0],
+      ).toMatchObject({ specPath: STORE_SPEC.path, sourceKind: "task_create" });
       expect(
         getLifecycleSpecBindings(database, taskId, 2, "execute-1")[0],
-      ).toMatchObject({ specDigest: refreshed.digest, sourceKind: "refresh" });
+      ).toMatchObject({ specPath: STORE_SPEC.path, sourceKind: "refresh" });
     } finally {
       database.close();
     }

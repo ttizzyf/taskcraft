@@ -27,8 +27,6 @@ describe("host Node Brief Spec delivery", () => {
           kind: "engineering",
           duty: "required",
           path: "docs/delivery.md",
-          digest: "a".repeat(64),
-          drift: { status: "current", reasons: [] },
         },
       ],
       reviewContext: {

@@ -86,15 +86,10 @@ function renderText(
     brief.specs.length === 0
       ? "- (none)"
       : brief.specs
-          .map((spec) => {
-            const drift =
-              spec.drift === null
-                ? "not checked"
-                : spec.drift.status === "current"
-                  ? "current"
-                  : `stale: ${spec.drift.reasons.join(", ")}`;
-            return `- [${spec.duty}] ${spec.id} (${spec.kind}) — ${spec.path} — sha256:${spec.digest} — ${drift}`;
-          })
+          .map(
+            (spec) =>
+              `- [${spec.duty}] ${spec.id} (${spec.kind}) — ${spec.path}`,
+          )
           .join("\n");
   const review =
     brief.reviewContext === null

@@ -1,221 +1,117 @@
-import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 import { buildTaskShowData } from "../../src/commands/task-show.js";
 import { ERROR_CODES } from "../../src/core/errors.js";
 import { run, runComplete, taskNew } from "../../src/core/reducer.js";
 import { buildTaskDetail } from "../../src/watch/routes.js";
-import { createTemporaryDirectory } from "../helpers/temp-directory.js";
 import {
   captureTaskcraftError,
   createMigratedDatabase,
 } from "../store/helpers.js";
 
+const DELIVERY_BINDING = {
+  specId: "engineering.delivery",
+  kind: "engineering" as const,
+  path: "docs/delivery.md",
+  duty: "required" as const,
+};
+
+const DELIVERED = {
+  summary: "Delivered",
+  evidence: [
+    {
+      type: "validation",
+      reference: "tests/spec/delivery.test.ts",
+      summary: "Validated",
+    },
+  ],
+  record: {
+    summary: "Recorded",
+    specImpact: { outcome: "none" as const, reason: "No reusable rule" },
+  },
+};
+
 describe("shared Spec delivery view", () => {
-  it("feeds task show and Watch the same bindings, drift and Impact DTO", () => {
-    const temporary = createTemporaryDirectory();
+  it("feeds task show and Watch the same bindings and Impact DTO", () => {
     const database = createMigratedDatabase();
     try {
-      const spec = writeRegistry(temporary.path, "Shared delivery contract\n");
       const { taskId } = taskNew(database, {
         title: "Shared DTO",
         level: 1,
         reason: "CLI and Watch must agree",
-        initialSpecBindings: [
-          {
-            specId: "engineering.delivery",
-            kind: "engineering",
-            path: "docs/delivery.md",
-            digest: spec.digest,
-            duty: "required",
-          },
-        ],
+        initialSpecBindings: [DELIVERY_BINDING],
       });
       run(database, taskId);
-      runComplete(database, taskId, {
-        result: {
-          summary: "Delivered",
-          evidence: [
-            {
-              type: "validation",
-              reference: "tests/spec/delivery.test.ts",
-              summary: "Validated",
-            },
-          ],
-          record: {
-            summary: "Recorded",
-            specImpact: {
-              outcome: "none",
-              reason: "No reusable contract changed",
-            },
-          },
-        },
-      });
+      runComplete(database, taskId, { result: DELIVERED });
 
-      const taskShow = buildTaskShowData(database, taskId, temporary.path);
-      const watch = buildTaskDetail(database, taskId, temporary.path)!;
+      const taskShow = buildTaskShowData(database, taskId);
+      const watch = buildTaskDetail(database, taskId)!;
+
       expect(taskShow.specs).toEqual(watch.specs);
       expect(taskShow.specs.bindings).toHaveLength(2);
-      // The task is finished, so its bindings are history: they are reported as
-      // historical instead of being compared with today's Registry.
-      expect(
-        taskShow.specs.bindings.every(
-          (binding) => binding.drift.status === "historical",
-        ),
-      ).toBe(true);
+      // The recorded binding is exactly what the Store holds: no hash of the
+      // document it names and no drift verdict against today's Registry.
+      expect(taskShow.specs.bindings[0]).toEqual({
+        lifecycleRevision: 1,
+        nodeId: "execute-1",
+        id: "engineering.delivery",
+        kind: "engineering",
+        path: "docs/delivery.md",
+        duty: "required",
+        sourceKind: "task_create",
+        sourceTaskId: null,
+        sourceAttemptId: null,
+      });
       expect(taskShow.specs.impacts[0]?.result).toEqual({
         outcome: "none",
-        reason: "No reusable contract changed",
+        reason: "No reusable rule",
       });
-
-      writeFileSync(
-        join(temporary.path, "docs", "delivery.md"),
-        "Changed delivery contract\n",
-        "utf8",
-      );
-      const staleTaskShow = buildTaskShowData(database, taskId, temporary.path);
-      const staleWatch = buildTaskDetail(database, taskId, temporary.path)!;
-      expect(staleTaskShow.specs).toEqual(staleWatch.specs);
-      // Editing the Spec afterwards cannot turn a finished task's history into
-      // a problem, which is what kept every past task permanently stale.
-      expect(
-        staleTaskShow.specs.bindings.every(
-          (binding) => binding.drift.status === "historical",
-        ),
-      ).toBe(true);
     } finally {
       database.close();
-      temporary.cleanup();
     }
   });
 
-  it("compares an unfinished task's bindings with the current Registry", () => {
-    const temporary = createTemporaryDirectory();
+  it("renders the recorded binding without consulting the document", () => {
     const database = createMigratedDatabase();
     try {
-      const spec = writeRegistry(temporary.path, "Live delivery contract\n");
       const { taskId } = taskNew(database, {
-        title: "Live drift",
+        title: "Store projection",
         level: 1,
-        reason: "unfinished work still acts on its contract",
-        initialSpecBindings: [
-          {
-            specId: "engineering.delivery",
-            kind: "engineering",
-            path: "docs/delivery.md",
-            digest: spec.digest,
-            duty: "required",
-          },
-        ],
+        reason: "a binding is a Store fact",
+        initialSpecBindings: [DELIVERY_BINDING],
       });
 
-      const fresh = buildTaskShowData(database, taskId, temporary.path);
-      expect(
-        fresh.specs.bindings.every(
-          (binding) => binding.drift.status === "current",
-        ),
-      ).toBe(true);
-
-      writeFileSync(
-        join(temporary.path, "docs", "delivery.md"),
-        "Changed delivery contract\n",
-        "utf8",
-      );
-      const stale = buildTaskShowData(database, taskId, temporary.path);
-      expect(
-        stale.specs.bindings.every(
-          (binding) =>
-            binding.drift.status === "stale" &&
-            binding.drift.reasons.includes("digest_changed"),
-        ),
-      ).toBe(true);
+      const before = buildTaskShowData(database, taskId).specs;
+      // Nothing named docs/delivery.md exists anywhere, and no Registry is
+      // readable. Neither is a property of the recorded binding, so neither may
+      // change what the card renders.
+      expect(buildTaskShowData(database, taskId).specs).toEqual(before);
+      expect(buildTaskDetail(database, taskId)!.specs).toEqual(before);
     } finally {
       database.close();
-      temporary.cleanup();
-    }
-  });
-
-  it("returns a shared Registry issue instead of hiding unavailable bindings", () => {
-    const temporary = createTemporaryDirectory();
-    const database = createMigratedDatabase();
-    try {
-      const spec = writeRegistry(temporary.path, "Delivery contract\n");
-      const { taskId } = taskNew(database, {
-        title: "Registry issue",
-        level: 1,
-        reason: "visible failure",
-        initialSpecBindings: [
-          {
-            specId: "engineering.delivery",
-            kind: "engineering",
-            path: "docs/delivery.md",
-            digest: spec.digest,
-            duty: "recommended",
-          },
-        ],
-      });
-      writeFileSync(
-        join(temporary.path, ".taskcraft", "spec", "index.json"),
-        "not-json",
-        "utf8",
-      );
-
-      const taskShow = buildTaskShowData(database, taskId, temporary.path);
-      const watch = buildTaskDetail(database, taskId, temporary.path)!;
-      expect(taskShow.specs).toEqual(watch.specs);
-      expect(taskShow.specs.registryIssue?.code).toBe(
-        "TC_SPEC_REGISTRY_INVALID",
-      );
-      expect(taskShow.specs.bindings[0]?.drift).toEqual({
-        status: "stale",
-        reasons: ["registry_unavailable"],
-      });
-    } finally {
-      database.close();
-      temporary.cleanup();
     }
   });
 
   it("fails task show and Watch with the same stable error for damaged Impact details", () => {
-    const temporary = createTemporaryDirectory();
     const database = createMigratedDatabase();
     try {
-      writeRegistry(temporary.path, "Delivery contract\n");
       const { taskId } = taskNew(database, {
         title: "Damaged Impact",
         level: 1,
         reason: "stable shared failure",
       });
       run(database, taskId);
-      runComplete(database, taskId, {
-        result: {
-          summary: "Delivered",
-          evidence: [
-            {
-              type: "validation",
-              reference: "tests/spec/delivery.test.ts",
-              summary: "Validated",
-            },
-          ],
-          record: {
-            summary: "Recorded",
-            specImpact: { outcome: "none", reason: "No reusable rule" },
-          },
-        },
-      });
+      runComplete(database, taskId, { result: DELIVERED });
       database.exec("DROP TRIGGER spec_impact_results_immutable_update");
       database
         .prepare("UPDATE spec_impact_results SET details_json = 'not-json'")
         .run();
 
       const taskShowError = captureTaskcraftError(() =>
-        buildTaskShowData(database, taskId, temporary.path),
+        buildTaskShowData(database, taskId),
       );
       const watchError = captureTaskcraftError(() =>
-        buildTaskDetail(database, taskId, temporary.path),
+        buildTaskDetail(database, taskId),
       );
 
       expect(taskShowError.code).toBe(ERROR_CODES.TC_SPEC_IMPACT_INVALID);
@@ -223,31 +119,6 @@ describe("shared Spec delivery view", () => {
       expect(taskShowError.problem).toBe(watchError.problem);
     } finally {
       database.close();
-      temporary.cleanup();
     }
   });
 });
-
-function writeRegistry(projectDir: string, content: string) {
-  mkdirSync(join(projectDir, ".taskcraft", "spec"), { recursive: true });
-  mkdirSync(join(projectDir, "docs"), { recursive: true });
-  writeFileSync(join(projectDir, "docs", "delivery.md"), content, "utf8");
-  writeFileSync(
-    join(projectDir, ".taskcraft", "spec", "index.json"),
-    JSON.stringify({
-      schemaVersion: "tc-spec-registry/v1",
-      specs: [
-        {
-          id: "engineering.delivery",
-          kind: "engineering",
-          path: "docs/delivery.md",
-          summary: "Delivery contract",
-          appliesTo: ["src/**"],
-          status: "active",
-        },
-      ],
-    }),
-    "utf8",
-  );
-  return { digest: createHash("sha256").update(content).digest("hex") };
-}

@@ -175,13 +175,11 @@ Execute/Delivery Review/Record；L3 accepted Plan 把 parent execution 和各 mo
 选择与 execution revision、真实 child、inherited planning 在同一事务物化。空选择
 合法，`appliesTo` 候选不能自动成为 binding。
 
-创建 Execute attempt 前，命令边界用当前 Registry 检查 exact id/kind/path/digest。
-required 漂移返回 `TC_SPEC_BINDING_STALE` 且不创建 Execute attempt；**Review 不受
-此门禁**——评审是裁决漂移的场所，挡住它会死锁改了自身 required Spec 的任务。
-recommended 漂移进入 Node Brief、`task show` 和 Watch，但不阻断。漂移只对仍在进行
-的工作成立：已完成任务的 binding 是历史事实，doctor 只对未结束任务的 required 绑定
-报失败。refresh 只创建新 revision 和新 snapshot，不更新旧 binding；L3 child refresh
-仍路由回 parent replan。
+命令边界只在**创建绑定时**解析 Registry（exact id/kind/path）。绑定写入后即成为历史
+事实：**任何时刻都不拿当前 Registry 回校验它**，因此编辑一份被绑定的 Spec 不阻断
+任何 attempt，required 与 recommended 在这里没有行为差异。想让任务重新绑定当前
+Registry，用 `tc task spec refresh`：它只创建新 revision 和新 snapshot，不更新旧
+binding；L3 child refresh 仍路由回 parent replan。
 
 当前 compiler 的 Record result 必须包含一种 Spec Impact：
 
@@ -207,8 +205,8 @@ Record attempt、Record evidence、Spec Impact row 和
 - 当前节点的目标、适用 procedure 和期望输出。
 - 已满足的输入、可读取证据、执行范围和依赖。
 - `required`、`recommended`、`optional` obligations 及其当前结果。
-- 当前 node 的 exact Spec `id/kind/duty/path/digest` 以及命令边界得到的 drift；
-  Adapter 只渲染同一个 DTO，不读取 Registry。
+- 当前 node 的 exact Spec `id/kind/duty/path`；Adapter 只渲染同一个 DTO，不读取
+  Registry。
 - 允许提交的 typed outcomes、验收条件与结果登记命令。
 - 当前宿主、已知工具能力和可选派发说明。Agent 有 subagent 工具时可以派发，
   没有时由当前 Agent 自己执行；Taskcraft 不启动 subagent。

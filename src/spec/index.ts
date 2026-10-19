@@ -21,11 +21,9 @@ export type {
 export {
   assertResolvedBindings,
   assertResolvedSpecSelections,
-  evaluateSpecBindingDrift,
   parseSpecSelections,
   resolveSpecSelections,
   selectionsFromBindingRows,
-  staleRequiredBindingsError,
 } from "./bindings.js";
 export {
   assertResolvedSpecImpact,
@@ -35,7 +33,7 @@ export {
   SPEC_IMPACT_RESULT_SCHEMA,
 } from "./impact.js";
 export type { SpecImpactResult } from "./impact.js";
-export { buildSpecDeliveryView, loadSpecDeliveryView } from "./delivery.js";
+export { loadSpecDeliveryView } from "./delivery.js";
 export type {
   SpecDeliveryBinding,
   SpecDeliveryImpact,
@@ -57,8 +55,6 @@ export {
 } from "./sediment.js";
 export type {
   ResolvedSpecBinding,
-  SpecBindingDrift,
-  SpecBindingDriftReason,
   SpecDuty,
   SpecSelection,
 } from "./bindings.js";

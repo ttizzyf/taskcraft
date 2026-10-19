@@ -14,10 +14,7 @@ import { checkRevision } from "../../store/revision-guard.js";
 import type { TaskSnapshot } from "../../store/revision-guard.js";
 import { project } from "../projector.js";
 import type { ProjectStatus } from "../projector.js";
-import type {
-  ResolvedSpecBinding,
-  SpecBindingDriftReason,
-} from "../../spec/bindings.js";
+import type { ResolvedSpecBinding } from "../../spec/bindings.js";
 import type { SpecImpactResult } from "../../spec/impact.js";
 
 export interface CommandData {
@@ -45,11 +42,6 @@ export interface NodeBrief {
     kind: "engineering" | "domain";
     duty: "required" | "recommended";
     path: string;
-    digest: string;
-    drift: {
-      status: "current" | "stale";
-      reasons: SpecBindingDriftReason[];
-    } | null;
   }>;
   reviewContext: {
     purpose: "feasibility" | "delivery" | "integration";

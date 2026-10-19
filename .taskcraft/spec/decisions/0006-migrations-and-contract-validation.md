@@ -1,6 +1,6 @@
 # ADR 0006：Migration 与合同验证
 
-- 状态：已接受
+- 状态：已被 [0012](0012-no-byte-digests.md) 部分取代（checksum 部分）
 - 日期：2026-08-10
 - 范围：Task 00
 
@@ -29,8 +29,10 @@
 - Task 01 把冻结后的 `storage.sql` 作为 `0001_initial.sql` 的输入。
 - migration 文件按零填充版本顺序执行，已发布文件只增不改。
 - `schema_migrations` 只保存 version、name、checksum 和 applied_at。checksum 防止
-  已应用文件被静默改写；不保存 runner version。
-- runner 按版本应用尚未执行的文件，并拒绝重复版本和 checksum 漂移。
+  已应用文件被静默改写；不保存 runner version。（**checksum 已被 0012 移除**：它绑死
+  了工作区的行尾表示。其余决定仍然有效。）
+- runner 按版本应用尚未执行的文件，并拒绝重复版本和 checksum 漂移。（后半句已被
+  0012 取代：现在只拒绝「已应用版本在磁盘上没有对应文件」。）
 - 每个 migration 在独立 `BEGIN IMMEDIATE` 事务中执行；失败保留原错误并回滚，
   不更新 `schema_migrations`。
 - WAL、busy timeout、foreign keys 和 synchronous 是 connection policy，不藏在
@@ -51,7 +53,7 @@
 ## Exit Cost
 
 低到中。SQL 文件和 migration ledger 没有绑定 ORM。换 runner 时保留顺序、
-checksum 和事务语义即可。
+事务语义与「已应用版本在磁盘上有对应文件」的校验即可。
 
 ## Contract Mapping
 
@@ -62,7 +64,8 @@ checksum 和事务语义即可。
 ## Task 01 Input
 
 实现最小 migration runner 和 `schema_migrations`。首批测试只覆盖空库、重复
-运行、checksum drift、失败回滚和 foreign key check，不实现 down migration、
+运行、checksum drift、失败回滚和 foreign key check（checksum 用例已由 0012 移除），
+不实现 down migration、
 自动备份、迁移插件或 snapshot 生成器。
 
 ## Evidence

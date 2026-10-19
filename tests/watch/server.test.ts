@@ -118,11 +118,7 @@ describe("watch server", () => {
         expect(body.evidence).toHaveLength(2);
         expect(body.obligationResults).toHaveLength(3);
         expect(body.events.length).toBeGreaterThanOrEqual(1);
-        expect(body.specs).toEqual({
-          bindings: [],
-          impacts: [],
-          registryIssue: null,
-        });
+        expect(body.specs).toEqual({ bindings: [], impacts: [] });
         expect(body.next).toBeNull();
 
         const missing = await getJson(baseUrl, "/api/task/T-999");

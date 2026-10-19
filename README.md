@@ -76,7 +76,7 @@ node dist/cli.js run complete T-1 --node record-1 --result '{"summary":"...","sp
 ### 项目 Spec、Node Brief 与收口
 
 `tc init` write-if-absent 创建 `.taskcraft/spec/index.json`。Registry 只登记 Git 中的
-Markdown 路径；SQLite 保存任务实际采用的 id/path/digest，不复制正文：
+Markdown 路径；SQLite 保存任务实际采用的 id/path/duty，不复制正文，也不记录正文哈希：
 
 ```bash
 node dist/cli.js spec check

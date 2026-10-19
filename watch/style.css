@@ -399,26 +399,6 @@ code {
   overflow-wrap: anywhere;
 }
 
-.digest {
-  font-size: 11px;
-  word-break: break-all;
-}
-
-.spec-reasons {
-  display: block;
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.spec-issue {
-  margin: 0 0 12px;
-  padding: 9px 10px;
-  border-left: 3px solid var(--red);
-  background: var(--red-soft);
-  overflow-wrap: anywhere;
-}
-
 .spec-impact-list {
   display: grid;
   gap: 10px;
@@ -568,7 +548,6 @@ tr:last-child td {
   border-color: transparent;
 }
 
-.status-tag.stale,
 .status-tag.failed {
   color: var(--red);
   background: var(--red-soft);

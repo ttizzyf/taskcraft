@@ -4,10 +4,7 @@
 
 import type { Command } from "commander";
 
-import {
-  getClaimedNodeBrief,
-  withNodeBriefSpecDrift,
-} from "../core/node-brief-query.js";
+import { getClaimedNodeBrief } from "../core/node-brief-query.js";
 import { project } from "../core/projector.js";
 import type { TaskcraftDatabase } from "../store/database.js";
 import {
@@ -62,7 +59,6 @@ export function register(task: Command): void {
 export function buildTaskShowData(
   database: TaskcraftDatabase,
   taskId: string,
-  projectDir = process.cwd(),
 ): TaskShowData {
   const projection = project(database, taskId);
   const snapshot = getTask(database, taskId)!;
@@ -112,33 +108,11 @@ export function buildTaskShowData(
   }));
 
   const specs = loadSpecDeliveryView(
-    projectDir,
     database,
     taskId,
     snapshot.currentLifecycleRevision,
-    projection.status,
   );
-  const brief = getClaimedNodeBrief(database, taskId, snapshot, projection);
-  const nodeBrief =
-    brief === null
-      ? null
-      : withNodeBriefSpecDrift(
-          brief,
-          specs.bindings
-            .filter((binding) => binding.nodeId === brief.nodeId)
-            .map((binding) => ({
-              id: binding.id,
-              // A claimed Node Brief only exists for unfinished work, so its
-              // bindings are never historical; fall back to "not checked".
-              drift:
-                binding.drift.status === "historical"
-                  ? null
-                  : {
-                      status: binding.drift.status,
-                      reasons: binding.drift.reasons,
-                    },
-            })),
-        );
+  const nodeBrief = getClaimedNodeBrief(database, taskId, snapshot, projection);
 
   return {
     taskId,

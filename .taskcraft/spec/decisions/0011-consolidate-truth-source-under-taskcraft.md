@@ -28,7 +28,7 @@ Trellis 立项期建立的 `development/` 文档树不再是真相源的存放�
 ## 后果
 
 - 正文仍是 Git Markdown，`.taskcraft/` 除 cache 与 db 临时文件外全部入库；
-  tc 只管理"目录（Registry）、绑定（binding）、漂移（digest）与收口（Impact）"，
+  tc 只管理"目录（Registry）、绑定（binding）与收口（Impact）"，
   不把真相锁进数据库——单一事实源原则不变。
 - Registry 同步登记 `product/` 四份规格（domain，authority 为 AGENTS.md
   开发合同）与 `engineering/` 六份合同（engineering）。

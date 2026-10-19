@@ -6,15 +6,10 @@ import { buildDetail } from "./frontend-detail-fixture.js";
 const TIMESTAMP = "2026-08-11T00:00:00.000Z";
 
 describe("renderTaskDetail Specs", () => {
-  it("renders Registry issues, binding drift and typed Spec Impact without inference", () => {
+  it("renders recorded bindings and typed Spec Impact without inference", () => {
     const html = renderTaskDetail(
       buildDetail({
         specs: {
-          registryIssue: {
-            code: "TC_SPEC_REGISTRY_INVALID",
-            problem: "Registry <broken>",
-            remediation: "Repair the Registry",
-          },
           bindings: [
             {
               lifecycleRevision: 2,
@@ -22,12 +17,10 @@ describe("renderTaskDetail Specs", () => {
               id: "engineering.delivery",
               kind: "engineering",
               path: "docs/delivery.md",
-              digest: "a".repeat(64),
               duty: "required",
               sourceKind: "frame",
               sourceTaskId: "T-1",
               sourceAttemptId: "att-frame-1",
-              drift: { status: "stale", reasons: ["digest_changed"] },
             },
           ],
           impacts: [
@@ -58,11 +51,9 @@ describe("renderTaskDetail Specs", () => {
     expect(html).toContain('data-section="specs"');
     expect(html).toContain('data-testid="spec-binding-table"');
     expect(html).toContain("engineering.delivery");
-    expect(html).toContain("digest_changed");
+    expect(html).toContain("docs/delivery.md");
     expect(html).toContain('data-spec-impact="candidate"');
     expect(html).toContain("ownerDecision");
-    expect(html).toContain("Registry &lt;broken&gt;");
-    expect(html).not.toContain("Registry <broken>");
   });
 
   it("renders all Impact states and empty Specs without exposing HTML", () => {
@@ -73,7 +64,6 @@ describe("renderTaskDetail Specs", () => {
     const html = renderTaskDetail(
       buildDetail({
         specs: {
-          registryIssue: null,
           bindings: [],
           impacts: [
             {
@@ -94,7 +84,6 @@ describe("renderTaskDetail Specs", () => {
                   {
                     specId: "engineering.delivery",
                     path: "docs/<delivery>.md",
-                    digest: "a".repeat(64),
                     evidenceRefs: ["ev-1"],
                   },
                 ],
@@ -135,11 +124,10 @@ describe("renderTaskDetail Specs", () => {
     expect(html).not.toContain("<script>alert(1)</script>");
   });
 
-  it("labels a finished task's binding as historical instead of stale", () => {
+  it("renders a finished task's binding as the recorded fact it is", () => {
     const html = renderTaskDetail(
       buildDetail({
         specs: {
-          registryIssue: null,
           bindings: [
             {
               lifecycleRevision: 1,
@@ -147,12 +135,10 @@ describe("renderTaskDetail Specs", () => {
               id: "engineering.delivery",
               kind: "engineering",
               path: "docs/delivery.md",
-              digest: "a".repeat(64),
               duty: "required",
               sourceKind: "task_create",
               sourceTaskId: null,
               sourceAttemptId: null,
-              drift: { status: "historical", reasons: [] },
             },
           ],
           impacts: [],
@@ -160,8 +146,10 @@ describe("renderTaskDetail Specs", () => {
       }),
     );
 
-    expect(html).toContain('class="status-tag historical"');
-    expect(html).toContain("historical");
-    expect(html).not.toContain("digest_changed");
+    expect(html).toContain("engineering.delivery");
+    expect(html).toContain("docs/delivery.md");
+    // The Specs table carries no digest or drift column at all.
+    expect(html).not.toContain("Digest");
+    expect(html).not.toContain("Drift");
   });
 });

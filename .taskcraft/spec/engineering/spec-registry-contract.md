@@ -4,8 +4,8 @@
 
 修改 `.taskcraft/spec/index.json`、`src/spec/`、`tc init`、`tc spec`，或让新的
 命令服务消费项目 Spec 时适用本合同。Registry 和正文是 Git-owned 输入；本模块负责
-发现、校验、摘要与条目追加，但不打开或写入 Task Store，也不把候选自动提升为
-Task binding。
+发现、校验与条目追加，但不打开或写入 Task Store，也不把候选自动提升为 Task
+binding。
 
 ## 2. Signatures
 
@@ -56,8 +56,9 @@ tc spec register --entries <json|@path|@-> [--json]
 - `path` 和 `appliesTo` 必须是 canonical repo-relative 值；绝对路径、反斜杠、空
   segment、`.`、`..` 和 Windows drive-relative 值拒绝。
 - Registry 和正文必须解析到 project realpath 内的可读常规文件。读取使用同一个
-  file descriptor，打开后复核 realpath/inode，并在读取前后复核文件元数据；摘要
-  是正文原始 bytes 的 SHA-256。
+  file descriptor，打开后复核 realpath/inode，并在读取前后复核文件元数据。**正文
+  的字节不做哈希**：内容摘要会绑死文件行尾，让同一份文档在 LF 与 CRLF 检出上得出
+  不同结果。
 - `resolveSpecCandidates` 只匹配 `active` 条目的 `appliesTo` glob。结果是候选 DTO，
   不修改 Registry、正文或 SQLite。
 - `initializeSpecRegistry` 只在路径完全不存在时写入空 Registry；已有正常文件、坏
@@ -96,9 +97,9 @@ problem、impact、remediation 和必要 context。
 
 ## 5. Good / Base / Bad Cases
 
-- Good：active engineering 条目引用仓库内 Markdown，`resolve` 返回带当前 digest 的
+- Good：active engineering 条目引用仓库内 Markdown，`resolve` 返回已确认正文存在的
   候选；文本与 JSON 只是同一 DTO 的不同渲染。
-- Base：空 Registry 合法；deprecated 条目仍完整校验、读取和摘要，但不参与候选匹配。
+- Base：空 Registry 合法；deprecated 条目仍完整校验和读取，但不参与候选匹配。
 - Bad：`.taskcraft` 或正文父目录通过 symlink 指向仓库外；命令必须在写 Store 或读取
   越界正文前失败。
 - Bad：domain 条目没有 authority，或正文缺失；不得伪造 authority、跳过正文或建议
@@ -113,7 +114,7 @@ problem、impact、remediation 和必要 context。
 ## 6. Tests Required
 
 - `tests/spec/`：Schema/唯一性、domain authority、canonical paths、glob、missing、
-  directory/unreadable、symlink containment、非法 UTF-8、摘要和 deprecated 行为。
+  directory/unreadable、symlink containment、非法 UTF-8 和 deprecated 行为。
 - `tests/cli/spec.test.ts`：list/check/resolve 的文本与 JSON、稳定错误/退出码、候选只读。
 - `tests/cli/init.test.ts`：write-if-absent、已有 bytes 保留、越界 `.taskcraft` 在 Store
   写入前失败。

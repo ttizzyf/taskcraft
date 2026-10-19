@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { join, matchesGlob, resolve } from "node:path";
 
@@ -293,7 +292,9 @@ export function resolveSpecDocument(
   }
 
   assertContained(projectRealPath, realPath, `Spec ${entry.id} path`);
-  const content = readVerifiedRegularFile(
+  // Reads the body to prove it is a readable regular file inside the project.
+  // The bytes themselves are not recorded: resolution is an existence check.
+  readVerifiedRegularFile(
     projectRealPath,
     realPath,
     `Spec ${entry.id} path ${entry.path}`,
@@ -302,7 +303,6 @@ export function resolveSpecDocument(
   return Object.freeze({
     ...entry,
     appliesTo: Object.freeze([...entry.appliesTo]),
-    digest: createHash("sha256").update(content).digest("hex"),
   });
 }
 

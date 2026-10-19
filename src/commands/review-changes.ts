@@ -7,8 +7,8 @@ import type { Command } from "commander";
 
 import { reviewChanges } from "../core/reducer.js";
 import type { ReviewChangesInput } from "../core/reducer.js";
-import { getAttempts } from "../store/query.js";
 import {
+  boundaryTaskRevision,
   execute,
   isJsonMode,
   openTaskcraftDatabase,
@@ -18,10 +18,6 @@ import {
 } from "./helpers.js";
 import type { ReviewRenderData } from "./render.js";
 import { renderReviewData } from "./render.js";
-import {
-  assertNewAttemptSpecBindings,
-  attachNodeBriefSpecDrift,
-} from "./spec-bindings.js";
 
 export function register(review: Command): void {
   review
@@ -60,32 +56,15 @@ export function register(review: Command): void {
             input.expectedRevision = expectedRevision;
           }
 
-          const reviewedNodeId = getAttempts(database, taskId).find(
-            (attempt) => attempt.id === reviewedAttemptId,
-          )?.nodeId;
-          const bindingCheck = assertNewAttemptSpecBindings(
-            database,
-            taskId,
-            reviewedNodeId ?? "",
-            expectedRevision,
-          );
-          if (
-            input.expectedRevision === undefined &&
-            bindingCheck.taskRevision !== undefined
-          ) {
-            input.expectedRevision = bindingCheck.taskRevision;
+          if (input.expectedRevision === undefined) {
+            const boundaryRevision = boundaryTaskRevision(database, taskId);
+            if (boundaryRevision !== undefined) {
+              input.expectedRevision = boundaryRevision;
+            }
           }
           const result = reviewChanges(database, taskId, input);
           const data: ReviewRenderData = {
             ...result,
-            ...(result.nodeBrief === undefined
-              ? {}
-              : {
-                  nodeBrief: attachNodeBriefSpecDrift(
-                    result.nodeBrief,
-                    bindingCheck.drift,
-                  ),
-                }),
             outcome: "changes_requested",
             finding: options.finding,
           };

@@ -42,8 +42,6 @@ export function buildNodeBrief(
     kind: binding.specKind,
     duty: binding.duty,
     path: binding.specPath,
-    digest: binding.specDigest,
-    drift: null,
   }));
   const link =
     node.kind === "review"
@@ -147,19 +145,4 @@ export function getClaimedNodeBrief(
     node.attemptId,
     node.nodeId,
   );
-}
-
-/** Applies an already computed Registry comparison; never reads files. */
-export function withNodeBriefSpecDrift(
-  brief: NodeBrief,
-  specs: readonly Pick<NodeBrief["specs"][number], "id" | "drift">[],
-): NodeBrief {
-  const byId = new Map(specs.map((spec) => [spec.id, spec.drift]));
-  return {
-    ...brief,
-    specs: brief.specs.map((spec) => ({
-      ...spec,
-      drift: byId.get(spec.id) ?? spec.drift,
-    })),
-  };
 }

@@ -10,27 +10,15 @@ export interface SpecSelection {
   duty: SpecDuty;
 }
 
-/** Filesystem-free snapshot accepted by reducers and persisted in SQLite. */
+/** Filesystem-free snapshot accepted by reducers and persisted in SQLite. It
+ * records which rule documents a task adopted, not what those documents said:
+ * a binding is a historical fact and is never re-validated against today's
+ * Registry. */
 export interface ResolvedSpecBinding {
   specId: string;
   kind: "engineering" | "domain";
   path: string;
-  digest: string;
   duty: SpecDuty;
-}
-
-export type SpecBindingDriftReason =
-  | "missing"
-  | "deprecated"
-  | "kind_changed"
-  | "path_changed"
-  | "digest_changed"
-  | "registry_unavailable";
-
-export interface SpecBindingDrift {
-  binding: LifecycleSpecBindingRow;
-  status: "current" | "stale";
-  reasons: SpecBindingDriftReason[];
 }
 
 /** Decodes the public `{id,duty}[]` selection at the command boundary. */
@@ -89,7 +77,6 @@ export function resolveSpecSelections(
       specId: spec.id,
       kind: spec.kind,
       path: spec.path,
-      digest: spec.digest,
       duty: selection.duty,
     };
   });
@@ -134,22 +121,19 @@ export function assertResolvedBindings(
     }
     const keys = Object.keys(binding);
     if (
-      keys.length !== 5 ||
+      keys.length !== 4 ||
       keys.some(
         (key) =>
           key !== "specId" &&
           key !== "kind" &&
           key !== "path" &&
-          key !== "digest" &&
           key !== "duty",
       ) ||
       typeof binding.specId !== "string" ||
       !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(binding.specId) ||
       typeof binding.path !== "string" ||
       (binding.kind !== "engineering" && binding.kind !== "domain") ||
-      (binding.duty !== "required" && binding.duty !== "recommended") ||
-      typeof binding.digest !== "string" ||
-      !/^[0-9a-f]{64}$/.test(binding.digest)
+      (binding.duty !== "required" && binding.duty !== "recommended")
     ) {
       throw bindingInvalid(`${context} contains an invalid resolved snapshot`);
     }
@@ -181,47 +165,6 @@ export function selectionsFromBindingRows(
     byId.set(binding.specId, binding.duty);
   }
   return [...byId].map(([id, duty]) => ({ id, duty }));
-}
-
-export function evaluateSpecBindingDrift(
-  registry: LoadedSpecRegistry,
-  bindings: readonly LifecycleSpecBindingRow[],
-): SpecBindingDrift[] {
-  const currentById = new Map(registry.specs.map((spec) => [spec.id, spec]));
-  return bindings.map((binding) => {
-    const current = currentById.get(binding.specId);
-    const reasons: SpecBindingDriftReason[] = [];
-    if (current === undefined) {
-      reasons.push("missing");
-    } else {
-      if (current.status !== "active") reasons.push("deprecated");
-      if (current.kind !== binding.specKind) reasons.push("kind_changed");
-      if (current.path !== binding.specPath) reasons.push("path_changed");
-      if (current.digest !== binding.specDigest) reasons.push("digest_changed");
-    }
-    return {
-      binding,
-      status: reasons.length === 0 ? "current" : "stale",
-      reasons,
-    };
-  });
-}
-
-export function staleRequiredBindingsError(
-  taskId: string,
-  drift: readonly SpecBindingDrift[],
-): TaskcraftError {
-  const stale = drift.filter(
-    (item) => item.status === "stale" && item.binding.duty === "required",
-  );
-  return new TaskcraftError(ERROR_CODES.TC_SPEC_BINDING_STALE, {
-    problem: `Required Spec bindings are stale: ${stale
-      .map((item) => `${item.binding.specId} (${item.reasons.join(", ")})`)
-      .join("; ")}`,
-    impact: "No Execute attempt was created",
-    remediation: `Review the current Specs, then run: tc task spec refresh ${taskId} --reason <reason>`,
-    context: { taskId, staleCount: stale.length },
-  });
 }
 
 function assertUniqueSelections(

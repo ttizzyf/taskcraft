@@ -9,6 +9,7 @@ import type { Command } from "commander";
 import { run } from "../core/reducer.js";
 import type { RunInput } from "../core/reducer.js";
 import {
+  boundaryTaskRevision,
   execute,
   isJsonMode,
   openTaskcraftDatabase,
@@ -21,10 +22,6 @@ import { registerRunComplete } from "./run-complete.js";
 import { register as registerRunFail } from "./run-fail.js";
 import { register as registerRunRetry } from "./run-retry.js";
 import { register as registerRunStatus } from "./run-status.js";
-import {
-  assertRunAttemptSpecBindings,
-  attachNodeBriefSpecDrift,
-} from "./spec-bindings.js";
 
 export function register(program: Command): void {
   const runCommand = program
@@ -41,41 +38,25 @@ export function register(program: Command): void {
         const database = openTaskcraftDatabase(true);
 
         try {
-          const nodeId = options.node ?? "execute-1";
           const expectedRevision = parseExpectedRevision(
             options.expectedRevision,
-          );
-          const bindingCheck = assertRunAttemptSpecBindings(
-            database,
-            taskId,
-            nodeId,
-            expectedRevision,
           );
           const input: RunInput = {
             nodeId: options.node,
             host: options.host,
           };
-          const checkedRevision = expectedRevision ?? bindingCheck.taskRevision;
+          const checkedRevision =
+            expectedRevision ?? boundaryTaskRevision(database, taskId);
           if (checkedRevision !== undefined) {
             input.expectedRevision = checkedRevision;
           }
 
           const result = run(database, taskId, input);
-          const data =
-            result.nodeBrief === undefined
-              ? result
-              : {
-                  ...result,
-                  nodeBrief: attachNodeBriefSpecDrift(
-                    result.nodeBrief,
-                    bindingCheck.drift,
-                  ),
-                };
 
           if (json) {
-            printCommandResult(data);
+            printCommandResult(result);
           } else {
-            console.log(renderRunData(data));
+            console.log(renderRunData(result));
           }
         } finally {
           database.close();

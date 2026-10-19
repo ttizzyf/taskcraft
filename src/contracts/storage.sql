@@ -659,7 +659,7 @@ CREATE INDEX idx_events_task_seq ON events(task_id, task_seq);
 CREATE INDEX idx_agent_runs_observation ON agent_runs(observation_status, last_seen_at);
 
 -- Revision/node-scoped Spec adoption facts. Registry files remain Git-owned;
--- SQLite stores only the exact snapshot adopted by a lifecycle definition.
+-- SQLite stores only which rule documents a lifecycle definition adopted.
 CREATE TABLE lifecycle_spec_bindings (
   task_id TEXT NOT NULL,
   lifecycle_revision INTEGER NOT NULL,
@@ -667,7 +667,6 @@ CREATE TABLE lifecycle_spec_bindings (
   spec_id TEXT NOT NULL CHECK (length(trim(spec_id)) > 0),
   spec_kind TEXT NOT NULL CHECK (spec_kind IN ('engineering', 'domain')),
   spec_path TEXT NOT NULL CHECK (length(trim(spec_path)) > 0),
-  spec_digest TEXT NOT NULL CHECK (length(spec_digest) = 64 AND spec_digest NOT GLOB '*[^0-9a-f]*'),
   duty TEXT NOT NULL CHECK (duty IN ('required', 'recommended')),
   source_kind TEXT NOT NULL CHECK (source_kind IN ('task_create', 'frame', 'accepted_plan', 'inherited_plan', 'refresh')),
   source_task_id TEXT,

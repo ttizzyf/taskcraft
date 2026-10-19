@@ -7,8 +7,8 @@ import type { Command } from "commander";
 
 import { runRetry } from "../core/reducer.js";
 import type { RunRetryInput } from "../core/reducer.js";
-import { getAttempts } from "../store/query.js";
 import {
+  boundaryTaskRevision,
   execute,
   isJsonMode,
   openTaskcraftDatabase,
@@ -16,10 +16,6 @@ import {
   printCommandResult,
 } from "./helpers.js";
 import { renderRunData } from "./render.js";
-import {
-  assertNewAttemptSpecBindings,
-  attachNodeBriefSpecDrift,
-} from "./spec-bindings.js";
 
 export function register(runCommand: Command): void {
   runCommand
@@ -48,40 +44,21 @@ export function register(runCommand: Command): void {
         const database = openTaskcraftDatabase(true);
 
         try {
-          const retryNodeId = getAttempts(database, taskId).find(
-            (attempt) => attempt.id === options.attempt,
-          )?.nodeId;
-          const bindingCheck = assertNewAttemptSpecBindings(
-            database,
-            taskId,
-            retryNodeId ?? "",
-            expectedRevision,
-          );
-          if (
-            input.expectedRevision === undefined &&
-            bindingCheck.taskRevision !== undefined
-          ) {
-            input.expectedRevision = bindingCheck.taskRevision;
+          if (input.expectedRevision === undefined) {
+            const boundaryRevision = boundaryTaskRevision(database, taskId);
+            if (boundaryRevision !== undefined) {
+              input.expectedRevision = boundaryRevision;
+            }
           }
           const result = runRetry(database, taskId, input);
-          const data =
-            result.nodeBrief === undefined
-              ? result
-              : {
-                  ...result,
-                  nodeBrief: attachNodeBriefSpecDrift(
-                    result.nodeBrief,
-                    bindingCheck.drift,
-                  ),
-                };
 
           if (json) {
-            printCommandResult(data);
+            printCommandResult(result);
           } else {
-            const lines = [renderRunData(data)];
+            const lines = [renderRunData(result)];
 
-            if (data.successorAttemptId !== null) {
-              lines.push(`Successor attempt: ${data.successorAttemptId}`);
+            if (result.successorAttemptId !== null) {
+              lines.push(`Successor attempt: ${result.successorAttemptId}`);
             }
 
             console.log(lines.join("\n"));

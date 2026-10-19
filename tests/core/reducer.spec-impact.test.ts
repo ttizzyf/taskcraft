@@ -126,7 +126,7 @@ describe("Spec Impact reducer contract", () => {
     const database = createMigratedDatabase();
     try {
       const context = setupRecordAttempt(database);
-      const impact = updatedImpact(context.executeEvidenceId, "a".repeat(64));
+      const impact = updatedImpact(context.executeEvidenceId);
       const result = runComplete(database, context.taskId, {
         nodeId: "record-1",
         result: { summary: "Spec updated", specImpact: impact },
@@ -153,7 +153,6 @@ describe("Spec Impact reducer contract", () => {
           {
             specId: "engineering.delivery",
             path: "docs/delivery.md",
-            digest: "a".repeat(64),
             evidenceRefs: [context.executeEvidenceId, context.testEvidenceId],
           },
         ],
@@ -163,7 +162,6 @@ describe("Spec Impact reducer contract", () => {
         updates: [
           {
             evidenceRefs: [context.testEvidenceId, context.executeEvidenceId],
-            digest: "a".repeat(64),
             path: "docs/delivery.md",
             specId: "engineering.delivery",
           },
@@ -187,8 +185,7 @@ describe("Spec Impact reducer contract", () => {
     const duplicateDatabase = createMigratedDatabase();
     try {
       const context = setupRecordAttempt(duplicateDatabase);
-      const update = updatedImpact(context.executeEvidenceId, "a".repeat(64))
-        .updates[0]!;
+      const update = updatedImpact(context.executeEvidenceId).updates[0]!;
       const duplicate = {
         outcome: "updated" as const,
         updates: [update, { ...update }],
@@ -214,7 +211,7 @@ describe("Spec Impact reducer contract", () => {
     const database = createMigratedDatabase();
     try {
       const context = setupRecordAttempt(database);
-      const impact = updatedImpact(context.noteEvidenceId, "a".repeat(64));
+      const impact = updatedImpact(context.noteEvidenceId);
       const before = snapshotCounts(database, context.taskId);
 
       const error = captureTaskcraftError(() =>
@@ -235,7 +232,7 @@ describe("Spec Impact reducer contract", () => {
   it("rejects foreign evidence and invalid command resolution with full rollback", () => {
     for (const variant of [
       "foreign-evidence",
-      "stale-resolution",
+      "mismatched-resolution",
       "unrecognized-resolution-field",
     ] as const) {
       const database = createMigratedDatabase();
@@ -245,11 +242,10 @@ describe("Spec Impact reducer contract", () => {
           variant === "foreign-evidence"
             ? "ev-foreign"
             : context.executeEvidenceId,
-          "a".repeat(64),
         );
         const resolved =
-          variant === "stale-resolution"
-            ? updatedImpact(context.executeEvidenceId, "b".repeat(64))
+          variant === "mismatched-resolution"
+            ? updatedImpact(context.executeEvidenceId, "docs/other.md")
             : variant === "unrecognized-resolution-field"
               ? ({ ...submitted, unexpected: true } as typeof submitted)
               : submitted;
@@ -354,14 +350,23 @@ function setupRecordAttempt(database: TaskcraftDatabase) {
   };
 }
 
-function updatedImpact(evidenceId: string, digest: string) {
+function updatedImpact(
+  evidenceId: string,
+  path = "docs/delivery.md",
+): {
+  outcome: "updated";
+  updates: Array<{
+    specId: string;
+    path: string;
+    evidenceRefs: string[];
+  }>;
+} {
   return {
     outcome: "updated" as const,
     updates: [
       {
         specId: "engineering.delivery",
-        path: "docs/delivery.md",
-        digest,
+        path,
         evidenceRefs: [evidenceId],
       },
     ],

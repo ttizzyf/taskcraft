@@ -1,29 +1,20 @@
-import type { LoadedSpecRegistry } from "../spec/types.js";
-import { evaluateSpecBindingDrift } from "../spec/index.js";
 import type { TaskcraftDatabase } from "../store/database.js";
 import { getLifecycleSpecBindings, listTasks } from "../store/query.js";
 import { ERROR_CODES } from "./errors.js";
 import type { DoctorCheck } from "./doctor.js";
 import { checkSpecImpact } from "./doctor-spec-impact.js";
 import { checkSpecSedimentation } from "./doctor-spec-sedimentation.js";
-import { project } from "./projector.js";
 import { validateStoredNodeResult } from "./reducer/lifecycle-result.js";
 
-export function runSpecStoreChecks(
-  database: TaskcraftDatabase,
-  registry: LoadedSpecRegistry | null,
-): DoctorCheck[] {
+export function runSpecStoreChecks(database: TaskcraftDatabase): DoctorCheck[] {
   return [
-    checkSpecBindings(database, registry),
+    checkSpecBindings(database),
     checkSpecImpact(database),
     checkSpecSedimentation(database),
   ];
 }
 
-function checkSpecBindings(
-  database: TaskcraftDatabase,
-  registry: LoadedSpecRegistry | null,
-): DoctorCheck {
+function checkSpecBindings(database: TaskcraftDatabase): DoctorCheck {
   const problems: string[] = [];
   for (const task of listTasks(database)) {
     const bindings = getLifecycleSpecBindings(database, task.id);
@@ -56,24 +47,6 @@ function checkSpecBindings(
         );
       }
     }
-    if (registry !== null && !isFinished(database, task.id)) {
-      // Only a required binding can block work, so only a required binding can
-      // make the store unhealthy. A recommended binding is advisory context
-      // that never gates anything; reporting its drift as a failure would turn
-      // every Spec edit into permanent red noise.
-      const gating = bindings.filter(
-        (binding) =>
-          binding.lifecycleRevision === task.currentLifecycleRevision &&
-          binding.duty === "required",
-      );
-      for (const item of evaluateSpecBindingDrift(registry, gating)) {
-        if (item.status === "stale") {
-          problems.push(
-            `${task.id} ${item.binding.nodeId} ${item.binding.specId}: ${item.reasons.join(", ")}`,
-          );
-        }
-      }
-    }
   }
   problems.push(...checkL3BindingSets(database));
   return problems.length === 0
@@ -82,22 +55,9 @@ function checkSpecBindings(
         "spec-bindings",
         ERROR_CODES.TC_SPEC_BINDING_INVALID,
         `Invalid lifecycle Spec bindings: ${problems.join("; ")}`,
-        "Current Node Briefs and drift gates cannot trust the stored binding snapshot",
-        "Repair the Registry or Store facts, then re-run: tc doctor",
+        "Current Node Briefs cannot trust the stored binding facts",
+        "Repair the Store facts, then re-run: tc doctor",
       );
-}
-
-/** Drift warns about work a task will still do under a changed contract, so a
- * finished task's binding is history and out of scope: comparing it with
- * today's Registry would report every past task forever, with no remedy.
- * Unprojectable tasks keep the comparison so the damage stays visible. */
-function isFinished(database: TaskcraftDatabase, taskId: string): boolean {
-  try {
-    const status = project(database, taskId).status;
-    return status === "done" || status === "cancelled";
-  } catch {
-    return false;
-  }
 }
 
 function checkL3BindingSets(database: TaskcraftDatabase): string[] {
@@ -271,12 +231,9 @@ function bindingSetProblems(
   const problems: string[] = [];
   const actual = new Map<string, { snapshot: string; nodes: Set<string> }>();
   for (const binding of bindings) {
-    const snapshot = [
-      binding.specKind,
-      binding.specPath,
-      binding.specDigest,
-      binding.duty,
-    ].join(":");
+    const snapshot = [binding.specKind, binding.specPath, binding.duty].join(
+      ":",
+    );
     const current = actual.get(binding.specId);
     if (current !== undefined && current.snapshot !== snapshot) {
       problems.push(`${label}: inconsistent snapshot for ${binding.specId}`);

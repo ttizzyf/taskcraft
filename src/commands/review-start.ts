@@ -10,6 +10,7 @@ import { ERROR_CODES, TaskcraftError } from "../core/errors.js";
 import { reviewStart } from "../core/reducer.js";
 import type { ReviewStartInput } from "../core/reducer.js";
 import {
+  boundaryTaskRevision,
   execute,
   isJsonMode,
   openTaskcraftDatabase,
@@ -18,10 +19,6 @@ import {
 } from "./helpers.js";
 import type { ReviewRenderData } from "./render.js";
 import { renderReviewData } from "./render.js";
-import {
-  assertReviewAttemptSpecBindings,
-  attachNodeBriefSpecDrift,
-} from "./spec-bindings.js";
 
 const PURPOSES = ["feasibility", "delivery", "integration"] as const;
 const CAPABILITIES = [
@@ -106,29 +103,15 @@ export function register(review: Command): void {
         const database = openTaskcraftDatabase(true);
 
         try {
-          const bindingCheck = assertReviewAttemptSpecBindings(
-            database,
-            taskId,
-            options.node,
-            expectedRevision,
-          );
-          if (
-            input.expectedRevision === undefined &&
-            bindingCheck.taskRevision !== undefined
-          ) {
-            input.expectedRevision = bindingCheck.taskRevision;
+          if (input.expectedRevision === undefined) {
+            const boundaryRevision = boundaryTaskRevision(database, taskId);
+            if (boundaryRevision !== undefined) {
+              input.expectedRevision = boundaryRevision;
+            }
           }
           const result = reviewStart(database, taskId, input);
           const data: ReviewRenderData = {
             ...result,
-            ...(result.nodeBrief === undefined
-              ? {}
-              : {
-                  nodeBrief: attachNodeBriefSpecDrift(
-                    result.nodeBrief,
-                    bindingCheck.drift,
-                  ),
-                }),
             purpose,
             capability,
             independenceStatus,
