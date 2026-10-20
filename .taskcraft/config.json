@@ -1,3 +1,11 @@
 {
-  "takeOver": "ask"
+  "takeOver": "ask",
+  "entryHookTests": {
+    "codex": {
+      "testedAt": "2026-10-20T05:38:51.134Z",
+      "version": "0.155.1",
+      "ok": false,
+      "failure": "The Entry wrapper references a missing gate artifact: cli.js"
+    }
+  }
 }

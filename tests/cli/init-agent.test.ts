@@ -17,7 +17,6 @@ import { describe, expect, it, vi } from "vitest";
 import { ERROR_CODES, TaskcraftError } from "../../src/core/errors.js";
 import { installAgentHooks } from "../../src/commands/init.js";
 import { runCli, withTemporaryDirectory } from "./helpers.js";
-import { entryWrapperName } from "../helpers/entry-wrapper.js";
 import { createTemporaryDirectory } from "../helpers/temp-directory.js";
 
 /** Records real writes so the write-confinement tests can assert installAgent
@@ -84,15 +83,28 @@ describe("tc init --agent (CLI)", () => {
       ) as {
         hooks: {
           SessionStart: Array<{
-            hooks: Array<{ type: string; command: string }>;
+            hooks: Array<{
+              type: string;
+              command: string;
+              commandWindows?: string;
+            }>;
           }>;
         };
       };
       expect(config.hooks.SessionStart).toHaveLength(1);
-      expect(config.hooks.SessionStart[0]?.hooks[0]).toMatchObject({
-        type: "command",
-        command: expect.stringContaining(entryWrapperName()),
-      });
+      // Codex's documented repo-local form anchors on the git root, and the
+      // Windows form keeps that same anchor rather than a cmd-specific rewrite.
+      const registered = config.hooks.SessionStart[0]?.hooks[0];
+      expect(registered?.type).toBe("command");
+      expect(registered?.command).toContain("$(git rev-parse --show-toplevel)");
+      expect(registered?.command).toContain("entry.sh");
+      expect(registered?.commandWindows).toContain(
+        "$(git rev-parse --show-toplevel)",
+      );
+      expect(registered?.commandWindows).toContain("entry.mjs");
+      expect(registered?.commandWindows).not.toContain("for /f");
+      // A committed registration must not carry this machine's path.
+      expect(JSON.stringify(config)).not.toContain(cwd);
       expect(Object.keys(config.hooks)).toEqual(["SessionStart"]);
     });
   });

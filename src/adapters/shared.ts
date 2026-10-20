@@ -7,9 +7,9 @@ import { execFileSync } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { BREADCRUMB_SCHEMA_VERSION } from "../core/breadcrumb.js";
+import { entryGateTemplate, entryHookTemplate } from "./entry-scripts.js";
 import { commandSpec, spawnCommand, terminateTree } from "./process.js";
 import type {
   AdapterCapabilities,
@@ -27,13 +27,6 @@ import type {
 
 export const DEFAULT_PROBE_TIMEOUT_MS = 2_000;
 export const DEFAULT_HOOK_TEST_TIMEOUT_MS = 60_000;
-
-/** Resolves the tc CLI entry from the module location so hook templates and
- * registrations never depend on cwd. dist/adapters -> dist/cli.js (one
- * parent hop; "../../" would land on the package root). */
-export function resolveTcPath(): string {
-  return fileURLToPath(new URL("../cli.js", import.meta.url));
-}
 
 export function defaultProbe(command: string, args: string[]): ProbeOutcome {
   const spec = commandSpec(command, args);
@@ -271,101 +264,88 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** The Entry wrapper delegates to the public CLI (`tc state --breadcrumb`).
- * The project root is derived from the script location, so the wrapper never
- * depends on cwd. */
-export function entryHookTemplate(tcPath: string): string {
-  return `#!/usr/bin/env bash
-# Taskcraft managed entry hook gate (tc init --agent <host>).
-cd "$(dirname "$0")/../.." || exit $?
-taskcraft_output="$(node "${toPosixPath(tcPath)}" state --breadcrumb)"
-taskcraft_status=$?
-if [ "$taskcraft_status" -ne 0 ]; then
-  exit "$taskcraft_status"
-fi
-if [ -n "$taskcraft_output" ]; then
-  # A bare JSON object is interpreted as the host's hook control protocol.
-  # Prefix the business breadcrumb so both Codex and Claude inject it as text.
-  printf '%s\n' 'Taskcraft Entry context:' "$taskcraft_output"
-fi
-`;
+/** The host whose registration file receives the command. */
+export type HookHost = "codex" | "claude";
+
+/** A registered hook command, with the host's own Windows-only override where
+ * the host documents one. */
+export interface HookCommand {
+  command: string;
+  commandWindows?: string;
 }
 
-/** POSIX separators keep an embedded Windows path literal free of escape
- * sequences, and both Node and cmd.exe accept them as a path separator. */
-function toPosixPath(value: string): string {
-  return value.replaceAll("\\", "/");
-}
-
-/** The Windows Entry wrapper. Windows hosts run hook commands through
- * cmd.exe/PowerShell, which have no `bash`, so the POSIX wrapper cannot run
- * there. This Node gate does the same job without any shell: it derives the
- * project root from its own location, runs the read-only breadcrumb gate and
- * prefixes the label so the host injects text instead of hook-control JSON. */
-export function entryGateTemplate(tcPath: string): string {
-  return `// Taskcraft managed entry hook gate (tc init --agent <host>).
-import { execFileSync } from "node:child_process";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const projectRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-
-let output;
-try {
-  output = execFileSync(
-    process.execPath,
-    [${JSON.stringify(toPosixPath(tcPath))}, "state", "--breadcrumb"],
-    { cwd: projectRoot, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] },
-  );
-} catch (error) {
-  process.exit(typeof error.status === "number" ? error.status : 1);
-}
-
-if (output.trim().length > 0) {
-  // A bare JSON object is interpreted as the host's hook control protocol.
-  // Prefix the business breadcrumb so both Codex and Claude inject it as text.
-  process.stdout.write("Taskcraft Entry context:\\n" + output.trimEnd() + "\\n");
-}
-`;
-}
-
-/** The registered SessionStart command for a project. Windows has no `bash`,
- * so the shell-free Node gate is registered there; POSIX keeps the bash
- * wrapper so existing installs and their field-test evidence stay valid. */
-export function entryHookCommand(projectDir: string): string {
-  const hooksDir = join(projectDir, ".taskcraft", "hooks");
-
-  if (process.platform === "win32") {
-    return `node "${toPosixPath(join(hooksDir, "entry.mjs"))}"`;
+/** The registered SessionStart command for a project.
+ *
+ * Hook handlers run in the session's current directory, which may be a
+ * subdirectory, so a bare relative path such as `.taskcraft/hooks/entry.sh`
+ * is not enough: the command needs a project-root anchor the host resolves
+ * before any Taskcraft code runs. Each host is registered the way its own
+ * documentation resolves repo-local hooks, so no registration embeds a path
+ * from the machine that ran `tc init` — and none names the platform it was
+ * generated on, so a committed registration works after a clone:
+ *
+ * - Claude Code supplies `${CLAUDE_PROJECT_DIR}`, documented as the way to
+ *   reference a script "regardless of the working directory when the hook
+ *   runs", and substitutes it itself rather than leaving it to a shell. Claude
+ *   Code settings carry no Windows-specific override, so the shell-free Node
+ *   gate is registered on every platform: a `bash` command would not survive
+ *   the PowerShell a Windows session may run hooks in.
+ * - Codex documents `$(git rev-parse --show-toplevel)` for repo-local hooks.
+ *   It runs the command through the session's own shell, which on Windows is
+ *   not necessarily cmd.exe — a Windows Codex session here executes hooks in
+ *   PowerShell, where a cmd `for /f` rewrite is a parse error. `$(...)` is
+ *   command substitution in PowerShell and in every POSIX shell, so both fields
+ *   carry the documented anchor verbatim; only cmd.exe would need a different
+ *   spelling, and no host is registered that way. Windows has no `bash`, so the
+ *   Node gate is registered there. */
+export function entryHookCommand(host: HookHost): HookCommand {
+  if (host === "claude") {
+    return {
+      command: 'node "${CLAUDE_PROJECT_DIR}/.taskcraft/hooks/entry.mjs"',
+    };
   }
 
-  return `bash "${join(hooksDir, "entry.sh")}"`;
+  return {
+    command:
+      'bash "$(git rev-parse --show-toplevel)/.taskcraft/hooks/entry.sh"',
+    commandWindows:
+      'node "$(git rev-parse --show-toplevel)/.taskcraft/hooks/entry.mjs"',
+  };
 }
 
 export interface HookCommands {
-  entry: string;
+  entry: HookCommand;
 }
 
 export interface CommandHookEntry {
-  hooks: Array<{ type: "command"; command: string }>;
+  hooks: Array<{ type: "command"; command: string; commandWindows?: string }>;
 }
 
 /** Appends a command handler using the lifecycle-hook shape shared by Codex
- * hooks.json and Claude settings.json. */
+ * hooks.json and Claude settings.json. Both fields are compared: an entry that
+ * carries the same `command` but a missing or stale Windows override is not the
+ * same registration. */
 export function appendCommandHook(
   existing: readonly CommandHookEntry[] | undefined,
-  command: string,
+  command: HookCommand,
 ): CommandHookEntry[] {
   const current = existing ?? [];
 
   return current.some((entry) =>
-    entry.hooks.some((hook) => hook.command === command),
+    entry.hooks.some(
+      (hook) =>
+        hook.command === command.command &&
+        hook.commandWindows === command.commandWindows,
+    ),
   )
     ? [...current]
-    : [...current, { hooks: [{ type: "command", command }] }];
+    : [...current, { hooks: [{ type: "command", ...command }] }];
 }
 
 export interface InstallFilesOptions {
+  /** Host whose registration file is written; selects the project-root anchor
+   * used in the registered command. */
+  host: HookHost;
   /** Project config path relative to projectDir (".codex/hooks.json" or
    * ".claude/settings.json"). */
   configPath: string;
@@ -378,19 +358,18 @@ export interface InstallFilesOptions {
  * registrations. Only files under projectDir are touched. */
 export function installEntryFiles(
   input: InstallInput,
-  tcPath: string,
   options: InstallFilesOptions,
 ): InstallResult {
   try {
     const hooksDir = join(input.projectDir, ".taskcraft", "hooks");
     const entryPath = join(hooksDir, "entry.sh");
     const gatePath = join(hooksDir, "entry.mjs");
-    writeIfAbsent(entryPath, entryHookTemplate(tcPath));
-    writeIfAbsent(gatePath, entryGateTemplate(tcPath));
+    writeIfAbsent(entryPath, entryHookTemplate());
+    writeIfAbsent(gatePath, entryGateTemplate());
 
     const configFile = join(input.projectDir, options.configPath);
     const commands: HookCommands = {
-      entry: entryHookCommand(input.projectDir),
+      entry: entryHookCommand(options.host),
     };
 
     // Existing project config is left untouched (write-if-absent), so the

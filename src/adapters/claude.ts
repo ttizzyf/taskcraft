@@ -13,10 +13,9 @@ import {
   defaultSpawn,
   installEntryFiles,
   probeCapabilities,
-  resolveTcPath,
   runEntryHookTest,
 } from "./shared.js";
-import type { CommandHookEntry } from "./shared.js";
+import type { CommandHookEntry, HookCommands } from "./shared.js";
 import type {
   AdapterCapabilities,
   AdapterDeps,
@@ -72,7 +71,7 @@ export interface ClaudeSettings {
  * appended, never duplicating existing commands and never mutating input. */
 export function buildClaudeProjectConfig(
   config: ClaudeSettings,
-  commands: { entry: string },
+  commands: HookCommands,
 ): ClaudeSettings {
   const hooks = { ...(config.hooks ?? {}) };
 
@@ -101,7 +100,8 @@ export function createClaudeAdapter(deps: AdapterDeps = {}): HostAdapter {
         CLAUDE_CAPABILITY_PROBES,
       ),
     installEntry: (input: InstallInput): InstallResult =>
-      installEntryFiles(input, resolveTcPath(), {
+      installEntryFiles(input, {
+        host: "claude",
         configPath: ".claude/settings.json",
         freshConfig: (commands) =>
           serializeClaudeSettings(buildClaudeProjectConfig({}, commands)),

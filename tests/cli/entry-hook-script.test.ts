@@ -14,9 +14,9 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { entryHookTemplate } from "../../src/adapters/shared.js";
+import { entryHookTemplate } from "../../src/adapters/entry-scripts.js";
 import { BREADCRUMB_SCHEMA_VERSION } from "../../src/core/breadcrumb.js";
-import { CLI_PATH, runCli, withTemporaryDirectory } from "./helpers.js";
+import { linkBuiltCli, runCli, withTemporaryDirectory } from "./helpers.js";
 
 interface EntryResult {
   status: number | null;
@@ -25,11 +25,12 @@ interface EntryResult {
 }
 
 function installEntryWrapper(cwd: string): string {
+  linkBuiltCli(cwd);
   const hooksDir = join(cwd, ".taskcraft", "hooks");
   const entryPath = join(hooksDir, "entry.sh");
 
   mkdirSync(hooksDir, { recursive: true });
-  writeFileSync(entryPath, entryHookTemplate(CLI_PATH), { mode: 0o755 });
+  writeFileSync(entryPath, entryHookTemplate(), { mode: 0o755 });
 
   return entryPath;
 }

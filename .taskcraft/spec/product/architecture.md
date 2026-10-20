@@ -289,10 +289,14 @@ Codex Adapter 将 SessionStart 注册为 `.codex/hooks.json` 中的 matcher grou
 `--dangerously-bypass-hook-trust`，只有真实宿主输出 breadcrumb 才记录成功。
 共享 Entry wrapper 在 breadcrumb 前增加非 JSON 文本标签；裸 JSON stdout 会进入
 Codex Hook 控制协议解析，因此不允许直接把业务 breadcrumb 作为 Hook 的完整 stdout。
-`tc init --agent` 同时写入两个等价 wrapper：POSIX 注册 `bash .taskcraft/hooks/entry.sh`，
-Windows 注册 `node .taskcraft/hooks/entry.mjs`（Windows 宿主经 cmd.exe/PowerShell 执行
-hook command，没有 bash）。Node gate 不依赖任何 shell，用 `execFileSync` 调用同一个
-公开 CLI，并从自身位置推导项目根，因此与 bash wrapper 行为等价且同样与 cwd 无关。
+`tc init --agent` 同时写入两个等价 wrapper，注册命令用宿主文档给出的项目根锚点
+（Claude 用 `${CLAUDE_PROJECT_DIR}`，Codex 用 `$(git rev-parse --show-toplevel)`），
+因此不含安装机的绝对路径、clone 后仍可用。Codex 用**会话自己的 shell** 执行 hook
+命令，Windows 上不一定是 cmd.exe（实测 0.163.0 走 PowerShell）：Claude 注册
+`node .taskcraft/hooks/entry.mjs`，Codex 的 `commandWindows` 字段沿用同一个
+`$(...)` 锚点指向 Node gate，不写成 cmd 专有的 `for /f`。Node gate 不依赖任何 shell，用
+`execFileSync` 调用同一个公开 CLI，并从自身位置推导项目根，因此与 bash wrapper 行为
+等价且同样与 cwd 无关。
 
 ## 10. 安全与隐私
 

@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"D:/a_project_flie/taskcraft/.taskcraft/hooks/entry.mjs\""
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.taskcraft/hooks/entry.mjs\""
           }
         ]
       }

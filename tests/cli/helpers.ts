@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
+import { symlinkSync } from "node:fs";
 import { join } from "node:path";
 
 import { expect } from "vitest";
@@ -6,6 +7,20 @@ import { expect } from "vitest";
 import { createTemporaryDirectory } from "../helpers/temp-directory.js";
 
 export const CLI_PATH = join(process.cwd(), "dist", "cli.js");
+
+/** Gives a temporary project the built CLI at `dist/cli.js`.
+ *
+ * The generated hook wrappers resolve the CLI from the project rather than
+ * from the installing machine, so a project fixture needs a CLI to find. A
+ * directory link keeps the fixture honest: the wrapper runs the real build
+ * without copying it. */
+export function linkBuiltCli(projectDir: string): void {
+  symlinkSync(
+    join(process.cwd(), "dist"),
+    join(projectDir, "dist"),
+    "junction",
+  );
+}
 
 export interface CliResult {
   status: number | null;

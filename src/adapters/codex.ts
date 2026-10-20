@@ -16,10 +16,9 @@ import {
   defaultSpawn,
   installEntryFiles,
   probeCapabilities,
-  resolveTcPath,
   runEntryHookTest,
 } from "./shared.js";
-import type { CommandHookEntry } from "./shared.js";
+import type { CommandHookEntry, HookCommands } from "./shared.js";
 import type {
   AdapterDeps,
   CapabilityProbe,
@@ -74,7 +73,7 @@ export interface CodexProjectConfig {
  * appended, never duplicating existing commands and never mutating input. */
 export function buildCodexProjectConfig(
   config: CodexProjectConfig,
-  commands: { entry: string },
+  commands: HookCommands,
 ): CodexProjectConfig {
   const hooks = { ...(config.hooks ?? {}) };
 
@@ -113,7 +112,8 @@ export function createCodexAdapter(deps: AdapterDeps = {}): HostAdapter {
         CODEX_CAPABILITY_PROBES,
       ),
     installEntry: (input: InstallInput): InstallResult =>
-      installEntryFiles(input, resolveTcPath(), {
+      installEntryFiles(input, {
+        host: "codex",
         configPath: ".codex/hooks.json",
         freshConfig: (commands) =>
           serializeCodexProjectConfig(buildCodexProjectConfig({}, commands)),

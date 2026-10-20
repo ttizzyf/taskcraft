@@ -284,9 +284,11 @@ command handler` 三层结构；Claude 注册写入 `.claude/settings.json`。Co
 在 Codex `/hooks` 中审核。Taskcraft 的现场测试不得使用跳过 Hook 信任的参数伪造通过。
 Entry wrapper 只在有 breadcrumb 时输出文本标签和 breadcrumb；标签用于避免 Codex
 把业务 JSON 误判为 Hook 控制协议，无任务或 takeover off 时仍保持零输出。
-`tc init --agent` 为同一项目写入两个等价 wrapper 并只注册当前平台的那个：POSIX 用
-`entry.sh`（bash），Windows 用 `entry.mjs`（Node，无 shell）。两者都从自身位置推导
-项目根，都不依赖 cwd。
+`tc init --agent` 为同一项目写入两个等价 wrapper。注册命令用宿主文档给出的项目根锚点
+（Claude 用 `${CLAUDE_PROJECT_DIR}`，Codex 用 `$(git rev-parse --show-toplevel)`），
+因此不含安装机的绝对路径、clone 后仍可用。Claude 两个平台都注册 `entry.mjs`（Node，
+无 shell）；Codex 的注册同时携带 POSIX 形式与 `commandWindows` 形式，由宿主按平台
+取用。两者都从自身位置推导项目根，都不依赖 cwd。
 
 Entry 只在 root tasks 中寻找唯一 active 投影。模块化 L3 的父任务与正在执行的
 child 可以同时为 `active`，这不是歧义；breadcrumb 始终锚定 root parent，父投影

@@ -13,13 +13,13 @@ import { promisify } from "node:util";
 
 import { describe, expect, it } from "vitest";
 
-import { entryGateTemplate } from "../../src/adapters/shared.js";
+import { entryGateTemplate } from "../../src/adapters/entry-scripts.js";
 import { BREADCRUMB_SCHEMA_VERSION } from "../../src/core/breadcrumb.js";
 import { run, taskNew } from "../../src/core/reducer.js";
 import { openDatabase } from "../../src/store/database.js";
 import { applyMigrations } from "../../src/store/migrations.js";
 import { createTemporaryDirectory } from "../helpers/temp-directory.js";
-import { CLI_PATH } from "./helpers.js";
+import { linkBuiltCli } from "./helpers.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -56,10 +56,11 @@ async function runGate(gatePath: string): Promise<GateResult> {
 }
 
 function installGate(projectDir: string): string {
+  linkBuiltCli(projectDir);
   const hooksDir = join(projectDir, ".taskcraft", "hooks");
   mkdirSync(hooksDir, { recursive: true });
   const gatePath = join(hooksDir, "entry.mjs");
-  writeFileSync(gatePath, entryGateTemplate(CLI_PATH), "utf8");
+  writeFileSync(gatePath, entryGateTemplate(), "utf8");
 
   return gatePath;
 }

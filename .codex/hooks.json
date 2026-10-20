@@ -6,7 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"D:/a_project_flie/taskcraft/.taskcraft/hooks/entry.mjs\""
+            "command": "bash \"$(git rev-parse --show-toplevel)/.taskcraft/hooks/entry.sh\"",
+            "commandWindows": "node \"$(git rev-parse --show-toplevel)/.taskcraft/hooks/entry.mjs\""
           }
         ]
       }

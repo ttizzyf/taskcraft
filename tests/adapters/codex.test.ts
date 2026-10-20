@@ -35,7 +35,6 @@ import {
   buildCodexProjectConfig,
   serializeCodexProjectConfig,
 } from "../../src/adapters/codex.js";
-import { entryWrapperName } from "../helpers/entry-wrapper.js";
 import { createFakeHost, BREADCRUMB_LINE } from "../helpers/fake-host.js";
 import { createTemporaryDirectory } from "../helpers/temp-directory.js";
 import { runConformance } from "./conformance.js";
@@ -156,16 +155,24 @@ describe("codex adapter", () => {
       const config = JSON.parse(
         readFileSync(join(projectDir.path, ".codex", "hooks.json"), "utf8"),
       ) as CodexProjectConfig;
-      expect(config.hooks?.SessionStart).toEqual([
-        {
-          hooks: [
-            {
-              type: "command",
-              command: expect.stringContaining(entryWrapperName()),
-            },
-          ],
-        },
-      ]);
+      const registered = config.hooks?.SessionStart?.[0]?.hooks[0];
+
+      expect(registered?.type).toBe("command");
+      // Codex's documented repo-local form is the git-root anchor. Its Windows
+      // form keeps the same anchor: the session shell there is PowerShell, where
+      // `$(...)` is command substitution, so no shell-specific rewrite is used.
+      expect(registered?.command).toContain("$(git rev-parse --show-toplevel)");
+      expect(registered?.command).toContain("entry.sh");
+      expect(registered?.commandWindows).toContain(
+        "$(git rev-parse --show-toplevel)",
+      );
+      expect(registered?.commandWindows).toContain("entry.mjs");
+      // A cmd `for /f` rewrite is a parse error in PowerShell, which is what a
+      // Windows Codex session executes hooks in.
+      expect(registered?.commandWindows).not.toContain("for /f");
+      // The registration is project content: it survives a clone on any
+      // machine, so it must never carry the installing machine's path.
+      expect(JSON.stringify(config)).not.toContain(projectDir.path);
       expect(config.hooks).not.toHaveProperty("Stop");
     } finally {
       projectDir.cleanup();
@@ -173,12 +180,17 @@ describe("codex adapter", () => {
   });
 
   it("buildCodexProjectConfig merges without duplicating or mutating", () => {
-    const commands = { entry: "bash /p/entry.sh" };
+    const commands = {
+      entry: {
+        command: "bash /p/entry.sh",
+        commandWindows: "node /p/entry.mjs",
+      },
+    };
     const existing: CodexProjectConfig = {
       hooks: {
         SessionStart: [
           {
-            hooks: [{ type: "command", command: "bash /p/entry.sh" }],
+            hooks: [{ type: "command", command: "bash /other/entry.sh" }],
           },
         ],
       },
@@ -186,15 +198,24 @@ describe("codex adapter", () => {
 
     const merged = buildCodexProjectConfig(existing, commands);
 
-    expect(merged.hooks?.SessionStart).toEqual(existing.hooks?.SessionStart);
     expect(existing.hooks?.SessionStart).toHaveLength(1);
+    expect(merged.hooks?.SessionStart).toHaveLength(2);
+    // The appended entry carries both forms: the host picks by platform.
+    expect(merged.hooks?.SessionStart?.[1]?.hooks[0]).toEqual({
+      type: "command",
+      command: "bash /p/entry.sh",
+      commandWindows: "node /p/entry.mjs",
+    });
+    expect(merged.hooks).not.toHaveProperty("Stop");
+    // Serializing round-trips both fields, so the Windows override reaches
+    // the config file instead of being dropped on write.
     const serialized = JSON.parse(
       serializeCodexProjectConfig(merged),
     ) as CodexProjectConfig;
-    expect(serialized.hooks?.SessionStart?.[0]?.hooks[0]).toEqual({
+    expect(serialized.hooks?.SessionStart?.[1]?.hooks[0]).toEqual({
       type: "command",
       command: "bash /p/entry.sh",
+      commandWindows: "node /p/entry.mjs",
     });
-    expect(serialized.hooks).not.toHaveProperty("Stop");
   });
 });

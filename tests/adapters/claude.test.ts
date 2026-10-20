@@ -36,7 +36,6 @@ import {
   buildClaudeProjectConfig,
   serializeClaudeSettings,
 } from "../../src/adapters/claude.js";
-import { entryWrapperName } from "../helpers/entry-wrapper.js";
 import { createFakeHost } from "../helpers/fake-host.js";
 import { createTemporaryDirectory } from "../helpers/temp-directory.js";
 import { runConformance } from "./conformance.js";
@@ -149,11 +148,15 @@ describe("claude adapter", () => {
         hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
       };
       expect(settings.hooks.SessionStart).toHaveLength(1);
-      // Windows hosts have no bash, so the shell-free Node gate is registered
-      // there; POSIX keeps the bash wrapper.
-      expect(settings.hooks.SessionStart?.[0]!.hooks[0]!.command).toContain(
-        entryWrapperName(),
+      // Claude settings carry no Windows-specific override, so the shell-free
+      // Node gate is registered on every platform and the committed file does
+      // not depend on the machine that generated it.
+      expect(settings.hooks.SessionStart?.[0]!.hooks[0]!.command).toBe(
+        'node "${CLAUDE_PROJECT_DIR}/.taskcraft/hooks/entry.mjs"',
       );
+      // The registration is project content: it survives a clone on any
+      // machine, so it must never carry the installing machine's path.
+      expect(JSON.stringify(settings)).not.toContain(projectDir.path);
       expect(settings.hooks.Stop).toBeUndefined();
     } finally {
       projectDir.cleanup();
@@ -161,7 +164,7 @@ describe("claude adapter", () => {
   });
 
   it("buildClaudeProjectConfig merges without duplicating or mutating", () => {
-    const commands = { entry: "bash /p/entry.sh" };
+    const commands = { entry: { command: "bash /p/entry.sh" } };
     const existing: ClaudeSettings = {
       hooks: {
         SessionStart: [

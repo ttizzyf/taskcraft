@@ -67,8 +67,16 @@ Entry Hook，返回测试时间和失败原因，并把结果写入 `config.entr
 `hooks.SessionStart = [{ command = ... }]`。若该文件已存在，命令不得覆盖用户内容，
 而应明确失败并要求人工合并。首次安装或 Hook 定义变化后，用户还需在 Codex
 `/hooks` 中审核该 Hook；`tc agent test-entry-hook --agent codex` 不绕过这道信任门。
-注册的 command 按平台选择：POSIX 为 `bash .taskcraft/hooks/entry.sh`，Windows 为
-`node .taskcraft/hooks/entry.mjs`；两个 wrapper 都写入，只有当前平台那个被注册。
+注册的 command 用宿主文档给出的项目根锚点拼出、不含本机绝对路径：Claude 为
+`${CLAUDE_PROJECT_DIR}/.taskcraft/hooks/entry.mjs`，Codex 为
+`$(git rev-parse --show-toplevel)/.taskcraft/hooks/entry.*`。Codex 用会话自己的 shell
+执行 hook 命令，Windows 上不一定是 cmd.exe（实测 0.163.0 走 PowerShell，cmd 的
+`for /f` 在那里直接解析失败），所以 `commandWindows` 不写 shell 专有语法，而是沿用
+同一个 `$(...)` 锚点执行 Node gate；`$(...)` 在 PowerShell 与全部 POSIX shell 中都是
+命令替换。两个注册文件都不记录生成它们的平台，因此任何平台生成的结果一致、都可提交：
+Claude 的 settings 没有 Windows 覆盖字段，两个平台都注册不依赖 bash 的 Node gate；
+Codex 同时携带 POSIX 形式与 `commandWindows` 形式，由宿主按平台取用。两个 wrapper 都
+写入；wrapper 自己从项目解析 CLI，所以 clone 后无需重新生成。
 
 `tc init` 还会 write-if-absent 创建 Schema 合法的空
 `.taskcraft/spec/index.json`。已有 Registry 不解析、不覆盖；后续显式使用

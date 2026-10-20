@@ -9,7 +9,6 @@ import { afterAll, describe, expect, it } from "vitest";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { resolveTcPath } from "../../src/adapters/shared.js";
 import type {
   AdapterDeps,
   CapabilityName,
@@ -118,17 +117,19 @@ export function runConformance(
         ]);
         const entryContent = readFileSync(first.hookPaths[0]!, "utf8");
         const gateContent = readFileSync(first.hookPaths[1]!, "utf8");
-        expect(gateContent).toContain(resolveTcPath().replaceAll("\\", "/"));
+        // Both wrappers resolve the CLI from the project, never from the
+        // machine that ran `tc init`, so a committed wrapper survives a clone.
+        expect(gateContent).toContain('join(projectRoot, "dist", "cli.js")');
+        expect(gateContent).toContain(
+          'join(projectRoot, "node_modules", "taskcraft", "dist", "cli.js")',
+        );
+        expect(gateContent).not.toContain(process.cwd().replaceAll("\\", "/"));
         // The Node gate passes argv as an array, not a shell string.
         expect(gateContent).toContain('"state", "--breadcrumb"');
         expect(gateContent).toContain("Taskcraft Entry context:");
-        // The entry wrapper delegates to the public CLI next to the adapter
-        // module (resolveTcPath: dist/cli.js from the built layout, src/cli.js
-        // under tests). The built-artifact layout is pinned by the CLI
-        // integration test that spawns dist/cli.js. Both wrappers normalize
-        // the path to POSIX separators, so a Windows path stays literal inside
-        // the bash double-quoted argument and the JS string literal.
-        expect(entryContent).toContain(resolveTcPath().replaceAll("\\", "/"));
+        expect(entryContent).toContain('node "dist/cli.js"');
+        expect(entryContent).toContain("node_modules/taskcraft/dist/cli.js");
+        expect(entryContent).not.toContain(process.cwd().replaceAll("\\", "/"));
         expect(entryContent).toContain("state --breadcrumb");
         expect(entryContent).toContain('cd "$(dirname "$0")/../.."');
 
